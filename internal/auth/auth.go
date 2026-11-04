@@ -25,6 +25,7 @@ const (
 	AbsoluteLifetime = 7 * 24 * time.Hour
 	SetupLifetime    = 30 * time.Minute
 	Lockout          = 15 * time.Minute
+	MaxRateBuckets   = 4096
 )
 
 type Service struct {
@@ -296,6 +297,18 @@ func (s *Service) ChangePassword(ctx context.Context, session Session, current, 
 }
 
 func (s *Service) checkRate(ctx context.Context, keys []string) error {
+	// Cleanup precedes the capacity check so a saturated table recovers after expiry.
+	now := s.now()
+	if _, err := s.database.ExecContext(ctx, "DELETE FROM auth_rate_limits WHERE window_started_at<=? AND (locked_until IS NULL OR locked_until<=?)", db.Timestamp(now.Add(-Lockout)), db.Timestamp(now)); err != nil {
+		return err
+	}
+	var count int
+	if err := s.database.QueryRowContext(ctx, "SELECT COUNT(*) FROM auth_rate_limits").Scan(&count); err != nil {
+		return err
+	}
+	if count+len(keys) > MaxRateBuckets {
+		return ErrRateLimited
+	}
 	for _, key := range keys {
 		var locked sql.NullString
 		err := s.database.QueryRowContext(ctx, "SELECT locked_until FROM auth_rate_limits WHERE key_hash=?", digest(key)).Scan(&locked)
@@ -325,10 +338,6 @@ func (s *Service) failure(ctx context.Context, keys []string) error {
 	}
 	defer tx.Rollback()
 	now := s.now()
-	// Expired rows cannot accumulate indefinitely under changing client addresses.
-	if _, err := tx.ExecContext(ctx, "DELETE FROM auth_rate_limits WHERE window_started_at<=? AND (locked_until IS NULL OR locked_until<=?)", db.Timestamp(now.Add(-Lockout)), db.Timestamp(now)); err != nil {
-		return err
-	}
 	for _, key := range keys {
 		_, err := tx.ExecContext(ctx, `INSERT INTO auth_rate_limits(key_hash,failure_count,window_started_at) VALUES(?,1,?) ON CONFLICT(key_hash) DO UPDATE SET failure_count=failure_count+1`, digest(key), db.Timestamp(now))
 		if err != nil {
