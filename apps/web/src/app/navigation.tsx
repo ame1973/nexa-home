@@ -23,8 +23,10 @@ const sections = [
 
 export function ManagementNavigation({
   onNavigate,
+  compact = false,
 }: {
   onNavigate?: () => void;
+  compact?: boolean;
 }) {
   const { t } = useI18n();
   const location = useLocation();
@@ -47,9 +49,10 @@ export function ManagementNavigation({
             onClick={onNavigate}
             className="nav-link"
             aria-current={active ? "page" : undefined}
+            title={compact ? t(key) : undefined}
           >
             <Icon size={18} aria-hidden="true" />
-            {t(key)}
+            <span className={compact ? "sr-only" : undefined}>{t(key)}</span>
           </Link>
         );
       })}

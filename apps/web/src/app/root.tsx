@@ -7,6 +7,8 @@ import {
   LogOut,
   Menu,
   Moon,
+  PanelLeftClose,
+  PanelLeftOpen,
   Settings,
   Sun,
   X,
@@ -264,6 +266,8 @@ function Chrome() {
 }
 
 export function AdminLayout() {
+  const { t } = useI18n();
+  const [collapsed, setCollapsed] = useState(false);
   const { setup } = useAppData();
   const me = useMe();
   const location = useLocation();
@@ -297,9 +301,30 @@ export function AdminLayout() {
     );
   }
   return (
-    <div className="admin-shell">
-      <aside className="admin-nav">
-        <ManagementNavigation />
+    <div className="admin-shell" data-collapsed={collapsed}>
+      <aside
+        id="admin-sidebar"
+        className="admin-nav"
+        aria-label={t("desktopNavigation")}
+      >
+        <Button
+          variant="ghost"
+          size="icon"
+          className="mb-4 w-full"
+          aria-label={t(collapsed ? "expandNavigation" : "collapseNavigation")}
+          aria-expanded={!collapsed}
+          aria-controls="admin-sidebar-links"
+          onClick={() => setCollapsed((value) => !value)}
+        >
+          {collapsed ? (
+            <PanelLeftOpen size={19} />
+          ) : (
+            <PanelLeftClose size={19} />
+          )}
+        </Button>
+        <div id="admin-sidebar-links">
+          <ManagementNavigation compact={collapsed} />
+        </div>
       </aside>
       <main id="main" className="admin-main">
         <Outlet />

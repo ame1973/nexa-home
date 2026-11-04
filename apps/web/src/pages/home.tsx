@@ -172,6 +172,7 @@ export function HomePage() {
             className="collection"
             aria-label={t("searchResults", { count: results.length })}
           >
+            <h2 className="sr-only">{t("search")}</h2>
             {grid(results)}
           </section>
         ) : (

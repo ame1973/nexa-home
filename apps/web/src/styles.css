@@ -156,6 +156,9 @@
 .check-field { display: flex; align-items: center; gap: 12px; min-height: 44px; }
 .check-field label { cursor: pointer; padding: 8px 0; }
 .admin-shell { display: grid; grid-template-columns: 224px minmax(0, 1fr); min-height: calc(100dvh - 76px); }
+.admin-shell[data-collapsed="true"] { grid-template-columns: 80px minmax(0, 1fr); }
+.admin-shell[data-collapsed="true"] .admin-nav { padding-left: 12px; padding-right: 12px; }
+.admin-shell[data-collapsed="true"] .nav-link { justify-content: center; }
 .admin-nav { border-right: 1px solid var(--border); padding: 24px 16px; background: var(--surface); }
 .admin-nav nav, .mobile-navigation { display: grid; gap: 8px; }
 .nav-link { display: flex; align-items: center; gap: 12px; padding: 12px; min-height: 44px; border-radius: 10px; color: var(--text-secondary); }
@@ -206,7 +209,7 @@ mark { background: color-mix(in srgb, var(--accent) 20%, transparent); color: in
 
 @media (max-width: 1023px) {
   .header-inner, .page { padding-left: 24px; padding-right: 24px; }
-  .admin-shell { grid-template-columns: minmax(0, 1fr); }
+  .admin-shell, .admin-shell[data-collapsed="true"] { grid-template-columns: minmax(0, 1fr); }
   .admin-nav { display: none; }
   .admin-main { padding: 28px 24px 64px; }
   .mobile-only { display: inline-flex; }

@@ -203,8 +203,10 @@ function ServiceForm({
         </div>
       )}
       <div className="editor-grid">
-        <aside className="preview-pane">
-          <p>{t("preview")}</p>
+        <aside className="preview-pane" aria-label={t("preview")}>
+          <h2 className="mb-3 text-base text-muted-foreground">
+            {t("preview")}
+          </h2>
           <ServiceTile service={value} preview />
           <p className="field-hint mt-3">{t("previewHint")}</p>
         </aside>

@@ -1,29 +1,11 @@
 import { expect, it } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
-import { RootLayout, AdminLayout } from "@/app/root";
-import { HomePage } from "./home";
-import { LoginPage, SetupPage } from "./auth";
+import { routes } from "@/app/routes";
 import { renderRoutes } from "@/test/render";
 import { apiURL, denied, server } from "@/test/server";
 import { bootstrap, csrf } from "@/test/fixtures";
 import { queryClient } from "@/lib/api/client";
-
-const routes = [
-  {
-    element: <RootLayout />,
-    children: [
-      { index: true, element: <HomePage /> },
-      { path: "login", element: <LoginPage /> },
-      { path: "setup", element: <SetupPage /> },
-      {
-        path: "admin",
-        element: <AdminLayout />,
-        children: [{ index: true, element: <h1>Management</h1> }],
-      },
-    ],
-  },
-];
 
 it("redirects first run to protected setup and validates without sending invalid data", async () => {
   let calls = 0;
@@ -177,7 +159,7 @@ it("guards management pages and reports initial failures with a retry action", a
   expect(router.state.location.pathname).toBe("/login");
   await waitFor(() =>
     expect(
-      screen.queryByRole("heading", { name: "Management" }),
+      screen.queryByRole("heading", { name: "Dashboard" }),
     ).not.toBeInTheDocument(),
   );
 });

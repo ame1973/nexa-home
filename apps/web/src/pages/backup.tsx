@@ -269,7 +269,8 @@ export function BackupPage() {
             <ErrorState
               error={commitError}
               message={
-                commitError instanceof ApiError && commitError.status === 403
+                commitError instanceof ApiError &&
+                commitError.code === "FORBIDDEN"
                   ? t("importExpired")
                   : undefined
               }
