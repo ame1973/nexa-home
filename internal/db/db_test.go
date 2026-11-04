@@ -9,6 +9,17 @@ import (
 	"time"
 )
 
+func TestTimestampOrdering(t *testing.T) {
+	first := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	second := first.Add(time.Nanosecond)
+	if Timestamp(first) >= Timestamp(second) {
+		t.Fatal("timestamp text order differs from chronological order")
+	}
+	if _, err := time.Parse(time.RFC3339Nano, Timestamp(second)); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestMigrationAndPersistence(t *testing.T) {
 	ctx := context.Background()
 	directory := t.TempDir()

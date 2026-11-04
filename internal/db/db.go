@@ -128,5 +128,6 @@ func Snapshot(ctx context.Context, database *sql.DB, destination string) error {
 }
 
 func Timestamp(now time.Time) string {
-	return now.UTC().Format(time.RFC3339Nano)
+	// Fixed precision preserves chronological ordering in SQLite TEXT comparisons.
+	return now.UTC().Format("2006-01-02T15:04:05.000000000Z")
 }
