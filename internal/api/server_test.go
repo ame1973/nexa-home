@@ -45,16 +45,18 @@ type harness struct {
 
 func newHarness(t *testing.T) *harness {
 	t.Helper()
-	database, err := db.Open(context.Background(), t.TempDir())
+	directory := t.TempDir()
+	database, err := db.Open(context.Background(), directory)
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { database.Close() })
 	logs := &lockedBuffer{}
-	server, token, err := New(context.Background(), config.Config{PublicOrigin: origin}, database, slog.New(slog.NewJSONHandler(logs, nil)))
+	server, token, err := New(context.Background(), config.Config{PublicOrigin: origin, DataDir: directory}, database, slog.New(slog.NewJSONHandler(logs, nil)))
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(func() { server.Close() })
 	return &harness{t: t, server: server, database: database, setupToken: token, logs: logs}
 }
 

@@ -383,10 +383,8 @@ func TestAdminRouteGuardsAndExpiry(t *testing.T) {
 
 func TestFaviconAliasAndDatabaseRollback(t *testing.T) {
 	h := adminHarness(t)
-	assetID := uuid.NewString()
-	if _, err := h.database.Exec(`INSERT INTO icon_assets(id,kind,mime_type,sha256,relative_path,byte_size,created_at) VALUES(?,'png','image/png',?,'fixture.png',1,?)`, assetID, strings.Repeat("0", 64), db.Timestamp(time.Now())); err != nil {
-		t.Fatal(err)
-	}
+	asset := readResponse[Asset](t, h.upload("favicon.png", iconPNG(t, 1), 201, false))
+	assetID := asset.ID
 	input := serviceInput("Cached favicon")
 	input.IconKind = "favicon"
 	input.IconAssetID = &assetID

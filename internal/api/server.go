@@ -12,9 +12,11 @@ import (
 	"net/http"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	contract "nexa-home/api"
+	"nexa-home/internal/assets"
 	"nexa-home/internal/auth"
 	"nexa-home/internal/config"
 	"nexa-home/internal/security"
@@ -32,6 +34,8 @@ type Server struct {
 	contract *contract.Contract
 	logger   *slog.Logger
 	mux      *http.ServeMux
+	assets   *assets.Store
+	assetMu  sync.Mutex
 }
 
 type handler func(http.ResponseWriter, *http.Request, auth.Session) error
@@ -68,14 +72,25 @@ func New(ctx context.Context, c config.Config, database *sql.DB, logger *slog.Lo
 	if logger == nil {
 		logger = slog.New(slog.NewJSONHandler(io.Discard, nil))
 	}
-	s := &Server{database: database, config: c, auth: authentication, contract: definition, logger: logger, mux: http.NewServeMux()}
+	store, err := assets.Open(c.DataDir)
+	if err != nil {
+		return nil, "", err
+	}
+	s := &Server{database: database, config: c, auth: authentication, contract: definition, logger: logger, mux: http.NewServeMux(), assets: store}
+	if err := s.collectAssets(ctx); err != nil {
+		store.Close()
+		return nil, "", err
+	}
 	s.authRoutes()
 	s.settingsRoutes()
 	s.catalogRoutes()
 	s.serviceRoutes()
+	s.assetRoutes()
 	s.mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) { s.fail(w, r, missing()) })
 	return s, token, nil
 }
+
+func (s *Server) Close() error { return s.assets.Close() }
 
 func (s *Server) route(method, path string, authenticated bool, fn handler) {
 	s.mux.HandleFunc(method+" "+path, func(w http.ResponseWriter, r *http.Request) {
@@ -173,6 +188,10 @@ func (s *Server) fail(w http.ResponseWriter, r *http.Request, err error) {
 		w.Header().Set("Retry-After", "900")
 	case errors.Is(err, auth.ErrValidation):
 		p = &problem{status: 400, code: "VALIDATION_ERROR", message: "Invalid username or password"}
+	case errors.Is(err, assets.ErrTooLarge):
+		p = &problem{status: 413, code: "LIMIT_EXCEEDED", message: "Icon exceeds the 1 MiB limit"}
+	case errors.Is(err, assets.ErrInvalid):
+		p = &problem{status: 400, code: "VALIDATION_ERROR", message: "Upload a valid PNG, WebP or safe SVG icon"}
 	case errors.As(err, &bodyLimit):
 		p = &problem{status: 413, code: "LIMIT_EXCEEDED", message: "Request body exceeds the size limit"}
 	case errors.Is(err, sql.ErrNoRows):
