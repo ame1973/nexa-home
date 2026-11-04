@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { isAbsolute, join, resolve } from "node:path";
 import test from "node:test";
@@ -90,13 +90,12 @@ test(
     // Reset build explicitly: Compose run can otherwise rebuild a multiarch tag
     // after inspecting only the daemon's native default platform. JSON values
     // are also valid YAML and safely quote the optional emulator path.
-    await writeFile(
-      override,
+    const configuration = () =>
       "services:\n  nexa-home:\n    build: !reset null\n" +
-        Object.entries(service)
-          .map(([key, value]) => `    ${key}: ${JSON.stringify(value)}\n`)
-          .join(""),
-    );
+      Object.entries(service)
+        .map(([key, value]) => `    ${key}: ${JSON.stringify(value)}\n`)
+        .join("");
+    await writeFile(override, configuration());
     const selected = JSON.parse(
       docker(["image", "inspect", "--platform", platform, image]).stdout,
     )[0];
@@ -188,14 +187,11 @@ test(
       assert.equal(state.HostConfig.Memory, 512 * 1024 * 1024);
       assert.equal(state.HostConfig.RestartPolicy.Name, "unless-stopped");
       assert.ok(state.HostConfig.Tmpfs["/tmp"].includes("noexec"));
-      assert.ok(
-        state.Mounts.some(
-          (mount) =>
-            mount.Destination === "/data" &&
-            mount.Type === "volume" &&
-            mount.RW,
-        ),
+      const dataMount = state.Mounts.find(
+        (mount) =>
+          mount.Destination === "/data" && mount.Type === "volume" && mount.RW,
       );
+      assert.ok(dataMount, "Persistent data is a writable named volume");
       docker(["exec", container, ...entrypoint, "healthcheck"]);
       assert.equal(
         docker(["exec", container, "node", "--version"], { allowFailure: true })
@@ -365,6 +361,79 @@ test(
       );
       assert.deepEqual(persisted.assets, exported.assets);
       assert.equal((await fetch(`${url}${asset.url}`)).status, 200);
+      stop();
+      const archived = spawnSync(
+        "docker",
+        ["cp", "--archive", `${container}:/data/.`, "-"],
+        {
+          timeout: 30_000,
+          maxBuffer: 64 * 1024 * 1024,
+        },
+      );
+      assert.equal(
+        archived.status,
+        0,
+        "A stopped complete data directory can be archived",
+      );
+      const archivePath = join(directory, "stopped-data.tar");
+      await writeFile(archivePath, archived.stdout, { mode: 0o600 });
+      compose(["rm", "--force", "nexa-home"]);
+      // Both volumes stay declared in this unique project's configuration, so
+      // Compose alone owns cleanup; no inspected or query-selected volume is deleted.
+      service.volumes = [
+        ...(service.volumes || []),
+        {
+          type: "volume",
+          source: "recovered_data",
+          target: "/data",
+        },
+      ];
+      await writeFile(
+        override,
+        configuration() + "volumes:\n  recovered_data: {}\n",
+      );
+      compose(["create", "--no-build", "--pull", "never", "nexa-home"]);
+      container = compose([
+        "ps",
+        "--all",
+        "--quiet",
+        "nexa-home",
+      ]).stdout.trim();
+      assert.ok(container, "Recovery creates a separate stopped container");
+      const copied = spawnSync(
+        "docker",
+        ["cp", "--archive", "-", `${container}:/data`],
+        {
+          input: await readFile(archivePath),
+          timeout: 30_000,
+          maxBuffer: 64 * 1024 * 1024,
+        },
+      );
+      assert.equal(
+        copied.status,
+        0,
+        "Archive restore preserves UID and private file modes",
+      );
+      start();
+      assert.equal(
+        startupToken(container),
+        "",
+        "Cold restore preserves initialization",
+      );
+      assert.equal((await api("/auth/me")).username, credentials.username);
+      const recovered = await api("/admin/backup/export?includeAssets=true");
+      for (const key of [
+        "settings",
+        "categories",
+        "tags",
+        "services",
+        "assets",
+      ])
+        assert.deepEqual(
+          recovered[key],
+          persisted[key],
+          `Cold restore preserves ${key}`,
+        );
       await api(`/admin/services/${service.id}`, {
         method: "DELETE",
         status: 204,
@@ -388,7 +457,7 @@ test(
         "The deployment test never rebuilds or replaces the selected image",
       );
       t.diagnostic(
-        "Real setup/login, icon and catalog CRUD, restore, health, replacement-container persistence, retained session, exclusive lock and offline doctor passed; no credentials captured.",
+        "Real setup/login, icon and catalog CRUD, portable restore, health, replacement-container persistence, cold archive recovery to a fresh volume, retained session, exclusive lock and offline doctor passed; no credentials captured.",
       );
     } finally {
       // Only this random, session-created project and its explicitly named helpers.
