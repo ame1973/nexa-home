@@ -5,6 +5,8 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { isAbsolute, join, resolve } from "node:path";
 import test from "node:test";
+import { setTimeout as delay } from "node:timers/promises";
+import { Agent } from "undici";
 
 const image = process.env.NEXA_TEST_IMAGE || "nexa-home:1.0.0";
 const platform =
@@ -63,6 +65,8 @@ test(
     const project = `nexa-test-${randomUUID()}`;
     const contender = `${project}-contender`;
     const doctor = `${project}-doctor`;
+    const proxy = `${project}-tls`;
+    let tlsAgent;
     const override = join(directory, "override.yaml");
     const entrypoint = qemu ? ["/nexa-qemu", "/nexa-home"] : ["/nexa-home"];
     const service = {
@@ -135,6 +139,7 @@ test(
         method,
         redirect: "error",
         signal: AbortSignal.timeout(15_000),
+        dispatcher: tlsAgent,
         headers: {
           Origin: url,
           Cookie: cookie,
@@ -151,8 +156,15 @@ test(
               : JSON.stringify(data),
       });
       assert.equal(response.status, status, `${method} ${path} status`);
-      if (path === "/auth/login")
-        cookie = response.headers.getSetCookie()[0]?.split(";")[0] || "";
+      if (path === "/auth/login") {
+        const sessionCookie = response.headers.getSetCookie()[0] || "";
+        if (tlsAgent)
+          assert.ok(
+            /;\s*Secure(?:;|$)/.test(sessionCookie),
+            "HTTPS login sets a Secure cookie",
+          );
+        cookie = sessionCookie.split(";")[0];
+      }
       return status === 204 ? undefined : response.json();
     }
     function start() {
@@ -439,6 +451,158 @@ test(
         status: 204,
       });
       assert.equal((await api("/public/bootstrap")).services.length, 0);
+
+      // Exercise the shipped proxy example with a per-test trusted certificate.
+      // No system CA store changes or TLS verification bypass are used.
+      const tlsDirectory = await mkdtemp(join(directory, "tls-"));
+      const generated = spawnSync(
+        "openssl",
+        [
+          "req",
+          "-x509",
+          "-newkey",
+          "rsa:2048",
+          "-nodes",
+          "-days",
+          "1",
+          "-subj",
+          "/CN=localhost",
+          "-addext",
+          "subjectAltName=DNS:localhost,IP:127.0.0.1",
+          "-keyout",
+          join(tlsDirectory, "privkey.pem"),
+          "-out",
+          join(tlsDirectory, "fullchain.pem"),
+        ],
+        { timeout: 30_000 },
+      );
+      assert.equal(
+        generated.status,
+        0,
+        "A private test certificate can be created",
+      );
+      const site = (await readFile("deploy/nginx.conf.example", "utf8"))
+        .replace("listen 443 ssl;", "listen 8443 ssl;")
+        .replace("server_name home.example.com;", "server_name localhost;")
+        .replace("http://127.0.0.1:8080", "http://nexa-home:8080");
+      const proxyConfig = join(directory, "nginx.conf");
+      await writeFile(
+        proxyConfig,
+        `pid /tmp/nginx.pid;\nerror_log /dev/stderr warn;\nevents { worker_connections 128; }\nhttp {\nclient_body_temp_path /tmp/client;\nproxy_temp_path /tmp/proxy;\nfastcgi_temp_path /tmp/fastcgi;\nuwsgi_temp_path /tmp/uwsgi;\nscgi_temp_path /tmp/scgi;\n${site}\n}\n`,
+        { mode: 0o600 },
+      );
+      docker([
+        "run",
+        "--detach",
+        "--name",
+        proxy,
+        "--network",
+        `${project}_default`,
+        "--user",
+        `${process.getuid()}:${process.getgid()}`,
+        "--read-only",
+        "--cap-drop=ALL",
+        "--security-opt=no-new-privileges:true",
+        "--tmpfs",
+        "/tmp:rw,size=16m,noexec,nosuid,nodev",
+        "--publish",
+        "127.0.0.1::8443",
+        "--mount",
+        `type=bind,src=${tlsDirectory},dst=/etc/nginx/tls,readonly`,
+        "--mount",
+        `type=bind,src=${proxyConfig},dst=/etc/nginx/nginx.conf,readonly`,
+        "--entrypoint",
+        "nginx",
+        "nginx:1.30.6-alpine@sha256:0e52bd054126cdc040b1276c0af347aeb02a41b9cfe305d6094767ac30e97949",
+        "-g",
+        "daemon off;",
+      ]);
+      const proxyAddress = docker(["port", proxy, "8443"]).stdout.trim();
+      assert.ok(
+        /^127\.0\.0\.1:\d+$/.test(proxyAddress),
+        "TLS proxy is loopback-only",
+      );
+      const secureOrigin = `https://${proxyAddress}`;
+      const proxyIP = JSON.parse(docker(["inspect", proxy]).stdout)[0]
+        .NetworkSettings.Networks[`${project}_default`].IPAddress;
+      stop();
+      env.NEXA_PUBLIC_ORIGIN = secureOrigin;
+      env.NEXA_ALLOW_HTTP_COOKIE = "false";
+      env.NEXA_TRUSTED_PROXY_CIDRS = `${proxyIP}/32`;
+      start();
+      docker(["exec", proxy, "nginx", "-s", "reload"]);
+      tlsAgent = new Agent({
+        connect: { ca: await readFile(join(tlsDirectory, "fullchain.pem")) },
+      });
+      let ready = false;
+      for (let attempt = 0; attempt < 50; attempt++) {
+        try {
+          const response = await fetch(`${secureOrigin}/readyz`, {
+            dispatcher: tlsAgent,
+            signal: AbortSignal.timeout(2000),
+          });
+          ready = response.status === 200;
+          await response.body.cancel();
+          if (ready) break;
+        } catch {
+          /* Wait only for this owned proxy's real readiness. */
+        }
+        await delay(100);
+      }
+      assert.ok(
+        ready,
+        "Trusted TLS readiness succeeds with certificate verification enabled",
+      );
+      await assert.rejects(
+        fetch(`${secureOrigin}/healthz`, { signal: AbortSignal.timeout(5000) }),
+        (error) => error.cause?.code === "DEPTH_ZERO_SELF_SIGNED_CERT",
+        "The same certificate is rejected without the explicit test CA",
+      );
+      url = secureOrigin;
+      csrf = (await api("/auth/login", { method: "POST", data: credentials }))
+        .csrfToken;
+      assert.equal((await api("/auth/me")).username, credentials.username);
+      const secureTag = await api("/admin/tags", {
+        method: "POST",
+        data: { name: "TLS verified" },
+        status: 201,
+      });
+      await api(`/admin/tags/${secureTag.id}`, {
+        method: "DELETE",
+        status: 204,
+      });
+      const forged = await fetch(`${url}/api/v1/admin/tags`, {
+        method: "POST",
+        dispatcher: tlsAgent,
+        signal: AbortSignal.timeout(5000),
+        headers: {
+          Origin: "https://attacker.example",
+          Cookie: cookie,
+          "X-CSRF-Token": csrf,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ name: "Must not be created" }),
+      });
+      assert.equal(
+        forged.status,
+        403,
+        "The real HTTPS proxy does not bypass exact Origin checks",
+      );
+      await forged.body.cancel();
+      const securePage = await fetch(url, { dispatcher: tlsAgent });
+      assert.equal(securePage.status, 200);
+      assert.equal(
+        securePage.headers.get("strict-transport-security"),
+        "max-age=31536000",
+      );
+      assert.ok(
+        securePage.headers
+          .get("content-security-policy")
+          .includes("script-src 'self'"),
+      );
+      await securePage.body.cancel();
+      await tlsAgent.close();
+      tlsAgent = undefined;
       stop();
       compose([
         "run",
@@ -457,13 +621,19 @@ test(
         "The deployment test never rebuilds or replaces the selected image",
       );
       t.diagnostic(
-        "Real setup/login, icon and catalog CRUD, portable restore, health, replacement-container persistence, cold archive recovery to a fresh volume, retained session, exclusive lock and offline doctor passed; no credentials captured.",
+        "Real setup/login, icon and catalog CRUD, portable restore, health, replacement-container persistence, cold archive recovery to a fresh volume, verified HTTPS/Secure cookies/Origin boundaries, retained session, exclusive lock and offline doctor passed; no credentials captured.",
       );
     } finally {
       // Only this random, session-created project and its explicitly named helpers.
-      docker(["rm", "--force", contender, doctor], { allowFailure: true });
-      compose(["down", "--volumes", "--timeout", "40"]);
-      await rm(directory, { recursive: true, force: true });
+      try {
+        await tlsAgent?.close();
+      } finally {
+        docker(["rm", "--force", contender, doctor, proxy], {
+          allowFailure: true,
+        });
+        compose(["down", "--volumes", "--timeout", "40"]);
+        await rm(directory, { recursive: true, force: true });
+      }
     }
   },
 );
