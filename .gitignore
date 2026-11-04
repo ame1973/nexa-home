@@ -1,0 +1,35 @@
+# Read-only specifications and local development memory.
+/dev/
+/.claude/
+**/CLAUDE.md
+**/claude.md
+**/.claude.local.md
+/IMPLEMENTATION_STATUS.md
+/TEST_REPORT.md
+/docs/ADR-*.md
+/.local/
+
+# Credentials, local configuration, and application data.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+/data/
+*.db
+*.db-wal
+*.db-shm
+*.sqlite*
+
+# Dependencies, generated bundles, and test artifacts.
+node_modules/
+/dist/
+/apps/web/dist/
+/internal/web/dist/
+/bin/
+/coverage/
+*.coverprofile
+playwright-report/
+test-results/
+*.log
+.DS_Store
