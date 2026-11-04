@@ -1,6 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import type { Page } from "@playwright/test";
-import { test, expect, seed, initialize } from "./fixtures";
+import { test, expect, seed, initialize, backup } from "./fixtures";
 
 async function layoutAndTargets(page: Page) {
   const result = await page.evaluate(() => {
@@ -176,6 +176,31 @@ for (const theme of ["dark", "light"] as const) {
         fullPage: true,
       });
     }
+    await page.goto(`${app.url}/admin/backup`);
+    await page.getByLabel("Backup JSON file", { exact: true }).setInputFiles({
+      name: "preview.json",
+      mimeType: "application/json",
+      buffer: Buffer.from(JSON.stringify(backup(6))),
+    });
+    await page
+      .getByRole("button", { name: "Validate backup", exact: true })
+      .click();
+    await expect(page.getByRole("alertdialog")).toBeVisible();
+    await page.getByRole("alertdialog").evaluate(async (element) => {
+      await Promise.all(
+        element.getAnimations().map((animation) => animation.finished),
+      );
+    });
+    await layoutAndTargets(page);
+    await accessibility(page);
+    await page.screenshot({
+      path: testInfo.outputPath(`backup-warning-${theme}.png`),
+      fullPage: true,
+    });
+    await page
+      .getByRole("alertdialog")
+      .getByRole("button", { name: "Cancel", exact: true })
+      .click();
   });
 }
 
