@@ -133,7 +133,8 @@ func (s *Server) uploadAsset(w http.ResponseWriter, r *http.Request, _ auth.Sess
 	if err != nil {
 		return err
 	}
-	// Serialize filesystem publication, metadata commit, rollback and collection.
+	// ponytail: one admin serializes icon writes through commit/cleanup; use per-hash
+	// locks only if measured upload throughput requires concurrent publication.
 	s.assetMu.Lock()
 	defer s.assetMu.Unlock()
 	created, err := s.assets.Put(image)
@@ -164,6 +165,9 @@ func (s *Server) uploadAsset(w http.ResponseWriter, r *http.Request, _ auth.Sess
 			if err := insertAsset(r.Context(), tx, result.ID, image, time.Now()); err != nil {
 				return err
 			}
+		}
+		if err := s.ensurePortable(r.Context(), tx); err != nil {
+			return err
 		}
 		return db.Audit(r.Context(), tx, time.Now(), "asset.upload", "asset", result.ID)
 	})

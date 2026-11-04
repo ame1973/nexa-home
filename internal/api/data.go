@@ -26,6 +26,9 @@ func (s *Server) mutate(r *http.Request, action, targetType, targetID string, fn
 		if err := fn(tx); err != nil {
 			return err
 		}
+		if err := s.ensurePortable(r.Context(), tx); err != nil {
+			return err
+		}
 		return db.Audit(r.Context(), tx, time.Now(), action, targetType, targetID)
 	})
 }

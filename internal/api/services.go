@@ -171,9 +171,13 @@ func (s *Server) saveService(w http.ResponseWriter, r *http.Request, _ auth.Sess
 			if count >= MaxServices {
 				return &problem{status: 409, code: "LIMIT_EXCEEDED", message: "The 5000-service limit has been reached"}
 			}
-			if err := tx.QueryRowContext(r.Context(), "SELECT COALESCE(MAX(position),-1)+1 FROM services WHERE category_id IS ?", input.CategoryID).Scan(&position); err != nil {
+			if err := tx.QueryRowContext(r.Context(), "SELECT COALESCE(MAX(position),-1) FROM services WHERE category_id IS ?", input.CategoryID).Scan(&position); err != nil {
 				return err
 			}
+			if position >= MaxPosition {
+				return conflict("Reorder this category before appending another service")
+			}
+			position++
 			created = now
 		} else {
 			if err := tx.QueryRowContext(r.Context(), "SELECT position,created_at FROM services WHERE id=?", id).Scan(&position, &created); err != nil {

@@ -3,7 +3,7 @@
   "info": {
     "title": "Nexa Home API",
     "version": "1.0.0",
-    "description": "Nexa Home P0 HTTP contract. Authenticated mutations require X-CSRF-Token and an exact same-origin Origin or Referer. Unknown mutation fields and duplicate JSON keys are rejected.",
+    "description": "Nexa Home P0 HTTP contract. Authenticated mutations require X-CSRF-Token and an exact same-origin Origin or Referer. Unknown mutation fields and duplicate JSON keys are rejected. The complete portable configuration, including base64 icons, is limited to 16 MiB; mutations exceeding this restore budget return 409 LIMIT_EXCEEDED and roll back. Catalogs allow 5000 services, 5000 categories, 5000 tags and 1024 icons. Each icon is at most 1 MiB.",
     "license": {
       "name": "MIT",
       "identifier": "MIT"
@@ -3890,7 +3890,9 @@
             "type": "string"
           },
           "position": {
-            "type": "integer"
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2147483647
           },
           "isVisible": {
             "type": "boolean"
@@ -4176,7 +4178,9 @@
             "$ref": "#/components/schemas/UUID"
           },
           "position": {
-            "type": "integer"
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2147483647
           },
           "createdAt": {
             "type": "string",
@@ -4405,24 +4409,28 @@
           },
           "categories": {
             "type": "array",
+            "maxItems": 5000,
             "items": {
               "$ref": "#/components/schemas/Category"
             }
           },
           "services": {
             "type": "array",
+            "maxItems": 5000,
             "items": {
               "$ref": "#/components/schemas/Service"
             }
           },
           "tags": {
             "type": "array",
+            "maxItems": 5000,
             "items": {
               "$ref": "#/components/schemas/Tag"
             }
           },
           "assets": {
             "type": "array",
+            "maxItems": 1024,
             "items": {
               "type": "object",
               "required": [
@@ -4435,10 +4443,16 @@
                   "$ref": "#/components/schemas/UUID"
                 },
                 "mimeType": {
-                  "type": "string"
+                  "type": "string",
+                  "enum": [
+                    "image/png",
+                    "image/webp",
+                    "image/svg+xml"
+                  ]
                 },
                 "base64": {
                   "type": "string",
+                  "maxLength": 1398104,
                   "contentEncoding": "base64"
                 }
               },

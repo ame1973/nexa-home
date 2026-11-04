@@ -36,6 +36,8 @@ type Server struct {
 	mux      *http.ServeMux
 	assets   *assets.Store
 	assetMu  sync.Mutex
+	importMu sync.Mutex
+	imports  map[[32]byte]*stagedImport
 }
 
 type handler func(http.ResponseWriter, *http.Request, auth.Session) error
@@ -76,7 +78,7 @@ func New(ctx context.Context, c config.Config, database *sql.DB, logger *slog.Lo
 	if err != nil {
 		return nil, "", err
 	}
-	s := &Server{database: database, config: c, auth: authentication, contract: definition, logger: logger, mux: http.NewServeMux(), assets: store}
+	s := &Server{database: database, config: c, auth: authentication, contract: definition, logger: logger, mux: http.NewServeMux(), assets: store, imports: make(map[[32]byte]*stagedImport)}
 	if err := s.collectAssets(ctx); err != nil {
 		store.Close()
 		return nil, "", err
@@ -86,11 +88,20 @@ func New(ctx context.Context, c config.Config, database *sql.DB, logger *slog.Lo
 	s.catalogRoutes()
 	s.serviceRoutes()
 	s.assetRoutes()
+	s.backupRoutes()
 	s.mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) { s.fail(w, r, missing()) })
 	return s, token, nil
 }
 
-func (s *Server) Close() error { return s.assets.Close() }
+func (s *Server) Close() error {
+	s.importMu.Lock()
+	for _, pending := range s.imports {
+		pending.timer.Stop()
+	}
+	clear(s.imports)
+	s.importMu.Unlock()
+	return s.assets.Close()
+}
 
 func (s *Server) route(method, path string, authenticated bool, fn handler) {
 	s.mux.HandleFunc(method+" "+path, func(w http.ResponseWriter, r *http.Request) {

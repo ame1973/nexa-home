@@ -562,7 +562,8 @@ export interface components {
             tags: components["schemas"]["Tag"][];
             assets: {
                 id: components["schemas"]["UUID"];
-                mimeType: string;
+                /** @enum {string} */
+                mimeType: "image/png" | "image/webp" | "image/svg+xml";
                 base64: string;
             }[];
         };

@@ -113,7 +113,7 @@ func (s *Server) saveCategory(w http.ResponseWriter, r *http.Request, _ auth.Ses
 			if category.ID == id {
 				value = category
 				found = true
-			} else if strings.EqualFold(category.Name, input.Name) {
+			} else if nameKey(category.Name) == nameKey(input.Name) {
 				duplicate = true
 			}
 		}
@@ -128,6 +128,9 @@ func (s *Server) saveCategory(w http.ResponseWriter, r *http.Request, _ auth.Ses
 			position := 0
 			for _, category := range categories {
 				if category.Position >= position {
+					if category.Position >= MaxPosition {
+						return conflict("Reorder categories before appending another entry")
+					}
 					position = category.Position + 1
 				}
 			}
@@ -174,7 +177,7 @@ func (s *Server) saveTag(w http.ResponseWriter, r *http.Request, _ auth.Session)
 			if tag.ID == id {
 				value = tag
 				found = true
-			} else if strings.EqualFold(tag.Name, input.Name) {
+			} else if nameKey(tag.Name) == nameKey(input.Name) {
 				duplicate = true
 			}
 		}

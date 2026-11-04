@@ -360,8 +360,8 @@ func TestAdminRouteGuardsAndExpiry(t *testing.T) {
 		path := strings.ReplaceAll(op.Path, "{id}", uuid.NewString())
 		r := httptest.NewRequest(op.Method, origin+path, nil)
 		_, pattern := h.server.mux.Handler(r)
-		if pattern == "/" {
-			continue
+		if pattern != op.Method+" "+op.Path {
+			t.Fatalf("unregistered admin operation: %s %s", op.Method, op.Path)
 		}
 		h.cookie = nil
 		h.csrf = ""
