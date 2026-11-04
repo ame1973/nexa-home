@@ -16,6 +16,7 @@
     "build": "npm run build:web && CGO_ENABLED=0 go build -trimpath -o bin/nexa-home ./cmd/nexa-home",
     "typecheck": "npm run typecheck --workspace=@nexa-home/web && tsc --project e2e/tsconfig.json",
     "test:build": "node --test scripts/sonner-csp.test.mjs",
+    "test:docs": "node --test scripts/docs.test.mjs",
     "test:e2e": "npm run build && playwright test",
     "test:container": "node --test scripts/container.test.mjs",
     "scan:image": "sh scripts/scan-image.sh",

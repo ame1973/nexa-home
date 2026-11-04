@@ -11,6 +11,28 @@ A self-hosted launcher for the services you use every day. Nexa Home pairs a res
 
 LAN and WAN links can be saved alongside the required primary URL. The launcher opens the primary URL; automatic network switching, health polling, PWA/offline mode, multiple users, and NAS/Docker control are not included.
 
+## Docker deployment
+
+From a trusted source checkout, copy `deploy/.env.example` to ignored `deploy/.env` and configure the exact public origin. For isolated loopback testing, use `NEXA_PUBLIC_ORIGIN=http://127.0.0.1:8080` and explicitly set `NEXA_ALLOW_HTTP_COOKIE=true`. For remote access, configure a trusted HTTPS reverse proxy and leave that flag `false`.
+
+```sh
+cp deploy/.env.example deploy/.env
+# Edit deploy/.env for your own HTTPS domain or the isolated HTTP values above.
+docker compose --env-file deploy/.env -f deploy/compose.yaml up --detach --build --wait
+docker compose --env-file deploy/.env -f deploy/compose.yaml exec -T nexa-home /nexa-home healthcheck
+```
+
+The default binding is **127.0.0.1:8080**, not every NAS interface. The named volume persists `/data`; keep the same project name across ordinary upgrades. The image runs as UID/GID `10001:10001` with a read-only root, dropped capabilities, no-new-privileges and no shell or Node. Node/Go are build stages only. Linux amd64 and arm64 use the same Dockerfile, with pinned builder versions/digests.
+
+Read the one-time token locally with `docker compose --env-file deploy/.env -f deploy/compose.yaml logs nexa-home`, then open `/setup` at the configured origin. **Do not publish startup logs or tokens.** A remote browser cannot reach the NAS's loopback address; configure the proxy or an explicitly isolated LAN binding before using another device.
+
+- [Deployment, HTTPS proxy, storage and troubleshooting](docs/deployment.md)
+- [Backup, upgrade, rollback and credential recovery](docs/backup-and-recovery.md)
+- [Security boundaries and the outstanding strict scanner gate](SECURITY.md)
+- [Changelog](CHANGELOG.md) and [1.0.0 release notes](docs/release-notes-1.0.0.md)
+
+No registry publication or hosted CI run is implied by these local build instructions. The strict image scan currently reports an unused OpenPGP module advisory; see the security notice rather than treating it as a clean release gate.
+
 ## Build from source
 
 Build on Linux with Node.js 24.14.1 or newer in the Node 24 line, npm, and the Go toolchain declared in `go.mod` (Go 1.27.3). Node is a build/test dependency only; the resulting executable embeds the frontend and does not need Node at runtime.
@@ -131,6 +153,7 @@ npm run lint:web
 npm run test:build
 npm run test:web
 npm run build
+npm run notices -- --check
 
 go test -race -cover ./...
 go vet ./...
@@ -142,8 +165,12 @@ npm run test:e2e
 
 Browser tests launch the actual built Go executable with a fresh private directory per test. They exercise real setup/login, CRUD, complete reorder scopes, backup/restore, CSP, session revocation, responsive targets, real axe contrast checks, and a 1000-service input-to-paint measurement. Traces, video, and automatic failure screenshots are disabled so credentials do not enter artifacts. Explicit screenshots use synthetic data and blank credential fields.
 
+After building the Docker image, `npm run test:container` exercises real Compose deployment, fresh-volume cold recovery and verified HTTPS with Secure cookies and exact-origin checks. It requires Docker/Compose, tar and OpenSSL, creates only its own isolated resources, and never installs a host CA or privileged emulator. `npm run scan:image` scans a saved image with pinned Trivy without exposing the daemon socket. Findings return nonzero and remain visible; reports are local/ignored. The CI workflow defines native amd64/arm64 verification and has no publish/deploy step.
+
+The HTTP contract is in [api/openapi.yaml](api/openapi.yaml); generated JSON and TypeScript remain checked for drift. Do not modify generated artifacts by hand.
+
 Use `npm run dev:web` for the Vite development server. Its `/api` and `/assets` proxy points to `127.0.0.1:8080`; for this isolated development configuration set the Go process's public origin to the Vite origin and explicitly allow HTTP cookies. Production serving does not use Vite or its development server.
 
 ## License
 
-Nexa Home is licensed under the [MIT License](LICENSE). Third-party dependencies retain their respective licenses.
+Nexa Home is licensed under the [MIT License](LICENSE). Third-party dependencies retain their respective licenses. Preserve [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) with redistributed binaries/images; the runtime image includes both files under `/usr/share/licenses/nexa-home/`. `npm run notices -- --check` verifies the locked dependency inventory and retained texts.

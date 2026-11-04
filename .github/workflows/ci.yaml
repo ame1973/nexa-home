@@ -48,6 +48,7 @@ jobs:
           npm run check:generated
           npm run lint:api
           npm run test:contract
+          npm run test:docs
       - name: Check frontend and build compatibility
         run: |
           npm run typecheck
