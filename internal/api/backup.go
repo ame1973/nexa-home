@@ -7,7 +7,6 @@ import (
 	"database/sql"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"net/http"
 	"strconv"
 	"time"
@@ -259,8 +258,8 @@ func (s *Server) commitBackup(w http.ResponseWriter, r *http.Request, session au
 	defer s.assetMu.Unlock()
 	created := make([]string, 0, len(pending.images))
 	cleanup := func(failure error) error {
-		for _, name := range created {
-			failure = errors.Join(failure, s.assets.Remove(name))
+		if cleanupError := s.discardStaged(r.Context(), created...); cleanupError != nil {
+			return cleanupError
 		}
 		return failure
 	}

@@ -173,11 +173,25 @@ func (s *Server) uploadAsset(w http.ResponseWriter, r *http.Request, _ auth.Sess
 	})
 	if err != nil {
 		if created {
-			err = errors.Join(err, s.assets.Remove(image.Path()))
+			if cleanupError := s.discardStaged(r.Context(), image.Path()); cleanupError != nil {
+				return cleanupError
+			}
 		}
 		return err
 	}
 	return jsonResponse(w, 201, result)
+}
+
+// Cleanup failures are operational errors, never hidden by an earlier SQL conflict.
+func (s *Server) discardStaged(ctx context.Context, names ...string) error {
+	var failure error
+	for _, name := range names {
+		failure = errors.Join(failure, s.assets.Remove(name))
+	}
+	if failure != nil {
+		s.logger.WarnContext(ctx, "deferred staged icon cleanup")
+	}
+	return failure
 }
 
 func multipartError(err error) error {
