@@ -1,0 +1,1836 @@
+openapi: 3.1.0
+info:
+  title: Nexa Home API
+  version: 1.0.0
+  description: Nexa Home P0 HTTP contract. Authenticated mutations require X-CSRF-Token and an exact same-origin Origin or
+    Referer. Unknown mutation fields and duplicate JSON keys are rejected.
+  license:
+    name: MIT
+    identifier: MIT
+servers:
+- url: /
+tags:
+- name: system
+  description: Process liveness and database readiness.
+- name: setup
+  description: Protected first-run initialization.
+- name: auth
+  description: Single-administrator sessions and password rotation.
+- name: public
+  description: Visibility-filtered homepage data.
+- name: settings
+  description: Revision-checked global presentation and access settings.
+- name: categories
+  description: Category management and exact ordering.
+- name: services
+  description: Launcher services, links, associations, and ordering.
+- name: tags
+  description: Searchable service labels.
+- name: assets
+  description: Validated local icon uploads and access-controlled delivery.
+- name: backup
+  description: Portable export and validated atomic replacement.
+paths:
+  /healthz:
+    get:
+      tags:
+      - system
+      summary: Liveness
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                - status
+                properties:
+                  status:
+                    type: string
+                    enum:
+                    - ok
+        '400': &id001
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403': &id002
+          description: Not permitted / CSRF failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404': &id003
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429': &id004
+          description: Too many requests
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Sanitized internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security: []
+      operationId: getHealthz
+  /readyz:
+    get:
+      tags:
+      - system
+      summary: Ready, database initialized
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                - status
+                properties:
+                  status:
+                    type: string
+                    enum:
+                    - ready
+        '400': *id001
+        '403': *id002
+        '404': *id003
+        '429': *id004
+        '500':
+          description: Sanitized internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Not ready
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security: []
+      operationId: getReadyz
+  /api/v1/setup/status:
+    get:
+      tags:
+      - setup
+      summary: Setup status
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                - initialized
+                properties:
+                  initialized:
+                    type: boolean
+        '400': *id001
+        '403': *id002
+        '404': *id003
+        '429': *id004
+        '500':
+          description: Sanitized internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security: []
+      operationId: getApiV1SetupStatus
+  /api/v1/setup:
+    post:
+      tags:
+      - setup
+      summary: Create initial admin once; requires locally printed token and valid Origin
+      responses:
+        '201':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                - initialized
+                properties:
+                  initialized:
+                    type: boolean
+        '400': *id001
+        '403': *id002
+        '404': *id003
+        '429': *id004
+        '500':
+          description: Sanitized internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Payload too large
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+              - token
+              - username
+              - password
+              properties:
+                token:
+                  type: string
+                  minLength: 20
+                username:
+                  type: string
+                  minLength: 3
+                  maxLength: 40
+                password:
+                  type: string
+                  minLength: 12
+                  maxLength: 128
+      operationId: postApiV1Setup
+  /api/v1/auth/login:
+    post:
+      tags:
+      - auth
+      summary: Login; sets HttpOnly session cookie
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                - csrfToken
+                properties:
+                  csrfToken:
+                    type: string
+        '400': *id001
+        '403': *id002
+        '404': *id003
+        '429': *id004
+        '500':
+          description: Sanitized internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Payload too large
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+              - username
+              - password
+              properties:
+                username:
+                  type: string
+                password:
+                  type: string
+      operationId: postApiV1AuthLogin
+  /api/v1/auth/me:
+    get:
+      tags:
+      - auth
+      summary: Current admin and CSRF token
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                - username
+                - csrfToken
+                properties:
+                  username:
+                    type: string
+                  csrfToken:
+                    type: string
+        '400': *id001
+        '401': &id005
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403': *id002
+        '404': *id003
+        '409': &id006
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429': *id004
+        '500':
+          description: Sanitized internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security:
+      - cookieAuth: []
+      operationId: getApiV1AuthMe
+  /api/v1/auth/logout:
+    post:
+      tags:
+      - auth
+      summary: Logout and revoke session
+      responses:
+        '204':
+          description: OK
+        '400': *id001
+        '401': *id005
+        '403': *id002
+        '404': *id003
+        '409': *id006
+        '429': *id004
+        '500':
+          description: Sanitized internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security:
+      - cookieAuth: []
+      parameters:
+      - in: header
+        name: X-CSRF-Token
+        required: true
+        schema:
+          type: string
+      operationId: postApiV1AuthLogout
+  /api/v1/auth/password:
+    put:
+      tags:
+      - auth
+      summary: Change password; revoke all sessions
+      responses:
+        '204':
+          description: OK
+        '400': *id001
+        '401': *id005
+        '403': *id002
+        '404': *id003
+        '409': *id006
+        '429': *id004
+        '500':
+          description: Sanitized internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Payload too large
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security:
+      - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+              - currentPassword
+              - newPassword
+              properties:
+                currentPassword:
+                  type: string
+                newPassword:
+                  type: string
+                  minLength: 12
+                  maxLength: 128
+      parameters:
+      - in: header
+        name: X-CSRF-Token
+        required: true
+        schema:
+          type: string
+      operationId: putApiV1AuthPassword
+  /api/v1/public/bootstrap:
+    get:
+      tags:
+      - public
+      summary: Public/authorized homepage data, filtered for visible entries; 401 in private mode
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                - settings
+                - categories
+                - services
+                - tags
+                properties:
+                  settings:
+                    $ref: '#/components/schemas/Settings'
+                  categories:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Category'
+                  services:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Service'
+                  tags:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Tag'
+        '400': *id001
+        '403': *id002
+        '404': *id003
+        '429': *id004
+        '500':
+          description: Sanitized internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security: []
+      operationId: getApiV1PublicBootstrap
+  /api/v1/admin/settings:
+    get:
+      tags:
+      - settings
+      summary: Get full settings
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Settings'
+        '400': *id001
+        '401': *id005
+        '403': *id002
+        '404': *id003
+        '409': *id006
+        '429': *id004
+        '500':
+          description: Sanitized internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security:
+      - cookieAuth: []
+      operationId: getApiV1AdminSettings
+    put:
+      tags:
+      - settings
+      summary: Replace settings with revision check
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Settings'
+        '400': *id001
+        '401': *id005
+        '403': *id002
+        '404': *id003
+        '409': *id006
+        '429': *id004
+        '500':
+          description: Sanitized internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Payload too large
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security:
+      - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SettingsUpdate'
+      parameters:
+      - in: header
+        name: X-CSRF-Token
+        required: true
+        schema:
+          type: string
+      operationId: putApiV1AdminSettings
+  /api/v1/admin/categories:
+    get:
+      tags:
+      - categories
+      summary: List categories
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Category'
+        '400': *id001
+        '401': *id005
+        '403': *id002
+        '404': *id003
+        '409': *id006
+        '429': *id004
+        '500':
+          description: Sanitized internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security:
+      - cookieAuth: []
+      operationId: getApiV1AdminCategories
+    post:
+      tags:
+      - categories
+      summary: Create category
+      responses:
+        '201':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Category'
+        '400': *id001
+        '401': *id005
+        '403': *id002
+        '404': *id003
+        '409': *id006
+        '429': *id004
+        '500':
+          description: Sanitized internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Payload too large
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security:
+      - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CategoryInput'
+      parameters:
+      - in: header
+        name: X-CSRF-Token
+        required: true
+        schema:
+          type: string
+      operationId: postApiV1AdminCategories
+  /api/v1/admin/categories/{id}:
+    put:
+      tags:
+      - categories
+      summary: Replace category fields
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Category'
+        '400': *id001
+        '401': *id005
+        '403': *id002
+        '404': *id003
+        '409': *id006
+        '429': *id004
+        '500':
+          description: Sanitized internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Payload too large
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security:
+      - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CategoryInput'
+      parameters:
+      - in: header
+        name: X-CSRF-Token
+        required: true
+        schema:
+          type: string
+      - &id007
+        in: path
+        name: id
+        required: true
+        schema:
+          $ref: '#/components/schemas/UUID'
+      operationId: putApiV1AdminCategoriesById
+    delete:
+      tags:
+      - categories
+      summary: Delete category and uncategorize services
+      responses:
+        '204':
+          description: OK
+        '400': *id001
+        '401': *id005
+        '403': *id002
+        '404': *id003
+        '409': *id006
+        '429': *id004
+        '500':
+          description: Sanitized internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security:
+      - cookieAuth: []
+      parameters:
+      - in: header
+        name: X-CSRF-Token
+        required: true
+        schema:
+          type: string
+      - *id007
+      operationId: deleteApiV1AdminCategoriesById
+  /api/v1/admin/categories/reorder:
+    put:
+      tags:
+      - categories
+      summary: Reorder entire category id list
+      responses:
+        '204':
+          description: OK
+        '400': *id001
+        '401': *id005
+        '403': *id002
+        '404': *id003
+        '409': *id006
+        '429': *id004
+        '500':
+          description: Sanitized internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Payload too large
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security:
+      - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReorderInput'
+      parameters:
+      - in: header
+        name: X-CSRF-Token
+        required: true
+        schema:
+          type: string
+      operationId: putApiV1AdminCategoriesReorder
+  /api/v1/admin/services:
+    get:
+      tags:
+      - services
+      summary: List services, optional search, pagination; deterministic position order
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                - items
+                - total
+                - page
+                - pageSize
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Service'
+                  total:
+                    type: integer
+                  page:
+                    type: integer
+                  pageSize:
+                    type: integer
+        '400': *id001
+        '401': *id005
+        '403': *id002
+        '404': *id003
+        '409': *id006
+        '429': *id004
+        '500':
+          description: Sanitized internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security:
+      - cookieAuth: []
+      parameters:
+      - in: query
+        name: page
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+      - in: query
+        name: pageSize
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 200
+          default: 50
+      - in: query
+        name: q
+        schema:
+          type: string
+          maxLength: 100
+      operationId: getApiV1AdminServices
+    post:
+      tags:
+      - services
+      summary: Create service, links and tags atomically
+      responses:
+        '201':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Service'
+        '400': *id001
+        '401': *id005
+        '403': *id002
+        '404': *id003
+        '409': *id006
+        '429': *id004
+        '500':
+          description: Sanitized internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Payload too large
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security:
+      - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ServiceInput'
+      parameters:
+      - in: header
+        name: X-CSRF-Token
+        required: true
+        schema:
+          type: string
+      operationId: postApiV1AdminServices
+  /api/v1/admin/services/{id}:
+    get:
+      tags:
+      - services
+      summary: Get one service
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Service'
+        '400': *id001
+        '401': *id005
+        '403': *id002
+        '404': *id003
+        '409': *id006
+        '429': *id004
+        '500':
+          description: Sanitized internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security:
+      - cookieAuth: []
+      parameters:
+      - *id007
+      operationId: getApiV1AdminServicesById
+    put:
+      tags:
+      - services
+      summary: Replace service, links, tag associations
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Service'
+        '400': *id001
+        '401': *id005
+        '403': *id002
+        '404': *id003
+        '409': *id006
+        '429': *id004
+        '500':
+          description: Sanitized internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Payload too large
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security:
+      - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ServiceInput'
+      parameters:
+      - in: header
+        name: X-CSRF-Token
+        required: true
+        schema:
+          type: string
+      - *id007
+      operationId: putApiV1AdminServicesById
+    delete:
+      tags:
+      - services
+      summary: Delete service
+      responses:
+        '204':
+          description: OK
+        '400': *id001
+        '401': *id005
+        '403': *id002
+        '404': *id003
+        '409': *id006
+        '429': *id004
+        '500':
+          description: Sanitized internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security:
+      - cookieAuth: []
+      parameters:
+      - in: header
+        name: X-CSRF-Token
+        required: true
+        schema:
+          type: string
+      - *id007
+      operationId: deleteApiV1AdminServicesById
+  /api/v1/admin/services/reorder:
+    put:
+      tags:
+      - services
+      summary: Reorder exactly one category including hidden services
+      responses:
+        '204':
+          description: OK
+        '400': *id001
+        '401': *id005
+        '403': *id002
+        '404': *id003
+        '409': *id006
+        '429': *id004
+        '500':
+          description: Sanitized internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Payload too large
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security:
+      - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+              - categoryId
+              - ids
+              properties:
+                categoryId:
+                  oneOf:
+                  - $ref: '#/components/schemas/UUID'
+                  - type: 'null'
+                ids:
+                  type: array
+                  uniqueItems: true
+                  items:
+                    $ref: '#/components/schemas/UUID'
+      parameters:
+      - in: header
+        name: X-CSRF-Token
+        required: true
+        schema:
+          type: string
+      operationId: putApiV1AdminServicesReorder
+  /api/v1/admin/tags:
+    get:
+      tags:
+      - tags
+      summary: List tags
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Tag'
+        '400': *id001
+        '401': *id005
+        '403': *id002
+        '404': *id003
+        '409': *id006
+        '429': *id004
+        '500':
+          description: Sanitized internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security:
+      - cookieAuth: []
+      operationId: getApiV1AdminTags
+    post:
+      tags:
+      - tags
+      summary: Create tag
+      responses:
+        '201':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tag'
+        '400': *id001
+        '401': *id005
+        '403': *id002
+        '404': *id003
+        '409': *id006
+        '429': *id004
+        '500':
+          description: Sanitized internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Payload too large
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security:
+      - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: &id008
+              type: object
+              additionalProperties: false
+              required:
+              - name
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 32
+      parameters:
+      - in: header
+        name: X-CSRF-Token
+        required: true
+        schema:
+          type: string
+      operationId: postApiV1AdminTags
+  /api/v1/admin/tags/{id}:
+    put:
+      tags:
+      - tags
+      summary: Rename tag
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tag'
+        '400': *id001
+        '401': *id005
+        '403': *id002
+        '404': *id003
+        '409': *id006
+        '429': *id004
+        '500':
+          description: Sanitized internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Payload too large
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security:
+      - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: *id008
+      parameters:
+      - in: header
+        name: X-CSRF-Token
+        required: true
+        schema:
+          type: string
+      - *id007
+      operationId: putApiV1AdminTagsById
+    delete:
+      tags:
+      - tags
+      summary: Delete tag and associations
+      responses:
+        '204':
+          description: OK
+        '400': *id001
+        '401': *id005
+        '403': *id002
+        '404': *id003
+        '409': *id006
+        '429': *id004
+        '500':
+          description: Sanitized internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security:
+      - cookieAuth: []
+      parameters:
+      - in: header
+        name: X-CSRF-Token
+        required: true
+        schema:
+          type: string
+      - *id007
+      operationId: deleteApiV1AdminTagsById
+  /api/v1/admin/assets:
+    post:
+      tags:
+      - assets
+      summary: Upload ≤1 MiB icon; multipart field file
+      responses:
+        '201':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Asset'
+        '400': *id001
+        '401': *id005
+        '403': *id002
+        '404': *id003
+        '409': *id006
+        '429': *id004
+        '500':
+          description: Sanitized internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Payload too large
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security:
+      - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+              - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+      parameters:
+      - in: header
+        name: X-CSRF-Token
+        required: true
+        schema:
+          type: string
+      operationId: postApiV1AdminAssets
+  /api/v1/admin/assets/{id}:
+    delete:
+      tags:
+      - assets
+      summary: Delete unreferenced icon
+      responses:
+        '204':
+          description: OK
+        '400': *id001
+        '401': *id005
+        '403': *id002
+        '404': *id003
+        '409': *id006
+        '429': *id004
+        '500':
+          description: Sanitized internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security:
+      - cookieAuth: []
+      parameters:
+      - in: header
+        name: X-CSRF-Token
+        required: true
+        schema:
+          type: string
+      - *id007
+      operationId: deleteApiV1AdminAssetsById
+  /assets/{id}:
+    get:
+      tags:
+      - assets
+      summary: Serve sanitized icon by opaque id
+      responses:
+        '200':
+          description: Image bytes
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+            image/webp:
+              schema:
+                type: string
+                format: binary
+            image/svg+xml:
+              schema:
+                type: string
+                format: binary
+        '404': *id003
+        '400': *id001
+        '403': *id002
+        '429': *id004
+        '500':
+          description: Sanitized internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security: []
+      parameters:
+      - *id007
+      operationId: getAssetsById
+  /api/v1/admin/backup/export:
+    get:
+      tags:
+      - backup
+      summary: Full config JSON, optional base64 assets (never sessions)
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Backup'
+        '400': *id001
+        '401': *id005
+        '403': *id002
+        '404': *id003
+        '409': *id006
+        '429': *id004
+        '500':
+          description: Sanitized internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security:
+      - cookieAuth: []
+      parameters:
+      - in: query
+        name: includeAssets
+        schema:
+          type: boolean
+          default: true
+      operationId: getApiV1AdminBackupExport
+  /api/v1/admin/backup/validate:
+    post:
+      tags:
+      - backup
+      summary: Dry-run validate backup; no writes, returns short-lived verification token
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                - valid
+                - summary
+                - importToken
+                properties:
+                  valid:
+                    type: boolean
+                  summary:
+                    type: object
+                    additionalProperties:
+                      type: integer
+                  importToken:
+                    type: string
+        '400': *id001
+        '401': *id005
+        '403': *id002
+        '404': *id003
+        '409': *id006
+        '429': *id004
+        '500':
+          description: Sanitized internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Payload too large
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security:
+      - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Backup'
+      parameters:
+      - in: header
+        name: X-CSRF-Token
+        required: true
+        schema:
+          type: string
+      operationId: postApiV1AdminBackupValidate
+  /api/v1/admin/backup/commit:
+    post:
+      tags:
+      - backup
+      summary: Commit last validated payload stored server-side for 5min; atomically replace application configuration, no
+        credentials
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                - revision
+                properties:
+                  revision:
+                    type: integer
+        '400': *id001
+        '401': *id005
+        '403': *id002
+        '404': *id003
+        '409': *id006
+        '429': *id004
+        '500':
+          description: Sanitized internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Payload too large
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security:
+      - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+              - importToken
+              - replace
+              properties:
+                importToken:
+                  type: string
+                replace:
+                  type: boolean
+                  const: true
+      parameters:
+      - in: header
+        name: X-CSRF-Token
+        required: true
+        schema:
+          type: string
+      operationId: postApiV1AdminBackupCommit
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: nexa_session
+  schemas:
+    Error:
+      type: object
+      required:
+      - error
+      properties:
+        error:
+          type: object
+          required:
+          - code
+          - message
+          - requestId
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+            requestId:
+              type: string
+            details:
+              type: object
+              additionalProperties: true
+          additionalProperties: false
+      additionalProperties: false
+    Category:
+      type: object
+      additionalProperties: false
+      required:
+      - id
+      - name
+      - description
+      - icon
+      - position
+      - isVisible
+      - createdAt
+      - updatedAt
+      properties:
+        id:
+          $ref: '#/components/schemas/UUID'
+        name:
+          type: string
+        description:
+          type: string
+        icon:
+          type: string
+        position:
+          type: integer
+        isVisible:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    CategoryInput:
+      type: object
+      additionalProperties: false
+      required:
+      - name
+      - description
+      - icon
+      - isVisible
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 50
+        description:
+          type: string
+          maxLength: 240
+        icon:
+          type: string
+          maxLength: 80
+        isVisible:
+          type: boolean
+    ServiceLinkInput:
+      type: object
+      additionalProperties: false
+      required:
+      - label
+      - url
+      properties:
+        label:
+          type: string
+          enum:
+          - primary
+          - lan
+          - wan
+        url:
+          type: string
+          minLength: 8
+          maxLength: 2048
+          description: Absolute http(s), no userinfo
+    ServiceInput:
+      type: object
+      additionalProperties: false
+      required:
+      - name
+      - description
+      - categoryId
+      - iconKind
+      - iconValue
+      - iconAssetId
+      - color
+      - openMode
+      - isFavorite
+      - isVisible
+      - tagIds
+      - links
+      properties:
+        name: &id009
+          type: string
+          minLength: 1
+          maxLength: 80
+        description: &id010
+          type: string
+          maxLength: 240
+        categoryId: &id011
+          oneOf:
+          - $ref: '#/components/schemas/UUID'
+          - type: 'null'
+        iconKind: &id012
+          type: string
+          enum:
+          - lucide
+          - asset
+          - favicon
+        iconValue: &id013
+          type: string
+          minLength: 1
+          maxLength: 120
+        iconAssetId: &id014
+          oneOf:
+          - $ref: '#/components/schemas/UUID'
+          - type: 'null'
+        color: &id015
+          type: string
+          pattern: ^#[0-9A-Fa-f]{6}$
+        openMode: &id016
+          type: string
+          enum:
+          - new_tab
+          - same_tab
+        isFavorite: &id017
+          type: boolean
+        isVisible: &id018
+          type: boolean
+        tagIds: &id019
+          type: array
+          maxItems: 20
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/UUID'
+        links:
+          type: array
+          minItems: 1
+          maxItems: 3
+          items:
+            $ref: '#/components/schemas/ServiceLinkInput'
+          description: Exactly one primary, optional lan/wan, no duplicate labels
+    ServiceLink:
+      type: object
+      required:
+      - id
+      - label
+      - url
+      properties:
+        id:
+          $ref: '#/components/schemas/UUID'
+        label:
+          type: string
+          enum:
+          - primary
+          - lan
+          - wan
+        url:
+          type: string
+      additionalProperties: false
+    Service:
+      type: object
+      required:
+      - name
+      - description
+      - categoryId
+      - iconKind
+      - iconValue
+      - iconAssetId
+      - color
+      - openMode
+      - isFavorite
+      - isVisible
+      - tagIds
+      - links
+      - id
+      - position
+      - createdAt
+      - updatedAt
+      properties:
+        name: *id009
+        description: *id010
+        categoryId: *id011
+        iconKind: *id012
+        iconValue: *id013
+        iconAssetId: *id014
+        color: *id015
+        openMode: *id016
+        isFavorite: *id017
+        isVisible: *id018
+        tagIds: *id019
+        links:
+          type: array
+          items:
+            $ref: '#/components/schemas/ServiceLink'
+        id:
+          $ref: '#/components/schemas/UUID'
+        position:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      additionalProperties: false
+    Tag:
+      type: object
+      required:
+      - id
+      - name
+      - createdAt
+      properties:
+        id:
+          $ref: '#/components/schemas/UUID'
+        name:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      additionalProperties: false
+    Settings:
+      type: object
+      required:
+      - siteTitle
+      - siteSubtitle
+      - accessMode
+      - theme
+      - accent
+      - cardDensity
+      - glassEnabled
+      - revision
+      - updatedAt
+      properties:
+        siteTitle:
+          type: string
+        siteSubtitle:
+          type: string
+        accessMode:
+          type: string
+          enum:
+          - public
+          - private
+        theme:
+          type: string
+          enum:
+          - dark
+          - light
+          - system
+        accent:
+          type: string
+        cardDensity:
+          type: string
+          enum:
+          - compact
+          - comfortable
+        glassEnabled:
+          type: boolean
+        revision:
+          type: integer
+        updatedAt:
+          type: string
+          format: date-time
+      additionalProperties: false
+    SettingsUpdate:
+      type: object
+      additionalProperties: false
+      required:
+      - expectedRevision
+      - siteTitle
+      - siteSubtitle
+      - accessMode
+      - theme
+      - accent
+      - cardDensity
+      - glassEnabled
+      properties:
+        expectedRevision:
+          type: integer
+          minimum: 1
+        siteTitle:
+          type: string
+          minLength: 1
+          maxLength: 80
+        siteSubtitle:
+          type: string
+          maxLength: 160
+        accessMode:
+          type: string
+          enum:
+          - public
+          - private
+        theme:
+          type: string
+          enum:
+          - dark
+          - light
+          - system
+        accent:
+          type: string
+          pattern: ^#[0-9A-Fa-f]{6}$
+        cardDensity:
+          type: string
+          enum:
+          - compact
+          - comfortable
+        glassEnabled:
+          type: boolean
+    Asset:
+      type: object
+      required:
+      - id
+      - mimeType
+      - byteSize
+      - url
+      properties:
+        id:
+          $ref: '#/components/schemas/UUID'
+        mimeType:
+          type: string
+          enum:
+          - image/png
+          - image/webp
+          - image/svg+xml
+        byteSize:
+          type: integer
+        url:
+          type: string
+      additionalProperties: false
+    UUID:
+      type: string
+      format: uuid
+    ReorderInput:
+      type: object
+      additionalProperties: false
+      required:
+      - ids
+      properties:
+        ids:
+          type: array
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/UUID'
+    Backup:
+      type: object
+      required:
+      - format
+      - version
+      - exportedAt
+      - settings
+      - categories
+      - services
+      - tags
+      - assets
+      properties:
+        format:
+          type: string
+          const: nexa-home-backup
+        version:
+          type: integer
+          const: 1
+        exportedAt:
+          type: string
+          format: date-time
+        settings:
+          $ref: '#/components/schemas/Settings'
+        categories:
+          type: array
+          items:
+            $ref: '#/components/schemas/Category'
+        services:
+          type: array
+          items:
+            $ref: '#/components/schemas/Service'
+        tags:
+          type: array
+          items:
+            $ref: '#/components/schemas/Tag'
+        assets:
+          type: array
+          items:
+            type: object
+            required:
+            - id
+            - mimeType
+            - base64
+            properties:
+              id:
+                $ref: '#/components/schemas/UUID'
+              mimeType:
+                type: string
+              base64:
+                type: string
+                contentEncoding: base64
+            additionalProperties: false
+      additionalProperties: false

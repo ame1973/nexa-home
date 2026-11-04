@@ -1,0 +1,19 @@
+{
+  "name": "nexa-home",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "engines": { "node": ">=24.14.1 <25" },
+  "scripts": {
+    "generate": "node scripts/generate-contract.mjs && openapi-typescript api/openapi.yaml -o apps/web/src/lib/api/schema.d.ts",
+    "lint:api": "redocly lint api/openapi.yaml",
+    "test:contract": "node --test scripts/contract.test.mjs",
+    "check:generated": "npm run generate && git diff --exit-code -- api/openapi.json apps/web/src/lib/api/schema.d.ts"
+  },
+  "devDependencies": {
+    "@redocly/cli": "2.73.0",
+    "openapi-typescript": "7.13.0",
+    "yaml": "2.9.1"
+  }
+}
