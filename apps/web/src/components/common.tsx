@@ -202,12 +202,14 @@ export function ModalContent({
   children,
   className = "",
   busy = false,
+  focusAfter,
 }: {
   title: string;
   description?: string;
   children: ReactNode;
   className?: string;
   busy?: boolean;
+  focusAfter?: string;
 }) {
   const { t } = useI18n();
   return (
@@ -216,6 +218,12 @@ export function ModalContent({
       aria-busy={busy}
       onEscapeKeyDown={(event) => {
         if (busy) event.preventDefault();
+      }}
+      onCloseAutoFocus={(event) => {
+        if (focusAfter) {
+          event.preventDefault();
+          document.getElementById(focusAfter)?.focus();
+        }
       }}
       className={`sm:max-w-xl ${className}`}
     >
