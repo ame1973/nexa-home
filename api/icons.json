@@ -1,0 +1,9 @@
+[
+  "app-window", "archive", "book-open", "box", "calendar", "camera", "clapperboard",
+  "cloud", "code", "container", "cpu", "database", "download", "files", "film",
+  "folder", "folder-open", "gamepad-2", "globe", "hard-drive", "heart", "house",
+  "images", "layout-grid", "link", "lock", "mail", "message-circle", "monitor",
+  "music", "network", "notebook-pen", "radio", "router", "rss", "scan-line",
+  "search", "server", "settings", "shield", "square-terminal", "star", "terminal",
+  "upload", "wifi"
+]

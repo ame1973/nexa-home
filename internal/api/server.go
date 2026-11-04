@@ -70,6 +70,9 @@ func New(ctx context.Context, c config.Config, database *sql.DB, logger *slog.Lo
 	}
 	s := &Server{database: database, config: c, auth: authentication, contract: definition, logger: logger, mux: http.NewServeMux()}
 	s.authRoutes()
+	s.settingsRoutes()
+	s.catalogRoutes()
+	s.serviceRoutes()
 	s.mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) { s.fail(w, r, missing()) })
 	return s, token, nil
 }

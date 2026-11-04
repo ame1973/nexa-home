@@ -11,6 +11,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"strings"
+	"sync"
 	"testing"
 
 	"nexa-home/internal/config"
@@ -20,6 +21,18 @@ import (
 const adminPassword = "a strong integration password"
 const origin = "https://home.example.test"
 
+type lockedBuffer struct {
+	mu     sync.Mutex
+	buffer bytes.Buffer
+}
+
+func (b *lockedBuffer) Write(value []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buffer.Write(value)
+}
+func (b *lockedBuffer) String() string { b.mu.Lock(); defer b.mu.Unlock(); return b.buffer.String() }
+
 type harness struct {
 	t          *testing.T
 	server     *Server
@@ -27,7 +40,7 @@ type harness struct {
 	setupToken string
 	cookie     *http.Cookie
 	csrf       string
-	logs       *bytes.Buffer
+	logs       *lockedBuffer
 }
 
 func newHarness(t *testing.T) *harness {
@@ -37,7 +50,7 @@ func newHarness(t *testing.T) *harness {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { database.Close() })
-	logs := &bytes.Buffer{}
+	logs := &lockedBuffer{}
 	server, token, err := New(context.Background(), config.Config{PublicOrigin: origin}, database, slog.New(slog.NewJSONHandler(logs, nil)))
 	if err != nil {
 		t.Fatal(err)
@@ -73,15 +86,22 @@ func (h *harness) request(method, path string, input any, expected int) *httptes
 	if parsed, err := url.Parse(path); err == nil {
 		definitionPath = parsed.Path
 	}
+	matchedPath := ""
 	for _, op := range h.server.contract.Operations() {
 		if op.Method != method {
 			continue
 		}
-		if op.Path == definitionPath || (strings.HasSuffix(op.Path, "/{id}") && strings.HasPrefix(definitionPath, strings.TrimSuffix(op.Path, "{id}"))) {
-			if err := h.server.contract.ValidateResponse(method, op.Path, w.Code, w.Body.Bytes()); err != nil {
-				h.t.Fatalf("contract drift: %v; %s", err, w.Body.String())
-			}
+		if op.Path == definitionPath {
+			matchedPath = op.Path
 			break
+		}
+		if strings.HasSuffix(op.Path, "/{id}") && strings.HasPrefix(definitionPath, strings.TrimSuffix(op.Path, "{id}")) {
+			matchedPath = op.Path
+		}
+	}
+	if matchedPath != "" {
+		if err := h.server.contract.ValidateResponse(method, matchedPath, w.Code, w.Body.Bytes()); err != nil {
+			h.t.Fatalf("contract drift: %v; %s", err, w.Body.String())
 		}
 	}
 	if w.Header().Get("X-Request-ID") == "" {
