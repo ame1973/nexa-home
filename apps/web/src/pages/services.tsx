@@ -362,7 +362,11 @@ export function ServicesPage() {
       </p>
       <p className="field-hint mb-4">{t("orderHint")}</p>
       {isDragging && (
-        <div className="drop-scopes" aria-label={t("moveToCategory")}>
+        <div
+          className="drop-scopes"
+          role="region"
+          aria-label={t("moveToCategory")}
+        >
           {[
             ...categories.data.map((item) => ({
               id: item.id,
@@ -411,7 +415,11 @@ export function ServicesPage() {
                   <TableHead scope="col" className="desktop-column">
                     {t("category")}
                   </TableHead>
-                  <TableHead scope="col" className="desktop-column">
+                  <TableHead
+                    scope="col"
+                    className="desktop-column"
+                    data-column="host"
+                  >
                     {t("urlHost")}
                   </TableHead>
                   <TableHead scope="col" className="desktop-column">
@@ -508,9 +516,14 @@ export function ServicesPage() {
                         </div>
                       </TableCell>
                       <TableCell className="desktop-column">
-                        {categoryName}
+                        <span
+                          className="block max-w-28 truncate"
+                          title={categoryName}
+                        >
+                          {categoryName}
+                        </span>
                       </TableCell>
-                      <TableCell className="desktop-column">
+                      <TableCell className="desktop-column" data-column="host">
                         <span className="block max-w-40 truncate" title={host}>
                           {host}
                         </span>

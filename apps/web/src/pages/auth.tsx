@@ -94,6 +94,7 @@ export function SetupPage() {
             error={touched.token ? errors.token : undefined}
           >
             <Input
+              type="password"
               value={values.token}
               autoComplete="off"
               autoCapitalize="none"

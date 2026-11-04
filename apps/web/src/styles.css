@@ -177,7 +177,7 @@
 .table-frame td { vertical-align: middle; }
 .table-name { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .table-name > div:last-child { min-width: 0; }
-.table-name a { display: block; max-width: 24ch; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-weight: 550; }
+.table-name a { display: block; min-width: 44px; min-height: 44px; line-height: 44px; max-width: 24ch; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-weight: 550; }
 .table-name a:hover { text-decoration: underline; }
 .table-actions { display: flex; gap: 4px; justify-content: flex-end; }
 .drag-handle { cursor: grab; }
@@ -197,18 +197,26 @@
 .skip-link { position: fixed; left: 16px; top: -100px; z-index: 100; padding: 12px 20px; border-radius: 10px; background: var(--surface-elevated); }
 .skip-link:focus { top: 12px; }
 mark { background: color-mix(in srgb, var(--accent) 20%, transparent); color: inherit; border-radius: 2px; }
-.group\/button, [data-slot="input"], [data-slot="select-trigger"], [data-slot="dropdown-menu-item"], [data-slot="dropdown-menu-checkbox-item"], [data-slot="dropdown-menu-radio-item"], [data-slot="tabs-trigger"] { min-height: 44px; }
+.group\/button, [data-slot="input"], [data-slot="select-trigger"], [data-slot="select-item"], [data-slot="dropdown-menu-item"], [data-slot="dropdown-menu-checkbox-item"], [data-slot="dropdown-menu-radio-item"], [data-slot="tabs-trigger"] { min-height: 44px; }
 .group\/button { min-width: 44px; border-radius: 10px; }
-.drop-scopes { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
+/* Keep drag destinations out of document flow so rows never move under the pointer. */
+.drop-scopes { position: fixed; z-index: 40; left: 50%; bottom: 24px; transform: translateX(-50%); width: min(1080px, calc(100vw - 48px)); max-height: 30vh; overflow-y: auto; display: flex; flex-wrap: wrap; gap: 8px; padding: 16px; border: 1px solid var(--control-border); border-radius: 16px; background: var(--surface); box-shadow: var(--shadow); }
 .drop-scopes .notice { border-style: dashed; }
 [data-slot="input"], [data-slot="select-trigger"], [data-slot="textarea"] { border-color: var(--control-border); background: var(--surface); }
 [data-slot="dialog-content"], [data-slot="alert-dialog-content"] { max-height: 90dvh; overflow-y: auto; border-radius: 20px; background: var(--glass-surface); backdrop-filter: blur(14px); animation-duration: 180ms; }
 [data-slot="dialog-overlay"], [data-slot="alert-dialog-overlay"], [data-slot="sheet-overlay"] { backdrop-filter: none; }
 [data-glass="false"] [data-slot="dialog-content"], [data-glass="false"] [data-slot="alert-dialog-content"] { backdrop-filter: none; background: var(--surface-elevated); }
 [data-slot="switch"] { min-width: 44px; }
+[data-slot="tabs-list"] { min-height: 52px; }
+[data-sonner-toast] [data-close-button] { width: 44px; height: 44px; }
+.error-state { overflow-wrap: anywhere; }
 
+@media (min-width: 1024px) and (max-width: 1279px) {
+  .service-table [data-column="host"] { display: none; }
+}
 @media (max-width: 1023px) {
   .header-inner, .page { padding-left: 24px; padding-right: 24px; }
+  .service-grid, [data-density="compact"] .service-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .admin-shell, .admin-shell[data-collapsed="true"] { grid-template-columns: minmax(0, 1fr); }
   .admin-nav { display: none; }
   .admin-main { padding: 28px 24px 64px; }
@@ -217,7 +225,7 @@ mark { background: color-mix(in srgb, var(--accent) 20%, transparent); color: in
   .preview-pane { grid-column: 1; grid-row: 1; position: static; max-width: 360px; width: 100%; }
   .editor-fields { grid-column: 1; grid-row: 2; }
 }
-@media (max-width: 767px) {
+@media (max-width: 1023px) {
   .desktop-column, .drag-handle { display: none; }
   .mobile-meta { display: block; color: var(--text-secondary); font-size: .75rem; max-width: 22ch; overflow: hidden; text-overflow: ellipsis; }
   .service-table td, .service-table th { padding: 8px; }

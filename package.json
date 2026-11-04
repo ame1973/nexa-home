@@ -13,7 +13,10 @@
   "scripts": {
     "dev:web": "npm run dev --workspace=@nexa-home/web",
     "build:web": "npm run build --workspace=@nexa-home/web",
-    "typecheck": "npm run typecheck --workspace=@nexa-home/web",
+    "build": "npm run build:web && CGO_ENABLED=0 go build -trimpath -o bin/nexa-home ./cmd/nexa-home",
+    "typecheck": "npm run typecheck --workspace=@nexa-home/web && tsc --project e2e/tsconfig.json",
+    "test:build": "node --test scripts/sonner-csp.test.mjs",
+    "test:e2e": "npm run build && playwright test",
     "lint:web": "npm run lint --workspace=@nexa-home/web",
     "test:web": "npm run test --workspace=@nexa-home/web",
     "generate": "node scripts/generate-contract.mjs",
@@ -33,6 +36,8 @@
     }
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.14.0",
+    "@playwright/test": "1.64.1",
     "@redocly/cli": "2.73.0",
     "jsdom": "29.1.1",
     "openapi-typescript": "7.13.0",
