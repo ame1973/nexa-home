@@ -250,6 +250,7 @@ export function ConfirmDialog({
   description,
   onConfirm,
   action,
+  cancel,
   focusAfter,
 }: {
   open: boolean;
@@ -258,11 +259,13 @@ export function ConfirmDialog({
   description: string;
   onConfirm(): Promise<void> | void;
   action?: string;
+  cancel?: string;
   focusAfter?: string;
 }) {
   const { t } = useI18n();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<unknown>();
+  const previousFocus = useRef<HTMLElement | null>(null);
   return (
     <AlertDialog
       open={open}
@@ -278,11 +281,20 @@ export function ConfirmDialog({
         onEscapeKeyDown={(event) => {
           if (pending) event.preventDefault();
         }}
+        onOpenAutoFocus={() => {
+          previousFocus.current =
+            document.activeElement instanceof HTMLElement
+              ? document.activeElement
+              : null;
+        }}
         onCloseAutoFocus={(event) => {
-          if (focusAfter) {
-            event.preventDefault();
-            document.getElementById(focusAfter)?.focus();
-          }
+          event.preventDefault();
+          const target =
+            (focusAfter ? document.getElementById(focusAfter) : null) ??
+            (previousFocus.current?.isConnected
+              ? previousFocus.current
+              : document.getElementById("main"));
+          target?.focus();
         }}
       >
         <AlertDialogHeader>
@@ -292,7 +304,7 @@ export function ConfirmDialog({
         {error !== undefined && <ErrorState error={error} />}
         <AlertDialogFooter>
           <AlertDialogCancel disabled={pending}>
-            {t("cancel")}
+            {cancel ?? t("cancel")}
           </AlertDialogCancel>
           <AlertDialogAction
             variant="destructive"
@@ -331,32 +343,19 @@ export function useUnsaved(dirty: boolean) {
       saved.current = true;
     },
     dialog: (
-      <AlertDialog
+      <ConfirmDialog
         open={blocker.state === "blocked"}
         onOpenChange={(open) => {
           if (!open && blocker.state === "blocked") blocker.reset();
         }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t("unsavedTitle")}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {t("unsavedDescription")}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>{t("keepEditing")}</AlertDialogCancel>
-            <AlertDialogAction
-              variant="destructive"
-              onClick={() => {
-                if (blocker.state === "blocked") blocker.proceed();
-              }}
-            >
-              {t("discard")}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        title={t("unsavedTitle")}
+        description={t("unsavedDescription")}
+        action={t("discard")}
+        cancel={t("keepEditing")}
+        onConfirm={() => {
+          if (blocker.state === "blocked") blocker.proceed();
+        }}
+      />
     ),
   };
 }

@@ -1,6 +1,9 @@
 import type { MessageKey } from "./en";
 
 export const zhHant: Record<MessageKey, string> = {
+  sort: "排序",
+  moveToCategory: "移至分類",
+  noIcons: "沒有符合的圖示",
   notifications: "通知",
   iconLibraryEmpty: "還沒有已儲存的圖示。",
   pickColor: "選擇顏色",

@@ -1,4 +1,7 @@
 export const en = {
+  sort: "Sort",
+  moveToCategory: "Move to category",
+  noIcons: "No matching icons",
   notifications: "Notifications",
   iconLibraryEmpty: "No saved icons yet.",
   pickColor: "Pick a color",

@@ -194,8 +194,10 @@
 .skip-link { position: fixed; left: 16px; top: -100px; z-index: 100; padding: 12px 20px; border-radius: 10px; background: var(--surface-elevated); }
 .skip-link:focus { top: 12px; }
 mark { background: color-mix(in srgb, var(--accent) 20%, transparent); color: inherit; border-radius: 2px; }
-[data-slot="button"], [data-slot="input"], [data-slot="select-trigger"], [data-slot="dropdown-menu-item"], [data-slot="tabs-trigger"] { min-height: 44px; }
-[data-slot="button"] { min-width: 44px; border-radius: 10px; }
+.group\/button, [data-slot="input"], [data-slot="select-trigger"], [data-slot="dropdown-menu-item"], [data-slot="dropdown-menu-checkbox-item"], [data-slot="dropdown-menu-radio-item"], [data-slot="tabs-trigger"] { min-height: 44px; }
+.group\/button { min-width: 44px; border-radius: 10px; }
+.drop-scopes { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
+.drop-scopes .notice { border-style: dashed; }
 [data-slot="input"], [data-slot="select-trigger"], [data-slot="textarea"] { border-color: var(--control-border); background: var(--surface); }
 [data-slot="dialog-content"], [data-slot="alert-dialog-content"] { max-height: 90dvh; overflow-y: auto; border-radius: 20px; background: var(--glass-surface); backdrop-filter: blur(14px); animation-duration: 180ms; }
 [data-slot="dialog-overlay"], [data-slot="alert-dialog-overlay"], [data-slot="sheet-overlay"] { backdrop-filter: none; }
