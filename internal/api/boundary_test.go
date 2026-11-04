@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -79,6 +80,22 @@ func TestHTTPInsecureCookieRequiresExplicitOptIn(t *testing.T) {
 	h.server.cookie(w, r, "test-value")
 	if !w.Result().Cookies()[0].Secure {
 		t.Fatal("HTTPS proxy origin must retain secure cookie")
+	}
+}
+
+func TestStoredLinksNeverTriggerRequests(t *testing.T) {
+	var calls atomic.Int64
+	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { calls.Add(1); w.WriteHeader(204) }))
+	defer target.Close()
+	h := adminHarness(t)
+	input := serviceInput("Local link only")
+	input.Links[0].URL = target.URL + "/favicon.ico"
+	created := h.service(input)
+	h.request("GET", "/api/v1/admin/services/"+created.ID, nil, 200)
+	h.request("GET", "/api/v1/public/bootstrap", nil, 200)
+	<-time.After(20 * time.Millisecond)
+	if calls.Load() != 0 {
+		t.Fatal("stored link was fetched by the server")
 	}
 }
 
