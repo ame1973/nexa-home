@@ -348,12 +348,15 @@ export const api = {
         params: { query: { includeAssets } },
       }),
     ),
-  // The server validation endpoint is the trust boundary for untrusted JSON files.
+  // Preserve raw file JSON so the server can reject duplicate keys, not a parsed
+  // and silently normalized object. Server validation remains the trust boundary.
   validate: (body: unknown) =>
     take(
       client.POST("/api/v1/admin/backup/validate", {
         params: { header: { "X-CSRF-Token": csrfToken } },
         body: body as Backup,
+        bodySerializer: () =>
+          typeof body === "string" ? body : JSON.stringify(body),
       }),
     ),
   restore: (importToken: string) =>
