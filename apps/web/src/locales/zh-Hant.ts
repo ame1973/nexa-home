@@ -1,6 +1,12 @@
 import type { MessageKey } from "./en";
 
 export const zhHant: Record<MessageKey, string> = {
+  subtitleHint: "最多 160 個字元。",
+  accentHint: "文字與控制項會自動調整，以維持易讀的對比。",
+  reloadSettingsHint: "捨棄尚未儲存的共用設定，並載入最新版本。",
+  backupFileHint: "UTF-8 JSON，上限 16 MiB。驗證不會取代目前的設定。",
+  collapseNavigation: "收合導覽",
+  expandNavigation: "展開導覽",
   sort: "排序",
   moveToCategory: "移至分類",
   noIcons: "沒有符合的圖示",
@@ -199,7 +205,7 @@ export const zhHant: Record<MessageKey, string> = {
   exportBackup: "匯出備份",
   includeIcons: "包含圖示檔案",
   exportHint: "請保留圖示，才能完整還原。完整設定上限為 16 MiB。",
-  exported: "備份已下載。",
+  exported: "已開始下載備份。",
   restoreBackup: "還原備份",
   backupFile: "備份 JSON 檔案",
   validateBackup: "驗證備份",

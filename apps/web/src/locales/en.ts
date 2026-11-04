@@ -1,4 +1,12 @@
 export const en = {
+  subtitleHint: "Up to 160 characters.",
+  accentHint: "Text and controls are adjusted for accessible contrast.",
+  reloadSettingsHint:
+    "Discard unsaved shared settings and load the latest revision.",
+  backupFileHint:
+    "UTF-8 JSON, up to 16 MiB. Validation never replaces the current configuration.",
+  collapseNavigation: "Collapse navigation",
+  expandNavigation: "Expand navigation",
   sort: "Sort",
   moveToCategory: "Move to category",
   noIcons: "No matching icons",
@@ -213,7 +221,7 @@ export const en = {
   includeIcons: "Include icon files",
   exportHint:
     "Keep icons included for a fully restorable backup. The full configuration is limited to 16 MiB.",
-  exported: "Backup downloaded.",
+  exported: "Backup download started.",
   restoreBackup: "Restore backup",
   backupFile: "Backup JSON file",
   validateBackup: "Validate backup",
