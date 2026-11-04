@@ -85,8 +85,21 @@ func TestSnapshot(t *testing.T) {
 	if err := Snapshot(ctx, database, destination); err != nil {
 		t.Fatal(err)
 	}
+	info, err := os.Stat(destination)
+	if err != nil || info.Mode().Perm() != 0o600 {
+		t.Fatalf("snapshot permissions: %v, %v", info, err)
+	}
 	if err := Snapshot(ctx, database, destination); err == nil {
 		t.Fatal("overwrote existing snapshot")
+	}
+	cancelled, cancel := context.WithCancel(ctx)
+	cancel()
+	failed := filepath.Join(t.TempDir(), "failed.db")
+	if err := Snapshot(cancelled, database, failed); err == nil {
+		t.Fatal("snapshot succeeded with cancelled context")
+	}
+	if _, err := os.Stat(failed); !os.IsNotExist(err) {
+		t.Fatalf("partial snapshot was not removed: %v", err)
 	}
 	copy, err := sql.Open("sqlite", destination)
 	if err != nil {

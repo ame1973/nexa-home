@@ -110,11 +110,21 @@ func Check(ctx context.Context, database *sql.DB) error {
 // Snapshot makes a consistent standalone database, including committed WAL data.
 // The destination must be a new file; VACUUM INTO never overwrites a backup.
 func Snapshot(ctx context.Context, database *sql.DB, destination string) error {
-	_, err := database.ExecContext(ctx, "VACUUM INTO ?", destination)
+	// SQLite accepts an empty existing file; reserve its mode before writing secrets.
+	file, err := os.OpenFile(destination, os.O_CREATE|os.O_EXCL|os.O_RDWR, 0o600)
 	if err != nil {
 		return err
 	}
-	return os.Chmod(destination, 0o600)
+	defer file.Close()
+	if _, err := database.ExecContext(ctx, "VACUUM INTO ?", destination); err != nil {
+		file.Close()
+		return errors.Join(err, os.Remove(destination))
+	}
+	if err := file.Sync(); err != nil {
+		file.Close()
+		return errors.Join(err, os.Remove(destination))
+	}
+	return file.Close()
 }
 
 func Timestamp(now time.Time) string {
