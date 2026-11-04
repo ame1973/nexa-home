@@ -43,7 +43,8 @@ type harness struct {
 	logs       *lockedBuffer
 }
 
-func newHarness(t *testing.T) *harness {
+func newHarness(t *testing.T) *harness { t.Helper(); return newHarnessFrontend(t, nil) }
+func newHarnessFrontend(t *testing.T, frontend http.Handler) *harness {
 	t.Helper()
 	directory := t.TempDir()
 	database, err := db.Open(context.Background(), directory)
@@ -52,7 +53,7 @@ func newHarness(t *testing.T) *harness {
 	}
 	t.Cleanup(func() { database.Close() })
 	logs := &lockedBuffer{}
-	server, token, err := New(context.Background(), config.Config{PublicOrigin: origin, DataDir: directory}, database, slog.New(slog.NewJSONHandler(logs, nil)))
+	server, token, err := New(context.Background(), config.Config{PublicOrigin: origin, DataDir: directory}, database, slog.New(slog.NewJSONHandler(logs, nil)), frontend)
 	if err != nil {
 		t.Fatal(err)
 	}

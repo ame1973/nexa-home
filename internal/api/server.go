@@ -38,6 +38,8 @@ type Server struct {
 	assetMu  sync.Mutex
 	importMu sync.Mutex
 	imports  map[[32]byte]*stagedImport
+	lifeMu   sync.RWMutex
+	closed   bool
 }
 
 type handler func(http.ResponseWriter, *http.Request, auth.Session) error
@@ -62,7 +64,7 @@ type requestIDKey struct{}
 var safeRequestID = regexp.MustCompile(`^[A-Za-z0-9._:-]{1,64}$`)
 
 // New does not log or retain the returned setup token; main prints it locally once.
-func New(ctx context.Context, c config.Config, database *sql.DB, logger *slog.Logger) (*Server, string, error) {
+func New(ctx context.Context, c config.Config, database *sql.DB, logger *slog.Logger, frontend http.Handler) (*Server, string, error) {
 	definition, err := contract.New()
 	if err != nil {
 		return nil, "", err
@@ -89,11 +91,26 @@ func New(ctx context.Context, c config.Config, database *sql.DB, logger *slog.Lo
 	s.serviceRoutes()
 	s.assetRoutes()
 	s.backupRoutes()
-	s.mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) { s.fail(w, r, missing()) })
+	s.mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		root, _, _ := strings.Cut(strings.TrimPrefix(r.URL.Path, "/"), "/")
+		if frontend != nil && root != "api" && root != "assets" && root != "healthz" && root != "readyz" {
+			frontend.ServeHTTP(w, r)
+			return
+		}
+		s.fail(w, r, missing())
+	})
 	return s, token, nil
 }
 
 func (s *Server) Close() error {
+	// Shutdown stops HTTP first. The exclusive lock also drains handlers after
+	// forced connection closure before releasing the asset root and data lock.
+	s.lifeMu.Lock()
+	defer s.lifeMu.Unlock()
+	if s.closed {
+		return nil
+	}
+	s.closed = true
 	s.importMu.Lock()
 	for _, pending := range s.imports {
 		pending.timer.Stop()
@@ -255,6 +272,8 @@ func (w *responseStatus) Write(body []byte) (int, error) {
 func (w *responseStatus) Unwrap() http.ResponseWriter { return w.ResponseWriter }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	s.lifeMu.RLock()
+	defer s.lifeMu.RUnlock()
 	started := time.Now()
 	security.Headers(w)
 	w.Header().Set("Cache-Control", "no-store")
@@ -275,5 +294,9 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		s.logger.InfoContext(r.Context(), "request", "requestId", requestID, "method", r.Method, "route", pattern, "status", response.status, "elapsedMs", time.Since(started).Milliseconds())
 	}()
+	if s.closed {
+		s.fail(response, r, &problem{status: 503, code: "INTERNAL_ERROR", message: "Server is shutting down"})
+		return
+	}
 	s.mux.ServeHTTP(response, r)
 }

@@ -2,6 +2,9 @@
 // Never persist names, URLs, authentication tokens or backup contents here.
 (function () {
   const root = document.documentElement;
+  // Radix's style singleton reads this global before injecting scroll-lock CSS.
+  const nonce = document.querySelector('meta[name="nexa-style-nonce"]')?.getAttribute('content');
+  if (nonce && /^[A-Za-z0-9+/]{43}=$/.test(nonce)) window.__webpack_nonce__ = nonce;
   const isHex = (value) => typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value);
   const rgb = (value) => [1, 3, 5].map((offset) => parseInt(value.slice(offset, offset + 2), 16));
   const luminance = (value) => rgb(value).map((byte) => {
