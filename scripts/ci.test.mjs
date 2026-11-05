@@ -41,6 +41,7 @@ test("branch and PR verification stays read-only and supports the native release
     false,
   );
   for (const value of [
+    "github.com/rhysd/actionlint/cmd/actionlint@v1.7.12",
     "npm run test:release",
     "npm run test:web",
     "playwright test",
@@ -163,6 +164,7 @@ test("artifact export occurs only after every existing gate and retains no runti
     path: "release-artifacts/${{ matrix.arch }}/",
     "if-no-files-found": "error",
     "retention-days": 7,
+    overwrite: true,
     "compression-level": 0,
     "include-hidden-files": false,
     archive: true,

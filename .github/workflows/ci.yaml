@@ -65,6 +65,7 @@ jobs:
         run: npm ci --ignore-scripts
       - name: Check contracts and generated artifacts
         run: |
+          go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12 .github/workflows/ci.yaml .github/workflows/release.yaml
           npm run check:generated
           npm run lint:api
           npm run test:contract
@@ -131,6 +132,7 @@ jobs:
           path: release-artifacts/${{ matrix.arch }}/
           if-no-files-found: error
           retention-days: 7
+          overwrite: true
           compression-level: 0
           include-hidden-files: false
           archive: true
