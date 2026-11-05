@@ -1,3 +1,7 @@
+ARG VERSION=1.0.0
+ARG REVISION=unknown
+ARG SOURCE=
+
 FROM --platform=$BUILDPLATFORM node:24.14.1-alpine@sha256:8510330d3eb72c804231a834b1a8ebb55cb3796c3e4431297a24d246b8add4d5 AS web-build
 WORKDIR /src
 COPY package.json package-lock.json ./
@@ -20,17 +24,23 @@ COPY internal/ internal/
 COPY --from=web-build /src/internal/web/dist/ internal/web/dist/
 ARG TARGETOS
 ARG TARGETARCH
+ARG VERSION
 # Preserve symbols so binary reachability scans do not fall back to module-only guesses.
 RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build \
     CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH \
-    go build -trimpath -o /out/nexa-home ./cmd/nexa-home
+    go build -trimpath -ldflags="-X main.version=${VERSION}" -o /out/nexa-home ./cmd/nexa-home
 RUN mkdir -p /out/data /out/tmp
 
 # No shell, package manager, Node, compiler, or outbound-fetch helper is shipped.
 FROM scratch
+ARG VERSION
+ARG REVISION
+ARG SOURCE
 LABEL org.opencontainers.image.title="Nexa Home" \
       org.opencontainers.image.description="A private, self-hosted service launcher" \
-      org.opencontainers.image.version="1.0.0" \
+      org.opencontainers.image.version="${VERSION}" \
+      org.opencontainers.image.revision="${REVISION}" \
+      org.opencontainers.image.source="${SOURCE}" \
       org.opencontainers.image.licenses="MIT"
 COPY --from=go-build --chmod=0555 /out/nexa-home /nexa-home
 COPY --from=go-build --chown=10001:10001 --chmod=0700 /out/data /data
