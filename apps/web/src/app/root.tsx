@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { api, queryClient, type Bootstrap } from "@/lib/api/client";
 import { PreferencesProvider, useI18n, usePreferences } from "./preferences";
+import { isLocale, localeRegistry } from "@/locales";
 import { ManagementNavigation } from "./navigation";
 import { Button } from "@/components/ui/button";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -180,20 +181,20 @@ function Chrome() {
                   <Globe size={19} />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
+              <DropdownMenuContent align="end" className="min-w-52">
                 <DropdownMenuRadioGroup
                   value={preferences.locale}
                   onValueChange={(value) => {
-                    if (value === "en" || value === "zh-Hant")
-                      preferences.setLocale(value);
+                    if (isLocale(value)) preferences.setLocale(value);
                   }}
                 >
-                  <DropdownMenuRadioItem value="zh-Hant">
-                    {t("traditionalChinese")}
-                  </DropdownMenuRadioItem>
-                  <DropdownMenuRadioItem value="en">
-                    {t("english")}
-                  </DropdownMenuRadioItem>
+                  {Object.entries(localeRegistry).map(([code, definition]) => (
+                    <DropdownMenuRadioItem key={code} value={code}>
+                      <bdi lang={code} dir={definition.direction}>
+                        {definition.nativeName}
+                      </bdi>
+                    </DropdownMenuRadioItem>
+                  ))}
                 </DropdownMenuRadioGroup>
               </DropdownMenuContent>
             </DropdownMenu>
