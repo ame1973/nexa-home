@@ -142,6 +142,10 @@ for (const [browserLocale, locale] of browserLocales) {
       ).toBeVisible();
       await layoutAndTargets(page);
       await page.keyboard.press("Escape");
+      await expect(page.getByRole("dialog")).toHaveCount(0);
+      await expect(
+        page.getByRole("button", { name: messages.chooseIcon, exact: true }),
+      ).toBeFocused();
       await page.evaluate(() => window.scrollTo(0, 0));
       await page.screenshot({
         path: testInfo.outputPath(`editor-${locale}-390.png`),

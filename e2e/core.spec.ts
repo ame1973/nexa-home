@@ -141,13 +141,11 @@ test("backup UI validates previews confirms replacement and downloads a restorab
 }, testInfo) => {
   await loginUI(page, app);
   await page.goto(`${app.url}/admin/backup`);
-  await page
-    .getByLabel("Backup JSON file", { exact: true })
-    .setInputFiles({
-      name: "restore.json",
-      mimeType: "application/json",
-      buffer: Buffer.from(JSON.stringify(backup(6))),
-    });
+  await page.getByLabel("Backup JSON file", { exact: true }).setInputFiles({
+    name: "restore.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(JSON.stringify(backup(6))),
+  });
   await page
     .getByRole("button", { name: "Validate backup", exact: true })
     .click();
@@ -207,15 +205,13 @@ test("uploaded cached icons remain local and icon dialog restores focus without 
   const choose = page.getByRole("button", { name: "Choose icon", exact: true });
   await choose.click();
   await page.getByRole("tab", { name: "Favicon", exact: true }).click();
-  await page
-    .getByLabel("Icon file", { exact: true })
-    .setInputFiles({
-      name: "cached.svg",
-      mimeType: "image/svg+xml",
-      buffer: Buffer.from(
-        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect width="24" height="24" fill="#405B82"/></svg>',
-      ),
-    });
+  await page.getByLabel("Icon file", { exact: true }).setInputFiles({
+    name: "cached.svg",
+    mimeType: "image/svg+xml",
+    buffer: Buffer.from(
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect width="24" height="24" fill="#405B82"/></svg>',
+    ),
+  });
   await page.getByRole("button", { name: "Upload", exact: true }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(choose).toBeFocused();
@@ -226,6 +222,9 @@ test("uploaded cached icons remain local and icon dialog restores focus without 
     .getByLabel("Primary URL", { exact: true })
     .fill(`${app.url}/healthz`);
   await page.getByRole("button", { name: "Save changes", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Services", exact: true }),
+  ).toBeVisible();
   await page.goto(app.url);
   const icon = page
     .getByRole("link", { name: /Cached icon service/ })
@@ -297,15 +296,13 @@ test("invalid SVG is rejected by the real upload endpoint without executing in t
   await page.goto(`${app.url}/admin/services/new`);
   await page.getByRole("button", { name: "Choose icon", exact: true }).click();
   await page.getByRole("tab", { name: "Upload", exact: true }).click();
-  await page
-    .getByLabel("Icon file", { exact: true })
-    .setInputFiles({
-      name: "active.svg",
-      mimeType: "image/svg+xml",
-      buffer: Buffer.from(
-        '<svg xmlns="http://www.w3.org/2000/svg"><script>alert("forbidden")</script></svg>',
-      ),
-    });
+  await page.getByLabel("Icon file", { exact: true }).setInputFiles({
+    name: "active.svg",
+    mimeType: "image/svg+xml",
+    buffer: Buffer.from(
+      '<svg xmlns="http://www.w3.org/2000/svg"><script>alert("forbidden")</script></svg>',
+    ),
+  });
   await page.getByRole("button", { name: "Upload", exact: true }).click();
   await expect(page.getByRole("dialog").getByRole("alert")).toBeVisible();
   const exported = await page.request.get(
