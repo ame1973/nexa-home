@@ -47,7 +47,7 @@ describe("complete locale dictionaries", () => {
         else if (numbers(en[key]).length)
           expect(numbers(message), key).toEqual(numbers(en[key]));
         if (definition.direction === "rtl") {
-          for (const [range] of message.matchAll(/\d+–\d+/g))
+          for (const [range] of message.matchAll(/\d+–\d+|\d+ MiB/g))
             expect(message, key).toContain(`\u{2066}${range}\u{2069}`);
         }
       }

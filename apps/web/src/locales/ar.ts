@@ -7,7 +7,7 @@ export const ar: Record<MessageKey, string> = {
   reloadSettingsHint:
     "تجاهل الإعدادات المشتركة غير المحفوظة وتحميل أحدث مراجعة.",
   backupFileHint:
-    "ملف JSON بترميز UTF-8، بحد أقصى 16 MiB. لا يستبدل التحقق الإعدادات الحالية أبدًا.",
+    "ملف JSON بترميز UTF-8، بحد أقصى \u{2066}16 MiB\u{2069}. لا يستبدل التحقق الإعدادات الحالية أبدًا.",
   collapseNavigation: "طي التنقل",
   expandNavigation: "توسيع التنقل",
   sort: "الترتيب",
@@ -221,14 +221,15 @@ export const ar: Record<MessageKey, string> = {
   exportBackup: "تصدير نسخة احتياطية",
   includeIcons: "تضمين ملفات الأيقونات",
   exportHint:
-    "يُرجى تضمين الأيقونات لاستعادة النسخة بالكامل. الحد الأقصى للإعداد الكامل هو 16 MiB.",
+    "يُرجى تضمين الأيقونات لاستعادة النسخة بالكامل. الحد الأقصى للإعداد الكامل هو \u{2066}16 MiB\u{2069}.",
   exported: "بدأ تنزيل النسخة الاحتياطية.",
   restoreBackup: "استعادة نسخة احتياطية",
   backupFile: "ملف JSON للنسخة الاحتياطية",
   validateBackup: "التحقق من النسخة الاحتياطية",
   validating: "جارٍ التحقق…",
   invalidJson: "يُرجى اختيار نسخة JSON احتياطية صالحة من Nexa Home.",
-  backupTooLarge: "يجب ألا يتجاوز ملف النسخة الاحتياطية 16 MiB.",
+  backupTooLarge:
+    "يجب ألا يتجاوز ملف النسخة الاحتياطية \u{2066}16 MiB\u{2069}.",
   restorePreview: "معاينة الاستعادة",
   restoreWarning: "استبدال الإعدادات بالكامل؟",
   restoreDescription:
@@ -247,7 +248,7 @@ export const ar: Record<MessageKey, string> = {
   favicon: "أيقونة الموقع",
   searchIcons: "البحث في أسماء الأيقونات…",
   uploadHint:
-    "PNG أو WebP أو SVG آمن، بحد أقصى 1 MiB. يجب ألا تتجاوز أبعاد الصور النقطية \u{2066}512 × 512\u{2069}.",
+    "PNG أو WebP أو SVG آمن، بحد أقصى \u{2066}1 MiB\u{2069}. يجب ألا تتجاوز أبعاد الصور النقطية \u{2066}512 × 512\u{2069}.",
   faviconHint:
     "رفع ملف أيقونة موقع محفوظ. لا يجلب Nexa Home أيقونات بعيدة ولا يفحص خدماتك مطلقًا.",
   iconFile: "ملف الأيقونة",
@@ -262,7 +263,7 @@ export const ar: Record<MessageKey, string> = {
     "يمكن حذف الأيقونات التي لا توجد مراجع لها فقط. لا يمكن التراجع عن هذا الإجراء.",
   iconDeleted: "تم حذف الأيقونة.",
   iconConflict: "ما زالت خدمة تشير إلى هذه الأيقونة. يُرجى تغيير الخدمة أولًا.",
-  iconTooLarge: "يجب ألا تتجاوز الأيقونة 1 MiB.",
+  iconTooLarge: "يجب ألا تتجاوز الأيقونة \u{2066}1 MiB\u{2069}.",
   unsavedTitle: "تجاهل التغييرات غير المحفوظة؟",
   unsavedDescription: "لم تُحفظ التعديلات بعد.",
   keepEditing: "متابعة التعديل",
