@@ -402,6 +402,7 @@ function publisherFixture(version = "1.0.0") {
 
 function publishingTools(input, options = {}) {
   const calls = [];
+  let tagChecks = 0;
   const nativeDigests = {
     amd64: `sha256:${"1".repeat(64)}`,
     arm64: `sha256:${"2".repeat(64)}`,
@@ -430,6 +431,20 @@ function publishingTools(input, options = {}) {
     if (name === "gh") {
       if (args[0] === "api") {
         if (options.apiFailure) throw new Error("Synthetic API failure");
+        if (args.at(-1).includes("/git/ref/tags/")) {
+          tagChecks++;
+          const sha =
+            options.movedTag || (options.moveDuringPublish && tagChecks > 1)
+              ? "e".repeat(40)
+              : revision;
+          return JSON.stringify({
+            object: options.annotated
+              ? { type: "tag", sha: "d".repeat(40) }
+              : { type: "commit", sha },
+          });
+        }
+        if (args.at(-1).includes("/git/tags/"))
+          return JSON.stringify({ object: { type: "commit", sha: revision } });
         return JSON.stringify([options.releases || []]);
       }
       assert.equal(args[0], "release");
@@ -639,6 +654,34 @@ test("publishing reuses the two tested image archives and verifies immutable dig
   }
 });
 
+test("annotated tags are resolved and checked again immediately before publication", () => {
+  const input = publisherFixture();
+  const tools = publishingTools(input, { annotated: true });
+  publish(input, tools);
+  assert.equal(
+    tools.calls.filter(
+      (call) => call[0] === "gh" && call.at(-1).includes("/git/ref/tags/"),
+    ).length,
+    2,
+  );
+  assert.equal(
+    tools.calls.filter(
+      (call) => call[0] === "gh" && call.at(-1).includes("/git/tags/"),
+    ).length,
+    2,
+  );
+});
+
+test("a tag moved before or during image publication never becomes a public release or latest", () => {
+  for (const options of [{ movedTag: true }, { moveDuringPublish: true }]) {
+    const input = publisherFixture();
+    const tools = publishingTools(input, options);
+    assert.throws(() => publish(input, tools), /tag moved/);
+    assert.equal(releaseEdits(tools.calls).length, 0);
+    assert.equal(latestCreates(tools.calls).length, 0);
+  }
+});
+
 test("native OCI indexes with BuildKit attestations are merged without changing runtime digests", () => {
   const input = publisherFixture();
   const tools = publishingTools(input, { nested: true });
@@ -775,6 +818,78 @@ test("invalid run identities cannot become registry tags", () => {
       }),
     );
     assert.equal(tools.calls.length, 0);
+  }
+});
+
+test("metadata resolves lightweight and annotated source references to the checked-out commit", () => {
+  const script = resolve("scripts/release.mjs");
+  for (const annotated of [false, true]) {
+    const { root } = fixture();
+    const git = (args) => {
+      const result = spawnSync(
+        "git",
+        [
+          "-c",
+          "core.hooksPath=/dev/null",
+          "-c",
+          "commit.gpgsign=false",
+          "-c",
+          "tag.gpgsign=false",
+          "-c",
+          "user.name=Nexa Release Fixture",
+          "-c",
+          "user.email=fixture@example.invalid",
+          ...args,
+        ],
+        { cwd: root, encoding: "utf8" },
+      );
+      assert.equal(result.status, 0, "Prepare only the isolated Git fixture");
+      return result.stdout.trim();
+    };
+    git(["init", "--initial-branch=fixture"]);
+    git(["add", "."]);
+    git(["commit", "-m", "test: create release fixture"]);
+    const commit = git(["rev-parse", "HEAD"]);
+    git(
+      annotated
+        ? ["tag", "-a", "v1.0.0", "-m", "Release fixture"]
+        : ["tag", "v1.0.0"],
+    );
+    const reference = git(["rev-parse", "v1.0.0"]);
+    const output = join(root, "workflow-output");
+    const env = {
+      ...process.env,
+      GITHUB_REF_TYPE: "tag",
+      GITHUB_REF_NAME: "v1.0.0",
+      GITHUB_REPOSITORY: "Owner/Nexa-Home",
+      GITHUB_SHA: reference,
+      GITHUB_OUTPUT: output,
+    };
+    const result = spawnSync(process.execPath, [script, "metadata"], {
+      cwd: root,
+      encoding: "utf8",
+      env,
+    });
+    assert.equal(result.status, 0);
+    const values = Object.fromEntries(
+      readFileSync(output, "utf8")
+        .trim()
+        .split("\n")
+        .map((line) => line.split("=")),
+    );
+    assert.equal(values.revision, commit);
+    assert.equal(values.version, "1.0.0");
+    assert.equal(values.image, "ghcr.io/owner/nexa-home");
+    writeFileSync(join(root, "different-source"), "Another source commit");
+    git(["add", "different-source"]);
+    git(["commit", "-m", "test: change isolated source fixture"]);
+    const mismatch = spawnSync(process.execPath, [script, "metadata"], {
+      cwd: root,
+      encoding: "utf8",
+      env,
+    });
+    assert.notEqual(mismatch.status, 0);
+    assert.match(mismatch.stderr, /Checkout must match/);
   }
 });
 

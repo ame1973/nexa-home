@@ -422,6 +422,32 @@ export function verifyRelease(directory, metadata) {
   );
 }
 
+function requireCurrentTag(metadata, run) {
+  let target = JSON.parse(
+    run("gh", [
+      "api",
+      `repos/${metadata.repository}/git/ref/tags/${encodeURIComponent(metadata.tag)}`,
+    ]),
+  ).object;
+  for (let depth = 0; target?.type === "tag" && depth < 8; depth++) {
+    assert.match(target.sha, /^[0-9a-f]{40}$/);
+    assert.equal(target.sha.length, 40);
+    target = JSON.parse(
+      run("gh", ["api", `repos/${metadata.repository}/git/tags/${target.sha}`]),
+    ).object;
+  }
+  assert.equal(
+    target?.type,
+    "commit",
+    "The release tag must resolve to a commit",
+  );
+  assert.equal(
+    target.sha,
+    metadata.revision,
+    "The release tag moved after verification",
+  );
+}
+
 export function publishRelease({
   metadata,
   directory = "release-artifacts",
@@ -438,6 +464,7 @@ export function publishRelease({
       "Invalid workflow run identity",
     );
   const records = verifyRelease(directory, metadata);
+  requireCurrentTag(metadata, run);
   const pages = JSON.parse(
     run("gh", [
       "api",
@@ -619,6 +646,7 @@ export function publishRelease({
     ],
     { timeout: 300_000 },
   );
+  requireCurrentTag(metadata, run);
   if (latest) {
     const promoted = join(directory, "latest-image.json");
     run(
@@ -661,10 +689,23 @@ function metadataFromEnvironment() {
     "tag",
     "Publishing requires an explicit version tag",
   );
+  const requested = process.env.GITHUB_SHA;
+  assert.ok(
+    typeof requested === "string" &&
+      requested.length === 40 &&
+      /^[0-9a-f]+$/.test(requested),
+    "A full workflow source SHA is required",
+  );
+  const revision = command("git", ["rev-parse", "HEAD"]);
+  assert.equal(
+    command("git", ["rev-parse", `${requested}^{commit}`]),
+    revision,
+    "Checkout must match the triggering source commit",
+  );
   return releaseMetadata({
     tag: process.env.GITHUB_REF_NAME,
     repository: process.env.GITHUB_REPOSITORY,
-    revision: process.env.GITHUB_SHA,
+    revision,
   });
 }
 
@@ -674,6 +715,18 @@ function main() {
   if (operation === "version") {
     console.log(sourceVersion());
     return;
+  }
+  if (operation === "publish") {
+    assert.equal(
+      process.env.GITHUB_ACTIONS,
+      "true",
+      "Publication is allowed only in the release workflow",
+    );
+    assert.ok(
+      ["push", "workflow_dispatch"].includes(process.env.GITHUB_EVENT_NAME),
+      "Only a tag push or explicit tag dispatch may publish",
+    );
+    assert.ok(process.env.GH_TOKEN, "A job-scoped GitHub token is required");
   }
   const metadata = metadataFromEnvironment();
   if (operation === "metadata") {
@@ -696,16 +749,6 @@ function main() {
     verifyRelease("release-artifacts", metadata);
     console.log("Both release artifacts match the version and source commit.");
   } else if (operation === "publish") {
-    assert.equal(
-      process.env.GITHUB_ACTIONS,
-      "true",
-      "Publication is allowed only in the release workflow",
-    );
-    assert.ok(
-      ["push", "workflow_dispatch"].includes(process.env.GITHUB_EVENT_NAME),
-      "Only a tag push or explicit tag dispatch may publish",
-    );
-    assert.ok(process.env.GH_TOKEN, "A job-scoped GitHub token is required");
     const result = publishRelease({
       metadata,
       runId: process.env.GITHUB_RUN_ID,

@@ -2,8 +2,16 @@ name: Verify
 
 on:
   push:
+    branches: ["**"]
   pull_request:
   workflow_dispatch:
+  workflow_call:
+    inputs:
+      release_version:
+        description: Validated tag version whose tested artifacts should be exported
+        type: string
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -41,6 +49,18 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
+      - name: Validate build version
+        id: version
+        env:
+          RELEASE_VERSION: ${{ inputs.release_version }}
+        run: |
+          version=$(node scripts/release.mjs version)
+          if [ -n "$RELEASE_VERSION" ] && [ "$RELEASE_VERSION" != "$version" ]; then
+            printf '%s\n' 'The requested release and source versions must match.' >&2
+            exit 1
+          fi
+          printf 'version=%s\n' "$version" >> "$GITHUB_OUTPUT"
+          printf 'revision=%s\n' "$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
       - name: Install locked dependencies
         run: npm ci --ignore-scripts
       - name: Check contracts and generated artifacts
@@ -55,6 +75,7 @@ jobs:
           npm run typecheck
           npm run lint:web
           npm run test:build
+          npm run test:release
           npm run test:web
           npm run build
           npm run notices -- --check
@@ -82,10 +103,34 @@ jobs:
       - name: Test the built application in Chromium
         run: npm exec -- playwright test
       - name: Build the native OCI image without publishing
+        env:
+          BUILD_VERSION: ${{ steps.version.outputs.version }}
+          BUILD_REVISION: ${{ steps.version.outputs.revision }}
+          SOURCE_URL: https://github.com/${{ github.repository }}
         run: |
           docker buildx build --platform "$NEXA_TEST_PLATFORM" --load \
+            --build-arg "VERSION=$BUILD_VERSION" \
+            --build-arg "REVISION=$BUILD_REVISION" --build-arg "SOURCE=$SOURCE_URL" \
             --tag "$NEXA_TEST_IMAGE" --file deploy/Dockerfile .
       - name: Test real Compose deployment
         run: npm run test:container
       - name: Scan the runtime image without a daemon socket
         run: npm run scan:image
+      - name: Export the tested release executable and image
+        if: ${{ inputs.release_version != '' && github.ref_type == 'tag' }}
+        run: |
+          node scripts/release.mjs package
+          arch=${NEXA_TEST_PLATFORM#linux/}
+          go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 \
+            -mode=binary -show verbose "release-artifacts/$arch/nexa-home"
+      - name: Retain only verified release artifacts
+        if: ${{ inputs.release_version != '' && github.ref_type == 'tag' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-linux-${{ matrix.arch }}
+          path: release-artifacts/${{ matrix.arch }}/
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
+          include-hidden-files: false
+          archive: true

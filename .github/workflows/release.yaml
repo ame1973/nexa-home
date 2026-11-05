@@ -1,0 +1,89 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  metadata:
+    name: Validate release tag
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.release.outputs.version }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24.14.1
+      - name: Require a matching SemVer tag and locked source versions
+        id: release
+        run: node scripts/release.mjs metadata
+
+  verify:
+    name: Verify both native Linux architectures
+    needs: metadata
+    permissions:
+      contents: read
+    uses: ./.github/workflows/ci.yaml
+    with:
+      release_version: ${{ needs.metadata.outputs.version }}
+
+  publish:
+    name: Publish tested images and GitHub Release
+    needs: [metadata, verify]
+    if: ${{ github.ref_type == 'tag' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment: release
+    concurrency:
+      group: release-publish-${{ github.repository }}
+      cancel-in-progress: false
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24.14.1
+      - name: Download only this run's architecture artifacts
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: release-linux-*
+          path: release-artifacts
+          merge-multiple: false
+          skip-decompress: false
+      - name: Verify the complete artifact set before registry authentication
+        run: node scripts/release.mjs verify
+      - name: Authenticate only this publishing job to GHCR
+        env:
+          DOCKER_CONFIG: ${{ runner.temp }}/nexa-release-docker
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          install -d -m 700 "$DOCKER_CONFIG"
+          printf '%s' "$GH_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+      - name: Publish exact tested images and versioned downloads
+        env:
+          DOCKER_CONFIG: ${{ runner.temp }}/nexa-release-docker
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/release.mjs publish
+      - name: Remove temporary registry credentials
+        if: ${{ always() }}
+        env:
+          DOCKER_CONFIG: ${{ runner.temp }}/nexa-release-docker
+        run: docker logout ghcr.io
