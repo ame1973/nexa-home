@@ -11,6 +11,7 @@ const translations = [
   ["docs/deployment.md", "docs/zh-Hant/deployment.md"],
   ["docs/backup-and-recovery.md", "docs/zh-Hant/backup-and-recovery.md"],
   ["docs/release-notes-1.0.0.md", "docs/zh-Hant/release-notes-1.0.0.md"],
+  ["docs/releases.md", "docs/zh-Hant/releases.md"],
   ["licenses/readme.md", "licenses/readme.zh-Hant.md"],
 ];
 const documents = translations.flat();

@@ -9,7 +9,7 @@
 - Private, writable, persistent **local** storage. Do not use live SQLite on NFS/SMB, a synchronized folder, or a shared multi-writer volume.
 - An HTTPS reverse proxy and a trusted certificate for remote access. A firewall must prevent bypassing that proxy.
 
-Build from a reviewed source checkout and its dependency lockfiles. These instructions build locally; they do not assume that any registry image or release tag has been published.
+Build from a reviewed source checkout and its dependency lockfiles. These instructions build locally; they do not assume that any registry image or release tag has been published. To use an existing published image without rebuilding it, follow the [release guide](releases.md#use-a-published-image).
 
 ## Docker Compose
 

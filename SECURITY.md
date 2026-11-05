@@ -52,6 +52,12 @@ The supplied container runs as UID/GID `10001:10001` with a read-only root files
 
 Logs contain structured route templates, status, request ID and timing rather than request bodies, cookie headers or query strings. The first-run setup-token message is the deliberate local exception. Restrict Docker/NAS log access, rotate logs and do not upload unredacted startup logs. There is no remote telemetry.
 
+## Release workflow trust
+
+Version tags can publish executable code and container images. Protect tag creation/updates and review workflow, release-script and lockfile changes. Configure the `release` environment's reviewers and tag restrictions explicitly; the YAML environment name alone does not require approval. Tag issuers, workflow maintainers and package administrators remain trusted operators.
+
+Branch/PR verification is read-only. Only the gated publishing job receives short-lived release/package write permission, and registry authentication is confined to a private runner-temporary Docker configuration. It downloads only the current run's declared architecture artifacts, checks source/version/architecture and hashes, loads the tested OCI archives without rebuilding, and verifies immutable runtime descriptors before publishing the GitHub draft. Credentials, application data and runtime logs are not release artifacts. Failed publication may leave partial registry state or an unpublished draft because GitHub Releases and GHCR do not share an atomic transaction. See [release operation and recovery](docs/releases.md).
+
 ## Dependency checks and the OpenPGP advisory
 
 Run the following on a frontend-built source tree:

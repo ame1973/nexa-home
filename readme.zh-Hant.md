@@ -31,6 +31,7 @@ docker compose --env-file deploy/.env -f deploy/compose.yaml exec -T nexa-home /
 - [部署、HTTPS 代理、儲存與疑難排解](docs/zh-Hant/deployment.md)
 - [備份、升級、版本回復與憑證遺失復原](docs/zh-Hant/backup-and-recovery.md)
 - [安全邊界與經審查的相依套件政策](SECURITY.zh-Hant.md)
+- [版本 tag、GitHub Release 與 GHCR 發布](docs/zh-Hant/releases.md)
 - [更新紀錄](CHANGELOG.zh-Hant.md)與 [1.0.0 版本說明](docs/zh-Hant/release-notes-1.0.0.md)
 
 這些本機建置說明不代表已發布登錄檔映像，或已執行託管 CI。原始映像掃描仍保留未使用的 OpenPGP 模組公告。經審查的例外僅限特定路徑與版本，於 2027-02-01 到期，且只有在沒有直接或轉移執行期相依套件使用 OpenPGP 時才有效；詳見安全說明。其他發現仍會使檢查失敗。
@@ -51,6 +52,7 @@ npm run build
 
 ```sh
 GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -trimpath \
+  -ldflags "-X main.version=$(node scripts/release.mjs version)" \
   -o bin/nexa-home-linux-arm64 ./cmd/nexa-home
 ```
 
@@ -178,6 +180,7 @@ npm run test:contract
 npm run typecheck
 npm run lint:web
 npm run test:build
+npm run test:release
 npm run test:security-policy
 npm run test:docs
 npm run test:web
@@ -194,7 +197,7 @@ npm run test:e2e
 
 瀏覽器測試會啟動實際建置的 Go 執行檔，每個測試使用新的私有目錄，涵蓋真實設定／登入、CRUD、完整排序範圍、備份／還原、CSP、工作階段撤銷、響應式觸控目標、真正的 axe 對比檢查，以及 1000 筆服務的輸入至繪製時間量測。為避免憑證進入產物，已停用 trace、影片及自動失敗截圖；明確產生的截圖只使用合成資料及空白憑證欄位。
 
-建置 Docker 映像後，`npm run test:container` 會驗證真實 Compose 部署、全新資料卷的冷備份復原，以及含 Secure Cookie 與精確 Origin 檢查的 HTTPS。測試需要 Docker／Compose、tar 與 OpenSSL，只會建立自己的隔離資源，且不會安裝主機 CA 或特權模擬器。`npm run scan:image` 使用固定版本的 Trivy 掃描已儲存的映像，不會暴露 Docker daemon socket。未處理的發現會以非零狀態回報並保持可見；經審查的抑制項目會在報告中保留理由與來源，報告僅存於本機且已被 Git 忽略。CI 工作流程定義原生 amd64／arm64 驗證，沒有發布或部署步驟。
+建置 Docker 映像後，`npm run test:container` 會驗證真實 Compose 部署、全新資料卷的冷備份復原，以及含 Secure Cookie 與精確 Origin 檢查的 HTTPS。測試需要 Docker／Compose、tar 與 OpenSSL，只會建立自己的隔離資源，且不會安裝主機 CA 或特權模擬器。`npm run scan:image` 使用固定版本的 Trivy 掃描已儲存的映像，不會暴露 Docker daemon socket。未處理的發現會以非零狀態回報並保持可見；經審查的抑制項目會在報告中保留理由與來源，報告僅存於本機且已被 Git 忽略。Verify 工作流程執行原生 amd64／arm64 驗證，不取得登錄檔憑證。獨立的版本 tag Release 工作流程，只有在兩個架構工作都通過後，才會將確切已驗證映像發布至 GHCR，並提供版本化執行檔與校驗檔；詳見[發行設定與操作](docs/zh-Hant/releases.md)。兩個流程都不會將應用程式部署至遠端伺服器。
 
 HTTP 契約位於 [api/openapi.yaml](api/openapi.yaml)；產生的 JSON 與 TypeScript 會檢查是否偏離來源。請勿手動修改產生的檔案。
 
