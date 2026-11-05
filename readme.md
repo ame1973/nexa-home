@@ -1,5 +1,7 @@
 # Nexa Home
 
+**English** | [繁體中文](readme.zh-Hant.md)
+
 A self-hosted launcher for the services you use every day. Nexa Home pairs a restrained Future Glass interface with a single Go process, a local SQLite database, and locally stored icons.
 
 - One administrator, protected first-run setup, and public or private homepage access.

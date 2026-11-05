@@ -1,5 +1,7 @@
 # Nexa Home 1.0.0 release notes
 
+**English** | [繁體中文](zh-Hant/release-notes-1.0.0.md)
+
 **Status: 1.0.0 implementation and local deployment verification complete.** These notes do not imply a published registry image/tag or successful hosted CI run. Build from the reviewed source checkout. The unused OpenPGP module advisory below has a reviewed conditional, expiring exception; it is not hidden or described as absent.
 
 ## What this version provides

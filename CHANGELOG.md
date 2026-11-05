@@ -1,5 +1,7 @@
 # Changelog
 
+**English** | [繁體中文](CHANGELOG.zh-Hant.md)
+
 Notable user-visible changes are recorded here. Versions follow Semantic Versioning. An unreleased section is not a published artifact, a release tag or a claim that every release gate is clear.
 
 ## 1.0.0 — 2026-11-05
@@ -13,7 +15,7 @@ Notable user-visible changes are recorded here. Versions follow Semantic Version
 - Local Lucide icons and bounded validated PNG/WebP/inert SVG uploads, with private/reference-aware delivery and safe deletion.
 - Full portable JSON export, validated restore preview, explicit replacement and bounded single-use import tokens; destination authentication/audit state is preserved.
 - One CGO-free Linux Go executable with embedded frontend, SQLite, structured UTC logs, healthcheck, graceful shutdown, private single-writer storage and offline doctor.
-- Pinned nonroot scratch Docker images for Linux amd64/arm64, hardened Compose deployment, HTTPS proxy example and complete backup/upgrade/recovery documentation.
+- Pinned nonroot scratch Docker images for Linux amd64/arm64, hardened Compose deployment, HTTPS proxy example and complete Traditional Chinese/English deployment/security/backup/upgrade/recovery documentation.
 - Dependency license notices retained with binary/container distributions; verification is reproducible from locked dependencies.
 
 ### Limits and compatibility

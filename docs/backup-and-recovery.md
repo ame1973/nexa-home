@@ -1,5 +1,7 @@
 # Backup, upgrade and recovery
 
+**English** | [繁體中文](zh-Hant/backup-and-recovery.md)
+
 Keep at least one encrypted copy outside the application data directory and a second failure domain outside the NAS. Choose retention appropriate to your data and test recovery periodically in separate storage. A backup that has never been restored is not sufficient assurance.
 
 ## Two different backup types

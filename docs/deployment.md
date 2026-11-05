@@ -1,5 +1,7 @@
 # Deployment
 
+**English** | [繁體中文](zh-Hant/deployment.md)
+
 ## Prerequisites
 
 - A Linux `amd64` (x86-64) or `arm64` (AArch64) host, or Docker running Linux containers.

@@ -1,5 +1,7 @@
 # Retained upstream license sources
 
+**English** | [繁體中文](readme.zh-Hant.md)
+
 Nexa Home's own license is the root `LICENSE`. `THIRD_PARTY_NOTICES.md` retains third-party copyright notices and license texts for redistribution. `npm run notices -- --check` verifies that the inventory still matches the installed locked dependencies and imported Go modules.
 
 Two upstream texts are retained separately:

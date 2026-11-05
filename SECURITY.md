@@ -1,5 +1,7 @@
 # Security
 
+**English** | [繁體中文](SECURITY.zh-Hant.md)
+
 ## Supported scope and reporting
 
 Nexa Home 1.0.x is a single-administrator application for a trusted self-hosting operator. Keep the application, browser and reverse proxy patched. It is not an identity provider, a multi-tenant boundary, a Docker control plane or a replacement for a firewall. Do not grant it a Docker socket, host networking, privileged mode or access to unrelated NAS files.
