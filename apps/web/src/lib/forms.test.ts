@@ -33,7 +33,7 @@ describe('validation trust boundaries', () => {
 
 it('keeps every registry icon and locale key aligned', () => {
   expect(Object.keys(iconRegistry).sort()).toEqual([...iconNames].sort());expect(Object.keys(zhHant).sort()).toEqual(Object.keys(en).sort());
-  expect(detectLocale(['en-US'])).toBe('en');expect(detectLocale(['zh-TW'])).toBe('zh-Hant');expect(detectLocale(['fr-FR'])).toBe('zh-Hant');
+  expect(detectLocale(['en-US'])).toBe('en');expect(detectLocale(['zh-TW'])).toBe('zh-Hant');expect(detectLocale(['fr-FR'])).toBe('fr');
 });
 
 it('computes AA foreground and readable accent colors in both themes', () => {
