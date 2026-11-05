@@ -142,8 +142,11 @@ function Chrome() {
                     <Menu size={20} />
                   </Button>
                 </SheetTrigger>
-                <SheetContent side="left" showCloseButton={false}>
-                  <SheetHeader className="pr-14">
+                <SheetContent
+                  side={preferences.direction === "rtl" ? "right" : "left"}
+                  showCloseButton={false}
+                >
+                  <SheetHeader className="pe-14">
                     <SheetTitle>Nexa Home</SheetTitle>
                     <SheetDescription>{t("navigation")}</SheetDescription>
                   </SheetHeader>
@@ -156,7 +159,7 @@ function Chrome() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="absolute top-2 right-2"
+                      className="absolute top-2 end-2"
                       aria-label={t("close")}
                     >
                       <X size={18} />
@@ -169,7 +172,7 @@ function Chrome() {
               <span className="brand-symbol">
                 <House size={21} aria-hidden="true" />
               </span>
-              <span className="brand-name">
+              <span className="brand-name" dir="auto">
                 {bootstrap.data?.settings.siteTitle ?? "Nexa Home"}
               </span>
             </Link>
@@ -318,9 +321,9 @@ export function AdminLayout() {
           onClick={() => setCollapsed((value) => !value)}
         >
           {collapsed ? (
-            <PanelLeftOpen size={19} />
+            <PanelLeftOpen size={19} className="rtl:scale-x-[-1]" />
           ) : (
-            <PanelLeftClose size={19} />
+            <PanelLeftClose size={19} className="rtl:scale-x-[-1]" />
           )}
         </Button>
         <div id="admin-sidebar-links">

@@ -129,9 +129,12 @@ export const test = base.extend<{ app: App; browserErrors: string[] }>({
       await page.addInitScript(() => {
         const state = window as Window & { nexaCSPViolations?: string[] };
         state.nexaCSPViolations = [];
-        window.addEventListener("securitypolicyviolation", (event) =>
-          state.nexaCSPViolations?.push(event.effectiveDirective),
-        );
+        window.addEventListener("securitypolicyviolation", (event) => {
+          const source = new URL(event.sourceFile || location.href).pathname;
+          state.nexaCSPViolations?.push(
+            `${event.effectiveDirective} ${source}:${event.lineNumber}`,
+          );
+        });
       });
       await use(errors);
       const violations = await page
@@ -141,8 +144,8 @@ export const test = base.extend<{ app: App; browserErrors: string[] }>({
               .nexaCSPViolations ?? [],
         )
         .catch(() => []);
-      expect(errors, "uncaught browser exceptions").toEqual([]);
       expect(violations, "production CSP violations").toEqual([]);
+      expect(errors, "uncaught browser exceptions").toEqual([]);
     },
     { auto: true },
   ],

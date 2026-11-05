@@ -95,6 +95,8 @@
   h1, h2, h3, p { margin: 0; }
   h1 { font-size: clamp(1.6rem, 3vw, 2rem); font-weight: 650; line-height: 1.2; letter-spacing: -.035em; }
   h2 { font-size: 1.15rem; font-weight: 600; letter-spacing: -.02em; }
+  html:is(:lang(ar), :lang(hi)) :is(h1, h2, .brand) { letter-spacing: normal; }
+  code { direction: ltr; unicode-bidi: isolate; }
   :focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
   ::selection { background: color-mix(in srgb, var(--accent) 30%, transparent); }
 }
@@ -116,7 +118,7 @@
 .hero { text-align: center; padding: 32px 0 40px; }
 .hero h1 { font-size: clamp(2rem, 4vw, 3rem); font-weight: 600; }
 .hero p { color: var(--text-secondary); margin: 12px auto 24px; max-width: 64ch; }
-.search-box { display: flex; align-items: center; gap: 12px; max-width: 640px; margin: auto; border: 1px solid var(--control-border); border-radius: 16px; padding: 4px 12px 4px 16px; box-shadow: var(--shadow); }
+.search-box { display: flex; align-items: center; gap: 12px; max-width: 640px; margin: auto; border: 1px solid var(--control-border); border-radius: 16px; padding-block: 4px; padding-inline: 16px 12px; box-shadow: var(--shadow); }
 .search-box:focus-within { outline: 2px solid var(--focus); outline-offset: 3px; }
 .search-box input { border: 0; outline: none; background: transparent; box-shadow: none; min-width: 0; width: 100%; height: 52px; }
 .search-box input:focus-visible { outline: none; box-shadow: none; }
@@ -159,7 +161,7 @@
 .admin-shell[data-collapsed="true"] { grid-template-columns: 80px minmax(0, 1fr); }
 .admin-shell[data-collapsed="true"] .admin-nav { padding-left: 12px; padding-right: 12px; }
 .admin-shell[data-collapsed="true"] .nav-link { justify-content: center; }
-.admin-nav { border-right: 1px solid var(--border); padding: 24px 16px; background: var(--surface); }
+.admin-nav { border-inline-end: 1px solid var(--border); padding: 24px 16px; background: var(--surface); }
 .admin-nav nav, .mobile-navigation { display: grid; gap: 8px; }
 .nav-link { display: flex; align-items: center; gap: 12px; padding: 12px; min-height: 44px; border-radius: 10px; color: var(--text-secondary); }
 .nav-link:hover { color: var(--text-primary); background: var(--surface-elevated); }
@@ -194,7 +196,7 @@
 .notice strong { color: var(--text-primary); }
 .result-summary { display: flex; flex-wrap: wrap; gap: 12px 24px; margin: 16px 0; }
 .site-footer { text-align: center; padding: 24px; color: var(--text-secondary); font-size: .8125rem; }
-.skip-link { position: fixed; left: 16px; top: -100px; z-index: 100; padding: 12px 20px; border-radius: 10px; background: var(--surface-elevated); }
+.skip-link { position: fixed; inset-inline-start: 16px; top: -100px; z-index: 100; padding: 12px 20px; border-radius: 10px; background: var(--surface-elevated); }
 .skip-link:focus { top: 12px; }
 mark { background: color-mix(in srgb, var(--accent) 20%, transparent); color: inherit; border-radius: 2px; }
 .group\/button, [data-slot="input"], [data-slot="select-trigger"], [data-slot="select-item"], [data-slot="dropdown-menu-item"], [data-slot="dropdown-menu-checkbox-item"], [data-slot="dropdown-menu-radio-item"], [data-slot="tabs-trigger"] { min-height: 44px; }
@@ -208,7 +210,7 @@ mark { background: color-mix(in srgb, var(--accent) 20%, transparent); color: in
 [data-glass="false"] [data-slot="dialog-content"], [data-glass="false"] [data-slot="alert-dialog-content"] { backdrop-filter: none; background: var(--surface-elevated); }
 [data-slot="switch"] { min-width: 44px; }
 [data-slot="tabs-list"] { min-height: 52px; }
-[data-sonner-toast] [data-close-button] { width: 44px; height: 44px; }
+[data-sonner-toast][data-styled="true"] button[data-close-button] { width: 44px; height: 44px; }
 .error-state { overflow-wrap: anywhere; }
 
 @media (min-width: 1024px) and (max-width: 1279px) {
@@ -241,10 +243,10 @@ mark { background: color-mix(in srgb, var(--accent) 20%, transparent); color: in
   .brand-name { max-width: 15ch; }
   .header-label, .shortcut { display: none; }
   .page { padding: 24px 16px 56px; }
-  .hero { text-align: left; padding: 20px 0 24px; }
+  .hero { text-align: start; padding: 20px 0 24px; }
   .hero h1 { font-size: 2rem; }
-  .hero p { margin-left: 0; }
-  .search-box { padding-left: 12px; }
+  .hero p { margin-inline-start: 0; }
+  .search-box { padding-inline-start: 12px; }
   .service-grid, [data-density="compact"] .service-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
   .service-tile { padding: 16px; min-height: 152px; }
   .page-heading { gap: 16px; flex-wrap: wrap; }

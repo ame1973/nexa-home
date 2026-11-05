@@ -217,6 +217,7 @@ function AppearanceForm({ settings }: { settings: Settings }) {
                   error={invalid("accent", colorValid, "invalidColor")}
                 >
                   <Input
+                    dir="ltr"
                     value={value.accent}
                     onBlur={() => touch("accent")}
                     onChange={(event) => update("accent", event.target.value)}

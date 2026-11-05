@@ -313,6 +313,7 @@ function ServiceForm({
                     error={errorFor("color")}
                   >
                     <Input
+                      dir="ltr"
                       value={value.color}
                       onBlur={() => touch("color")}
                       spellCheck={false}

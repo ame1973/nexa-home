@@ -227,7 +227,7 @@ export function ModalContent({
       }}
       className={`sm:max-w-xl ${className}`}
     >
-      <DialogHeader className="pr-12">
+      <DialogHeader className="pe-12">
         <DialogTitle>{title}</DialogTitle>
         {description ? (
           <DialogDescription>{description}</DialogDescription>
@@ -241,7 +241,7 @@ export function ModalContent({
           disabled={busy}
           variant="ghost"
           size="icon"
-          className="absolute top-2 right-2"
+          className="absolute top-2 end-2"
           aria-label={t("close")}
         >
           <X aria-hidden="true" size={18} />

@@ -428,7 +428,7 @@ export function ServicesPage() {
                   <TableHead scope="col" className="desktop-column">
                     {t("visible")}
                   </TableHead>
-                  <TableHead scope="col" className="text-right">
+                  <TableHead scope="col" className="text-end">
                     {t("actions")}
                   </TableHead>
                 </TableRow>
@@ -524,7 +524,7 @@ export function ServicesPage() {
                         </span>
                       </TableCell>
                       <TableCell className="desktop-column" data-column="host">
-                        <span className="block max-w-40 truncate" title={host}>
+                        <span className="block max-w-40 truncate" dir="ltr" title={host}>
                           {host}
                         </span>
                       </TableCell>

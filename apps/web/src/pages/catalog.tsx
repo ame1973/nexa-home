@@ -130,7 +130,7 @@ function CatalogPage({ kind }: { kind: Kind }) {
                     </TableHead>
                   </>
                 )}
-                <TableHead scope="col" className="text-right">
+                <TableHead scope="col" className="text-end">
                   {t("actions")}
                 </TableHead>
               </TableRow>

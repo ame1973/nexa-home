@@ -116,12 +116,13 @@ export function HomePage() {
     <main id="main" className="page">
       <section className="hero">
         <h1>{t(greeting)}</h1>
-        <p>{data.settings.siteSubtitle}</p>
+        <p dir="auto">{data.settings.siteSubtitle}</p>
         <div className="search-box glass">
           <Search size={21} aria-hidden="true" />
           <input
             ref={input}
             type="search"
+            dir="auto"
             aria-label={t("search")}
             value={query}
             placeholder={t("searchPlaceholder")}
@@ -146,7 +147,7 @@ export function HomePage() {
               <X size={18} />
             </Button>
           ) : (
-            <kbd className="shortcut">Ctrl K /</kbd>
+            <kbd className="shortcut" dir="ltr">Ctrl K /</kbd>
           )}
         </div>
         <p
@@ -203,7 +204,7 @@ export function HomePage() {
                 <div className="collection-heading">
                   <h2>
                     <Icon name={group.icon} size={18} />
-                    {group.name}
+                    <bdi>{group.name}</bdi>
                   </h2>
                   <span className="collection-count">
                     {group.services.length}

@@ -46,6 +46,10 @@ describe("complete locale dictionaries", () => {
         if (key === "invalidColor") expect(message, key).toContain("#405B82");
         else if (numbers(en[key]).length)
           expect(numbers(message), key).toEqual(numbers(en[key]));
+        if (definition.direction === "rtl") {
+          for (const [range] of message.matchAll(/\d+–\d+/g))
+            expect(message, key).toContain(`\u{2066}${range}\u{2069}`);
+        }
       }
       if (code !== "en") {
         for (const key of [

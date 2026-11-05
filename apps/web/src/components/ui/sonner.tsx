@@ -11,13 +11,15 @@ import {
 } from "lucide-react";
 
 const Toaster = ({ ...props }: ToasterProps) => {
-  const { resolvedTheme: theme } = usePreferences();
+  const { resolvedTheme: theme, direction } = usePreferences();
   const { t } = useI18n();
 
   return (
     <Sonner
       containerAriaLabel={t("notifications")}
       theme={theme as ToasterProps["theme"]}
+      dir={direction}
+      position={direction === "rtl" ? "bottom-left" : "bottom-right"}
       className="toaster group"
       icons={{
         success: <CircleCheckIcon className="size-4" />,

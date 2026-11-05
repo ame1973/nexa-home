@@ -1,5 +1,6 @@
 import type { MessageKey } from "./en";
 
+// Isolate LTR ranges and technical literals so RTL never reverses their meaning.
 export const ar: Record<MessageKey, string> = {
   subtitleHint: "بحد أقصى 160 حرفًا.",
   accentHint: "يُضبط النص وعناصر التحكم للحفاظ على تباين يسهل قراءته.",
@@ -101,9 +102,9 @@ export const ar: Record<MessageKey, string> = {
   setupTokenInvalid:
     "رمز الإعداد غير صالح أو انتهت صلاحيته. يُرجى مراجعة السجلات المحلية أو إعادة تشغيل الحاوية.",
   username: "اسم المستخدم",
-  usernameHint: "3–40 حرفًا، بلا مسافات في البداية أو النهاية.",
+  usernameHint: "\u{2066}3–40\u{2069} حرفًا، بلا مسافات في البداية أو النهاية.",
   password: "كلمة المرور",
-  passwordHint: "12–128 حرفًا. يُرجى اختيار كلمة مرور فريدة.",
+  passwordHint: "\u{2066}12–128\u{2069} حرفًا. يُرجى اختيار كلمة مرور فريدة.",
   confirmPassword: "تأكيد كلمة المرور",
   createAdmin: "إنشاء حساب الإدارة",
   setupComplete: "تم إنشاء حساب الإدارة. يُرجى تسجيل الدخول لإضافة الخدمات.",
@@ -132,7 +133,7 @@ export const ar: Record<MessageKey, string> = {
   openMode: "فتح الروابط",
   classification: "التصنيف والوسوم",
   behavior: "السلوك",
-  nameHint: "1–80 حرفًا.",
+  nameHint: "\u{2066}1–80\u{2069} حرفًا.",
   descriptionHint: "بحد أقصى 240 حرفًا.",
   tagHint: "يمكن اختيار 20 وسمًا كحد أقصى.",
   noTags: "لا توجد وسوم بعد. يمكن إنشاؤها من قسم الوسوم.",
@@ -169,7 +170,7 @@ export const ar: Record<MessageKey, string> = {
   editCategory: "تعديل التصنيف",
   categorySaved: "تم حفظ التصنيف.",
   categoryDeleted: "تم حذف التصنيف.",
-  categoryNameHint: "1–50 حرفًا؛ يجب أن تكون الأسماء فريدة.",
+  categoryNameHint: "\u{2066}1–50\u{2069} حرفًا؛ يجب أن تكون الأسماء فريدة.",
   categoryDescriptionHint: "بحد أقصى 240 حرفًا.",
   noCategories: "لا توجد تصنيفات بعد",
   noCategoriesHint: "يمكن إنشاء تصنيف أو إبقاء الخدمات ضمن «أخرى».",
@@ -179,7 +180,7 @@ export const ar: Record<MessageKey, string> = {
   tagsIntro: "تسهّل الوسوم العثور على الخدمات.",
   addTag: "إضافة وسم",
   editTag: "تعديل الوسم",
-  tagNameHint: "1–32 حرفًا؛ يجب أن تكون الأسماء فريدة.",
+  tagNameHint: "\u{2066}1–32\u{2069} حرفًا؛ يجب أن تكون الأسماء فريدة.",
   tagSaved: "تم حفظ الوسم.",
   tagDeleted: "تم حذف الوسم.",
   deleteTagTitle: "حذف هذا الوسم؟",
@@ -246,7 +247,7 @@ export const ar: Record<MessageKey, string> = {
   favicon: "أيقونة الموقع",
   searchIcons: "البحث في أسماء الأيقونات…",
   uploadHint:
-    "PNG أو WebP أو SVG آمن، بحد أقصى 1 MiB. يجب ألا تتجاوز أبعاد الصور النقطية 512 × 512.",
+    "PNG أو WebP أو SVG آمن، بحد أقصى 1 MiB. يجب ألا تتجاوز أبعاد الصور النقطية \u{2066}512 × 512\u{2069}.",
   faviconHint:
     "رفع ملف أيقونة موقع محفوظ. لا يجلب Nexa Home أيقونات بعيدة ولا يفحص خدماتك مطلقًا.",
   iconFile: "ملف الأيقونة",
@@ -270,11 +271,13 @@ export const ar: Record<MessageKey, string> = {
   invalidName: "يُرجى إدخال اسم ضمن الحد المسموح للأحرف.",
   invalidText: "النص طويل جدًا أو يحتوي على محارف تحكم غير مدعومة.",
   invalidUrl:
-    "يُرجى استخدام رابط HTTP(S) مطلق بلا بيانات اعتماد أو محارف تحكم أو أسماء مضيفين رقمية ملتبسة.",
-  invalidColor: "يُرجى استخدام لون سداسي عشري من ست خانات، مثل #405B82.",
-  invalidPassword: "يُرجى استخدام 12–128 حرفًا.",
+    "يُرجى استخدام رابط \u{2066}HTTP(S)\u{2069} مطلق بلا بيانات اعتماد أو محارف تحكم أو أسماء مضيفين رقمية ملتبسة.",
+  invalidColor:
+    "يُرجى استخدام لون سداسي عشري من ست خانات، مثل \u{2066}#405B82\u{2069}.",
+  invalidPassword: "يُرجى استخدام \u{2066}12–128\u{2069} حرفًا.",
   passwordsDiffer: "كلمتا المرور غير متطابقتين.",
-  invalidUsername: "يُرجى استخدام 3–40 حرفًا بلا مسافات في البداية أو النهاية.",
+  invalidUsername:
+    "يُرجى استخدام \u{2066}3–40\u{2069} حرفًا بلا مسافات في البداية أو النهاية.",
   invalidToken: "يُرجى إدخال الرمز أحادي الاستخدام من السجلات المحلية.",
   invalidField: "يُرجى مراجعة هذا الحقل.",
   notFoundTitle: "هذه الصفحة غير موجودة.",
