@@ -7,7 +7,7 @@ A self-hosted launcher for the services you use every day. Nexa Home pairs a res
 - One administrator, protected first-run setup, and public or private homepage access.
 - Services, favorites, categories, tags, keyboard ordering, and desktop drag-and-drop ordering.
 - Search entirely in the browser; service URLs are never probed by the server.
-- Dark, light, and system themes; optional glass effects; Traditional Chinese and English.
+- Dark, light, and system themes; optional glass effects; twelve interface languages including Traditional/Simplified Chinese and Arabic RTL.
 - Built-in Lucide icons and validated PNG, WebP, or inert SVG uploads. Cached favicons are uploaded, never fetched remotely.
 - Portable JSON export and a validated, explicitly confirmed replacement restore.
 
@@ -111,6 +111,31 @@ Changing a service's category preserves the service and updates both complete or
 5. In Manage, choose manual order with no text/tag/visibility filter to reorder. Explicit up/down controls support keyboard and mobile use. Editing a service also supports moving it to an empty category.
 
 Public mode exposes only visible services in visible categories, plus the categories/tags actually needed by those services. Private mode requires authentication before service data or private icons are returned. Password changes revoke every session, including the current session. Settings use revision checks: a conflicting draft stays intact until you explicitly reload it.
+
+## Interface languages
+
+Use the globe button in the header to switch immediately. Each option uses its native name:
+
+| Language | Locale |
+| -------- | ------ |
+| 繁體中文 | `zh-Hant` |
+| 简体中文 | `zh-Hans` |
+| English | `en` |
+| 日本語 | `ja` |
+| 한국어 | `ko` |
+| Español | `es` |
+| Français | `fr` |
+| Deutsch | `de` |
+| Português (Brasil) | `pt-BR` |
+| Русский | `ru` |
+| العربية | `ar` |
+| हिन्दी | `hi` |
+
+A saved browser preference takes priority. Otherwise the first supported browser language is selected; unmatched preferences fall back to Traditional Chinese. Explicit Chinese scripts take precedence over region: `zh-Hant` stays Traditional and `zh-Hans` stays Simplified. Taiwan, Hong Kong and Macao default to Traditional Chinese; generic Chinese, mainland China, Singapore and Malaysia default to Simplified Chinese. Portuguese preferences use the Brazilian Portuguese translation.
+
+Arabic switches layout and keyboard direction to right-to-left, including navigation, dialogs, menus and controls. URLs and hexadecimal colors remain left-to-right; user-entered names and descriptions are not translated. Switching back restores left-to-right layout. Language and theme preferences remain local to the browser, are not shared site settings and do not enter portable backups. Product manuals remain available in English and Traditional Chinese.
+
+The interface uses system fonts on the **browser's device** and does not download web fonts. Minimal Linux clients need fonts covering the scripts they display, including CJK, Arabic and Devanagari. Missing glyphs or square boxes require a suitable client-side system font, not a change to the server or scratch container.
 
 ## Backup and restore
 

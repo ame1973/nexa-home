@@ -6,7 +6,7 @@
 
 ## What this version provides
 
-Nexa Home is a single-administrator, self-hosted service launcher with a Go/SQLite runtime and embedded React frontend. It supports public/private visibility, local search, favorites, categories/tags, accessible manual ordering, locally uploaded icons, appearance settings and validated portable backup/restore. The UI is available in Traditional Chinese and English with dark, light and system themes.
+Nexa Home is a single-administrator, self-hosted service launcher with a Go/SQLite runtime and embedded React frontend. It supports public/private visibility, local search, favorites, categories/tags, accessible manual ordering, locally uploaded icons, appearance settings and validated portable backup/restore. The initial UI is available in Traditional Chinese and English with dark, light and system themes. Later locale additions and Arabic RTL are described in the [unreleased changes](../CHANGELOG.md#unreleased) and [current interface language guide](../readme.md#interface-languages).
 
 Linux amd64 and arm64 are supported targets. One data directory belongs to one process. Docker is optional; the native executable needs no Node runtime. The container uses a fixed nonroot UID/GID `10001:10001`, read-only root filesystem and private persistent `/data`. Host/Docker administrators and the data owner are trusted.
 

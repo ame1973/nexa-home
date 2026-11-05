@@ -4,6 +4,14 @@
 
 Notable user-visible changes are recorded here. Versions follow Semantic Versioning. An unreleased section is not a published artifact, a release tag or a claim that every release gate is clear.
 
+## Unreleased
+
+### Added
+
+- Simplified Chinese, Japanese, Korean, Spanish, French, German, Brazilian Portuguese, Russian, Arabic and Hindi interfaces, alongside Traditional Chinese and English.
+- Browser-language detection with Chinese script/region handling, persistent per-browser language selection and native language names in the menu.
+- Arabic right-to-left navigation, dialogs, tables, controls and keyboard interaction, with left-to-right URLs and color codes.
+
 ## 1.0.0 — 2026-11-05
 
 ### Added
