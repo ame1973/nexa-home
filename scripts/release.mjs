@@ -347,6 +347,314 @@ export function verifyArtifact(directory, arch, metadata) {
   return { ...record, archive };
 }
 
+export function shouldPromoteLatest(version, releases) {
+  if (parseVersion(version).prerelease) return false;
+  return !releases.some((release) => {
+    if (
+      release.draft ||
+      release.prerelease ||
+      !release.tag_name?.startsWith("v")
+    )
+      return false;
+    try {
+      return (
+        !parseVersion(release.tag_name.slice(1)).prerelease &&
+        compareVersions(release.tag_name.slice(1), version) >= 0
+      );
+    } catch {
+      return false;
+    }
+  });
+}
+
+function requireDigest(value) {
+  assert.match(value, digestPattern);
+  assert.equal(value.length, 71);
+  return value;
+}
+
+function indexPlatforms(index, expected) {
+  assert.equal(index.schemaVersion, 2);
+  assert.ok(
+    Array.isArray(index.manifests),
+    "A multi-platform image index is required",
+  );
+  const runtime = index.manifests.filter(
+    (entry) => entry.platform?.os !== "unknown",
+  );
+  assert.deepEqual(
+    runtime
+      .map((entry) => `${entry.platform?.os}/${entry.platform?.architecture}`)
+      .sort(),
+    expected.map((arch) => `linux/${arch}`).sort(),
+    "The index must contain exactly the verified Linux architectures",
+  );
+  for (const entry of index.manifests) {
+    requireDigest(entry.digest);
+    if (entry.platform?.os === "unknown") {
+      assert.equal(entry.platform.architecture, "unknown");
+      assert.equal(
+        entry.annotations?.["vnd.docker.reference.type"],
+        "attestation-manifest",
+      );
+    }
+  }
+  return Object.fromEntries(
+    runtime.map((entry) => [entry.platform.architecture, entry.digest]),
+  );
+}
+
+export function verifyRelease(directory, metadata) {
+  assert.deepEqual(
+    readdirSync(directory).sort(),
+    architectures.map((arch) => `release-linux-${arch}`),
+    "Only this run's two architecture artifacts may be published",
+  );
+  return Object.fromEntries(
+    architectures.map((arch) => {
+      const artifact = join(directory, `release-linux-${arch}`);
+      assert.ok(
+        lstatSync(artifact).isDirectory(),
+        "Architecture artifacts must not be symlinks",
+      );
+      return [arch, verifyArtifact(artifact, arch, metadata)];
+    }),
+  );
+}
+
+export function publishRelease({
+  metadata,
+  directory = "release-artifacts",
+  runId,
+  attempt,
+  run = command,
+}) {
+  for (const value of [runId, attempt])
+    assert.ok(
+      typeof value === "string" &&
+        value.length <= 24 &&
+        !/[^0-9]/.test(value) &&
+        /^[1-9]\d*$/.test(value),
+      "Invalid workflow run identity",
+    );
+  const records = verifyRelease(directory, metadata);
+  const pages = JSON.parse(
+    run("gh", [
+      "api",
+      "--paginate",
+      "--slurp",
+      `repos/${metadata.repository}/releases?per_page=100`,
+    ]),
+  );
+  assert.ok(
+    Array.isArray(pages) && pages.every(Array.isArray),
+    "Expected paginated GitHub releases",
+  );
+  const releases = pages.flat();
+  const existing = releases.find(
+    (release) => release.tag_name === metadata.tag,
+  );
+  const marker = `<!-- nexa-release:${metadata.revision} -->`;
+  if (existing) {
+    assert.equal(
+      existing.draft,
+      true,
+      "A published release must never be overwritten",
+    );
+    assert.equal(
+      existing.target_commitish,
+      metadata.revision,
+      "An existing draft must target this exact commit",
+    );
+    assert.ok(
+      existing.body?.includes(marker),
+      "Only this pipeline's own draft may be resumed",
+    );
+  }
+  const latest = shouldPromoteLatest(metadata.version, releases);
+  if (!existing) {
+    run("gh", [
+      "release",
+      "create",
+      metadata.tag,
+      "--repo",
+      metadata.repository,
+      "--target",
+      metadata.revision,
+      "--verify-tag",
+      "--draft",
+      "--latest=false",
+      "--title",
+      `Nexa Home ${metadata.version}`,
+      "--generate-notes",
+      "--notes",
+      `${marker}\n\nImage: ${metadata.image}:${metadata.version}\n\nArchives include the executable, LICENSE and third-party notices.`,
+      ...(metadata.prerelease ? ["--prerelease"] : []),
+    ]);
+  }
+  const sources = [];
+  const expected = {};
+  for (const arch of architectures) {
+    const artifact = join(directory, `release-linux-${arch}`);
+    run("docker", ["image", "load", "--input", join(artifact, "image.tar")]);
+    const image = `nexa-home:ci-${arch}`;
+    // Image IDs differ between Docker storage backends. Load the checksummed
+    // archive and inspect its metadata instead of running a platform child ID.
+    inspectImage(image, arch, metadata, run);
+    const staging = `${metadata.image}:build-${runId}-${attempt}-${arch}`;
+    run("docker", ["image", "tag", image, staging]);
+    run("docker", ["image", "push", staging], { timeout: 300_000 });
+    const references = JSON.parse(
+      run("docker", [
+        "image",
+        "inspect",
+        "--platform",
+        `linux/${arch}`,
+        "--format",
+        "{{json .RepoDigests}}",
+        staging,
+      ]),
+    ).filter((value) => value.startsWith(`${metadata.image}@`));
+    assert.equal(
+      references.length,
+      1,
+      "The pushed architecture must have one immutable registry digest",
+    );
+    const digest = requireDigest(
+      references[0].slice(metadata.image.length + 1),
+    );
+    const source = `${metadata.image}@${digest}`;
+    const manifest = JSON.parse(
+      run("docker", ["buildx", "imagetools", "inspect", "--raw", source]),
+    );
+    if (manifest.manifests)
+      expected[arch] = indexPlatforms(manifest, [arch])[arch];
+    else {
+      assert.equal(manifest.schemaVersion, 2);
+      requireDigest(manifest.config?.digest);
+      assert.ok(Array.isArray(manifest.layers));
+      expected[arch] = digest;
+    }
+    sources.push(source);
+  }
+  const published = join(directory, "published-image.json");
+  const reference = `${metadata.image}:${metadata.version}`;
+  run(
+    "docker",
+    [
+      "buildx",
+      "imagetools",
+      "create",
+      "--metadata-file",
+      published,
+      "--annotation",
+      `index:org.opencontainers.image.version=${metadata.version}`,
+      "--annotation",
+      `index:org.opencontainers.image.revision=${metadata.revision}`,
+      "--annotation",
+      `index:org.opencontainers.image.source=${metadata.source}`,
+      "--tag",
+      reference,
+      ...sources,
+    ],
+    { timeout: 300_000 },
+  );
+  const descriptor = JSON.parse(readFileSync(published, "utf8"))[
+    "containerimage.descriptor"
+  ];
+  const digest = requireDigest(descriptor?.digest);
+  const immutable = `${metadata.image}@${digest}`;
+  const index = JSON.parse(
+    run("docker", ["buildx", "imagetools", "inspect", "--raw", immutable]),
+  );
+  assert.deepEqual(
+    indexPlatforms(index, architectures),
+    expected,
+    "The published index must reference the exact pushed and verified architecture digests",
+  );
+  assert.equal(
+    index.annotations?.["org.opencontainers.image.version"],
+    metadata.version,
+  );
+  assert.equal(
+    index.annotations?.["org.opencontainers.image.revision"],
+    metadata.revision,
+  );
+  assert.equal(
+    index.annotations?.["org.opencontainers.image.source"],
+    metadata.source,
+  );
+  const assets = [];
+  for (const arch of architectures) {
+    const file = join(
+      directory,
+      `release-linux-${arch}`,
+      records[arch].archive,
+    );
+    const destination = join(directory, records[arch].archive);
+    copyFileSync(file, destination);
+    assets.push(destination);
+  }
+  const imageDigest = join(directory, "image-digest.txt");
+  writeFileSync(imageDigest, `${immutable}\n`);
+  assets.push(imageDigest);
+  const checksums = join(directory, "SHA256SUMS");
+  writeFileSync(
+    checksums,
+    assets
+      .map((file) => `${sha256(file)}  ${file.split(/[\\/]/).at(-1)}\n`)
+      .join(""),
+  );
+  assets.push(checksums);
+  run(
+    "gh",
+    [
+      "release",
+      "upload",
+      metadata.tag,
+      "--repo",
+      metadata.repository,
+      "--clobber",
+      ...assets,
+    ],
+    { timeout: 300_000 },
+  );
+  if (latest) {
+    const promoted = join(directory, "latest-image.json");
+    run(
+      "docker",
+      [
+        "buildx",
+        "imagetools",
+        "create",
+        "--metadata-file",
+        promoted,
+        "--tag",
+        `${metadata.image}:latest`,
+        immutable,
+      ],
+      { timeout: 300_000 },
+    );
+    assert.equal(
+      JSON.parse(readFileSync(promoted, "utf8"))["containerimage.descriptor"]
+        ?.digest,
+      digest,
+      "Latest must be an exact copy of the verified version index",
+    );
+  }
+  run("gh", [
+    "release",
+    "edit",
+    metadata.tag,
+    "--repo",
+    metadata.repository,
+    "--draft=false",
+    `--prerelease=${metadata.prerelease}`,
+    `--latest=${latest}`,
+  ]);
+  return { reference: immutable, latest };
+}
+
 function metadataFromEnvironment() {
   assert.equal(
     process.env.GITHUB_REF_TYPE,
@@ -384,8 +692,30 @@ function main() {
       qemu: process.env.NEXA_TEST_QEMU,
     });
     console.log(`Prepared ${result.archive}`);
+  } else if (operation === "verify") {
+    verifyRelease("release-artifacts", metadata);
+    console.log("Both release artifacts match the version and source commit.");
+  } else if (operation === "publish") {
+    assert.equal(
+      process.env.GITHUB_ACTIONS,
+      "true",
+      "Publication is allowed only in the release workflow",
+    );
+    assert.ok(
+      ["push", "workflow_dispatch"].includes(process.env.GITHUB_EVENT_NAME),
+      "Only a tag push or explicit tag dispatch may publish",
+    );
+    assert.ok(process.env.GH_TOKEN, "A job-scoped GitHub token is required");
+    const result = publishRelease({
+      metadata,
+      runId: process.env.GITHUB_RUN_ID,
+      attempt: process.env.GITHUB_RUN_ATTEMPT,
+    });
+    console.log(`Published ${metadata.tag}: ${result.reference}`);
   } else {
-    throw new Error("Use release.mjs version, metadata or package");
+    throw new Error(
+      "Use release.mjs version, metadata, package, verify or publish",
+    );
   }
 }
 
