@@ -1,6 +1,6 @@
 # Nexa Home 1.0.0 release notes
 
-**Status: unreleased.** These notes describe the source version, not a published image/tag or successful hosted CI run. The strict Trivy image gate remains nonzero for the unused OpenPGP module advisory described below; it must not be represented as clean.
+**Status: 1.0.0 implementation and local deployment verification complete.** These notes do not imply a published registry image/tag or successful hosted CI run. Build from the reviewed source checkout. The unused OpenPGP module advisory below has a reviewed conditional, expiring exception; it is not hidden or described as absent.
 
 ## What this version provides
 
@@ -33,7 +33,7 @@ Before an upgrade or host migration, keep both a portable export and a complete 
 
 The locked latest stable `golang.org/x/crypto v0.58.0` carries [GO-2026-5932](https://pkg.go.dev/vuln/GO-2026-5932) for its unmaintained OpenPGP packages. Nexa Home uses Argon2id/BLAKE2b, not OpenPGP. Source and symbol-preserving binary reachability analysis are separate from module-level image findings.
 
-The strict, all-severity Trivy scan still reports this module advisory and exits nonzero. No ignore rule, severity-wide omission or ignore-unfixed policy is installed. A stable upstream fix or an explicitly authorized reviewed policy decision is required before clearing this gate. See [SECURITY.md](../SECURITY.md). Do not describe the source version as release-complete while that decision remains outstanding.
+The all-severity Trivy scan retains this module advisory as a reviewed suppression. The rule matches only `GO-2026-5932`, binary `nexa-home` and exact x/crypto v0.58.0 PURL; it expires on **2027-02-01** and is valid only while no direct or transitive runtime dependency uses OpenPGP. Source/actual-executable analysis remains unsuppressed, and CI rejects OpenPGP imports. Changed path/version/advisory or expiry does not match. All unhandled findings remain fatal. See [SECURITY.md](../SECURITY.md) for reassessment requirements; no severity-wide omission, ignored-unfixed policy or metadata removal is used.
 
 ## Redistribution
 

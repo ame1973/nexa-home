@@ -49,6 +49,7 @@ jobs:
           npm run lint:api
           npm run test:contract
           npm run test:docs
+          npm run test:security-policy
       - name: Check frontend and build compatibility
         run: |
           npm run typecheck
@@ -70,7 +71,7 @@ jobs:
         run: |
           npm audit --include=dev
           runtime_deps=$(go list -deps ./cmd/nexa-home)
-          if printf '%s\n' "$runtime_deps" | grep '^golang.org/x/crypto/openpgp' >/dev/null; then
+          if printf '%s\n' "$runtime_deps" | grep -Ei '(^|/)openpgp(/|$)' >/dev/null; then
             printf '%s\n' 'OpenPGP must not enter runtime dependencies.' >&2
             exit 1
           fi

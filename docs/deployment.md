@@ -135,6 +135,6 @@ Common failures:
 - **Login does not persist:** verify HTTPS, origin and cookie policy. Do not turn on insecure cookies on a public endpoint.
 - **403 on mutations:** check the exact external origin, root-path proxying, active session/CSRF and client clock. Do not disable origin checks.
 - **Unhealthy/unknown schema:** inspect local restricted logs, stop the service and run offline doctor. Do not reset or overwrite the database.
-- **Trivy exits nonzero:** retain the report and assess the actual finding. The current unused OpenPGP module advisory is described in [SECURITY.md](../SECURITY.md); no ignore rule is installed.
+- **Trivy exits nonzero:** retain the report and assess the actual finding. The narrowly reviewed unused OpenPGP advisory rule in [SECURITY.md](../SECURITY.md) is version/path-scoped, expires on 2027-02-01 and never permits actual OpenPGP runtime imports. Do not broaden it to make a failure disappear.
 
 Use [backup, upgrade and recovery](backup-and-recovery.md) before changing data paths, images or schemas. Never run a global Docker prune as an application maintenance step.

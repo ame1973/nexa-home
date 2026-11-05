@@ -2,7 +2,7 @@
 
 Notable user-visible changes are recorded here. Versions follow Semantic Versioning. An unreleased section is not a published artifact, a release tag or a claim that every release gate is clear.
 
-## 1.0.0 — Unreleased
+## 1.0.0 — 2026-11-05
 
 ### Added
 
@@ -21,4 +21,4 @@ Notable user-visible changes are recorded here. Versions follow Semantic Version
 - Initial database schema version 1 and portable backup format version 1. No default account, demo data, remote favicon fetch or stored-service probing is installed.
 - The complete portable configuration, including exact base64 expansion, is capped at 16 MiB; overflow is atomic `409 LIMIT_EXCEEDED`.
 - LAN/WAN alternatives are stored, but the launcher opens the primary link. Automatic network selection, health polling, PWA/offline behavior, multiple users and Docker/NAS control are not included.
-- See [release notes](docs/release-notes-1.0.0.md) for operating requirements and [SECURITY.md](SECURITY.md) for the unused OpenPGP module advisory that still blocks the strict unfiltered Trivy gate. No scanner suppression is installed.
+- See [release notes](docs/release-notes-1.0.0.md) for operating requirements and [SECURITY.md](SECURITY.md) for the reviewed, expiring unused OpenPGP module advisory exception. No direct/transitive runtime OpenPGP import is permitted, and every unhandled scanner finding remains fatal.

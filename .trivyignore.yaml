@@ -1,0 +1,16 @@
+vulnerabilities:
+  - id: GO-2026-5932
+    paths:
+      - nexa-home
+    purls:
+      - pkg:golang/golang.org/x/crypto@v0.58.0
+    expired_at: 2027-02-01
+    statement: >-
+      Reviewed 2026-11-05: OpenPGP and its subpackages are absent from the full
+      Linux amd64/arm64 runtime dependency closures and actual symbol-preserving
+      executables. Only Argon2id and BLAKE2b are imported from x/crypto. Source
+      and both executable govulncheck scans find no affected imported packages
+      or reachable symbols. This unused-module advisory is accepted only while
+      OpenPGP remains unused; CI rejects direct or transitive OpenPGP imports.
+      Reassess on a dependency change or before expiry. Other findings remain
+      fatal, and the suppressed finding remains visible in scanner reports.

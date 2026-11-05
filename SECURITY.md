@@ -62,10 +62,12 @@ go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 \
 npm run scan:image
 ```
 
-The image scanner uses a saved local image archive, never a Docker-socket mount or image publication. Its JSON reports stay under ignored `.local/security/reports/`. It scans all severities and returns nonzero for findings; a failed scan is not a clean release gate.
+The image scanner uses a saved local image archive, never a Docker-socket mount or image publication. Its JSON reports stay under ignored `.local/security/reports/`. It scans all severities, displays reviewed suppressions and returns nonzero for every unhandled finding; a failed scan is not a clean release gate.
 
 The locked `golang.org/x/crypto v0.58.0` includes metadata for [GO-2026-5932](https://pkg.go.dev/vuln/GO-2026-5932), concerning the unmaintained OpenPGP packages. Nexa Home imports Argon2id and BLAKE2b, not OpenPGP. Source and symbol-preserving binary analysis distinguish an unused module advisory from affected imported packages or reachable symbols. CI also rejects an OpenPGP runtime dependency.
 
-**The strict Trivy gate currently reports this module advisory and remains nonzero. No suppression is installed.** A stable upstream remediation or an explicitly reviewed/authorized scanner-policy decision is required before treating that gate as clear. Do not silently hide UNKNOWN severity, apply a blanket ignore-unfixed policy, remove build metadata or force incompatible dependency overrides. Retain evidence and repeat checks when dependencies change.
+**Reviewed conditional exception:** [.trivyignore.yaml](.trivyignore.yaml) covers only `GO-2026-5932`, binary path `nexa-home`, and exact package PURL `pkg:golang/golang.org/x/crypto@v0.58.0`, expiring **2027-02-01**. It is valid only while neither the application nor any transitive runtime dependency imports OpenPGP. Both Linux architecture dependency closures and actual symbol-preserving executables are checked; CI rejects any direct/transitive OpenPGP import. Source and binary vulnerability scans have no such suppression.
+
+The scanner's `--show-suppressed` output retains the advisory, reason and source in JSON rather than pretending the module finding disappeared. All unhandled findings remain fatal. A different path, package version, advisory or an expired policy does not match; policy tests pin the single rule and expiry. Reassess on an upstream stable fix, dependency change or before expiry. Never replace it with a severity-wide omission, blanket ignore-unfixed policy, removed build metadata or incompatible forced dependency override.
 
 See [backup and recovery](docs/backup-and-recovery.md) before an upgrade, host migration or credential recovery.
