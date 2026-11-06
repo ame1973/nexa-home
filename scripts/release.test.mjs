@@ -14,6 +14,7 @@ import {
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { after, test } from "node:test";
+import { fixtureEnvironment } from "./release-test-env.mjs";
 import {
   compareVersions,
   packageRelease,
@@ -41,6 +42,20 @@ const temporary = () => {
 after(() => {
   for (const directory of directories)
     rmSync(directory, { recursive: true, force: true });
+});
+
+test("release subprocess fixtures remove ambient workflow state and live-token namespaces", () => {
+  const env = fixtureEnvironment({
+    PATH: "/synthetic/bin",
+    GITHUB_ACTIONS: "true",
+    GITHUB_REF_NAME: "v9.9.9",
+    GITHUB_TOKEN: "synthetic-only",
+    GH_TOKEN: "synthetic-only",
+    NEXA_BUILD_VERSION: "9.9.9",
+    NEXA_RELEASE_PLAN_DIGEST: "f".repeat(64),
+    NEXA_DATA_DIR: "/synthetic/not-owned-data",
+  });
+  assert.deepEqual(env, { PATH: "/synthetic/bin" });
 });
 
 function fixture(version = "1.0.0") {
@@ -88,7 +103,7 @@ function versionExecutable() {
   const built = spawnSync(
     "go",
     ["build", "-trimpath", "-o", executable, source],
-    { encoding: "utf8", env: { ...process.env, CGO_ENABLED: "0" } },
+    { encoding: "utf8", env: { ...fixtureEnvironment(), CGO_ENABLED: "0" } },
   );
   assert.equal(
     built.status,
@@ -391,12 +406,14 @@ test("the version CLI is offline and rejects unexpected arguments", () => {
   const result = spawnSync(process.execPath, [script, "version"], {
     encoding: "utf8",
     cwd: root,
+    env: fixtureEnvironment(),
   });
   assert.equal(result.status, 0);
   assert.equal(result.stdout.trim(), "1.0.0");
   const invalid = spawnSync(process.execPath, [script, "version", "extra"], {
     encoding: "utf8",
     cwd: root,
+    env: fixtureEnvironment(),
   });
   assert.notEqual(invalid.status, 0);
 });
@@ -1156,7 +1173,7 @@ test("metadata resolves lightweight and annotated source references to the check
     const reference = git(["rev-parse", "v1.0.0"]);
     const output = join(root, "workflow-output");
     const env = {
-      ...process.env,
+      ...fixtureEnvironment(),
       GITHUB_REF_TYPE: "tag",
       GITHUB_REF_NAME: "v1.0.0",
       GITHUB_REPOSITORY: "Owner/Nexa-Home",
@@ -1204,7 +1221,7 @@ test("the publisher CLI cannot run accidentally outside a tag-release workflow",
         cwd: root,
         encoding: "utf8",
         env: {
-          ...process.env,
+          ...fixtureEnvironment(),
           GITHUB_REF_TYPE: "tag",
           GITHUB_REF_NAME: "v1.0.0",
           GITHUB_REPOSITORY: "Owner/Nexa-Home",

@@ -11,6 +11,7 @@ import {
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { after, test } from "node:test";
+import { fixtureEnvironment } from "./release-test-env.mjs";
 import {
   buildVersion,
   command,
@@ -69,7 +70,7 @@ function fixture({ released = true } = {}) {
       {
         cwd: root,
         env: {
-          ...process.env,
+          ...fixtureEnvironment(),
           GIT_AUTHOR_DATE: "2026-02-03T12:00:00+00:00",
           GIT_COMMITTER_DATE: "2026-02-03T12:00:00+00:00",
         },
@@ -407,7 +408,7 @@ for (const [event, refType, dispatch, publish] of [
     );
     const output = join(input.root, "workflow-output");
     const env = {
-      ...process.env,
+      ...fixtureEnvironment(),
       PATH: `${bin}:${process.env.PATH}`,
       NEXA_FIXTURE_HISTORY: history,
       GITHUB_ACTIONS: "true",
@@ -520,7 +521,7 @@ test("planner CLI rejects PR publication and unexpected arguments before network
     const result = spawnSync(process.execPath, [script, ...args], {
       encoding: "utf8",
       env: {
-        ...process.env,
+        ...fixtureEnvironment(),
         GITHUB_ACTIONS: "true",
         GITHUB_EVENT_NAME: "pull_request",
       },
