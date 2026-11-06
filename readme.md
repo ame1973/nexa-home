@@ -15,6 +15,22 @@ LAN and WAN links can be saved alongside the required primary URL. The launcher 
 
 ## Docker deployment
 
+### Quick start with a published image
+
+Download [compose.yaml](compose.yaml) and [.env.example](.env.example) into an empty directory. This standalone Compose file pulls the published Linux amd64/arm64 image from GHCR; it needs no source checkout, Dockerfile, Node or Go.
+
+```sh
+cp .env.example .env
+docker compose up --detach --wait
+docker compose exec -T nexa-home /nexa-home healthcheck
+```
+
+Open **http://127.0.0.1:8080/setup**. Read the one-time token **locally** with `docker compose logs nexa-home`; never share startup logs. The copied preset explicitly allows HTTP cookies only for isolated loopback access. Remote access requires an HTTPS reverse proxy, your exact `NEXA_PUBLIC_ORIGIN` and `NEXA_ALLOW_HTTP_COOKIE=false`; do not expose the HTTP preset to the Internet.
+
+`latest` follows successful stable releases, and `up` pulls the selected image. Pin `NEXA_IMAGE` in `.env` to an existing version such as `ghcr.io/ame1973/nexa-home:1.0.1`, or an immutable index digest, for controlled upgrades. Back up before upgrading. The named volume persists data; do not use `docker compose down --volumes` for normal updates. See the deployment guide below before switching an existing installation.
+
+### Build the image locally
+
 From a trusted source checkout, copy `deploy/.env.example` to ignored `deploy/.env` and configure the exact public origin. For isolated loopback testing, use `NEXA_PUBLIC_ORIGIN=http://127.0.0.1:8080` and explicitly set `NEXA_ALLOW_HTTP_COOKIE=true`. For remote access, configure a trusted HTTPS reverse proxy and leave that flag `false`.
 
 ```sh

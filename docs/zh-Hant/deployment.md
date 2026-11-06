@@ -5,11 +5,33 @@
 ## 先決條件
 
 - Linux `amd64`（x86-64）或 `arm64`（AArch64）主機，或執行 Linux 容器的 Docker。
-- 支援 BuildKit 的 Docker，以及 Compose v2.24.4 或更新版本，以使用本文件提供的命令／測試。原生執行檔不需要 Node 執行環境；Docker 建置會自動取得固定版本的 Node／Go 建置器映像。
+- Docker 與 Compose v2.24.4 或更新版本，以使用本文件提供的命令／測試。預建置映像快速啟動不需要原始碼工作目錄、Node、Go 或 BuildKit；原始碼建置則會透過 BuildKit 自動取得固定版本的 Node／Go 建置器映像。
 - 私有、可寫入且持久保存的**本機**儲存空間。請勿將使用中的 SQLite 放在 NFS／SMB、同步資料夾或多寫入者共用資料卷。
 - 遠端存取需要 HTTPS 反向代理與可信任憑證，並以防火牆防止繞過代理。
 
-請從經審查的原始碼工作目錄與相依套件鎖定檔建置。本文件採本機建置，不假設已有公開登錄檔映像或版本標籤。若要直接使用既有已發布映像而不重新建置，請依[發行指南](releases.md#使用已發布映像)操作。
+可使用已存在版本的預建置映像快速啟動，或從經審查的原始碼工作目錄與相依套件鎖定檔建置。本機建置不會發布；版本／digest 選擇與發布操作請見[發行指南](releases.md#使用已發布映像)。
+
+## 預建置映像快速啟動
+
+只需從同一個經審查的儲存庫 revision，將根目錄的 [compose.yaml](../../compose.yaml) 與 [.env.example](../../.env.example) 下載到空目錄。兩份檔案都不參照 Dockerfile、原始碼目錄或其他 Compose 檔案。
+
+```sh
+cp .env.example .env
+docker compose up --detach --wait
+docker compose exec -T nexa-home /nexa-home healthcheck
+```
+
+複製後的預設設定明確啟用**隔離回送位址的 HTTP 例外**。在同一主機開啟 `http://127.0.0.1:8080/setup`，並僅在自己的本機終端讀取一次性設定權杖：
+
+```sh
+docker compose logs nexa-home
+```
+
+請勿公開啟動日誌。系統沒有預設管理員／密碼，遠端瀏覽器也無法使用主機的回送位址。遠端存取必須依下方說明設定 HTTPS 代理、精確的 HTTPS `NEXA_PUBLIC_ORIGIN` 及 `NEXA_ALLOW_HTTP_COOKIE=false`，並維持後端私有。不可將 HTTP 預設設定暴露至網際網路。
+
+映像預設為 `ghcr.io/ame1973/nexa-home:latest`，會選取主機的 Linux 架構。`pull_policy: always` 會在 `up` 時拉取所選參照，不是背景自動更新器。若要控制升級，可在 `.env` 將 `NEXA_IMAGE` 固定為已存在的版本，例如 `ghcr.io/ame1973/nexa-home:1.0.1`，或使用 `image-digest.txt` 中的完整索引參照。Fork 可設定自己的 GHCR namespace；shell 環境變數會優先於 `.env`。
+
+兩份 Compose 刻意使用相同的 `nexa-home` 專案名稱與 `nexa-home_nexa_data` 資料卷。切換既有安裝方式前，先備份並停止舊服務，再保留相同的專案／資料卷；不可讓兩個寫入者共用同一份資料。兩份檔案套用相同的非 root 使用者、健康檢查、資源上限與執行期保護。一般更新不可使用 `docker compose down --volumes`，本機 `.env` 設定也不可提交至 Git。
 
 ## Docker Compose
 

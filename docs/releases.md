@@ -142,6 +142,8 @@ Use `ARCH=arm64` on AArch64. Checksums detect corruption, not publisher identity
 
 ## Use a published image
 
+For an image-only deployment without a source checkout, use the root [compose.yaml](../compose.yaml) and [.env.example](../.env.example). The deployment guide covers its standalone quick start, HTTPS settings and persistent volume. It defaults to the upstream stable `latest`; set `NEXA_IMAGE` to the intended repository/version or immutable index digest for controlled deployment. The existing source-build Compose remains available with an explicit image override and `--no-build` as shown below.
+
 Replace the owner/repository and version below with a release that actually exists:
 
 ```sh

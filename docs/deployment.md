@@ -5,11 +5,33 @@
 ## Prerequisites
 
 - A Linux `amd64` (x86-64) or `arm64` (AArch64) host, or Docker running Linux containers.
-- Docker with BuildKit and Compose v2.24.4 or newer for the supplied commands/tests. The native executable needs no Node runtime; Docker builds obtain pinned Node/Go builder images automatically.
+- Docker with Compose v2.24.4 or newer for the supplied commands/tests. The prebuilt-image quick start needs no source checkout, Node, Go or BuildKit. Source builds use BuildKit to obtain pinned Node/Go builder images automatically.
 - Private, writable, persistent **local** storage. Do not use live SQLite on NFS/SMB, a synchronized folder, or a shared multi-writer volume.
 - An HTTPS reverse proxy and a trusted certificate for remote access. A firewall must prevent bypassing that proxy.
 
-Build from a reviewed source checkout and its dependency lockfiles. These instructions build locally; they do not assume that any registry image or release tag has been published. To use an existing published image without rebuilding it, follow the [release guide](releases.md#use-a-published-image).
+Use the prebuilt quick start with a version that exists, or build from a reviewed source checkout and its dependency lockfiles. Local builds do not publish. See the [release guide](releases.md#use-a-published-image) for version/digest selection and publication.
+
+## Prebuilt image quick start
+
+Download only the root [compose.yaml](../compose.yaml) and [.env.example](../.env.example) from the same reviewed repository revision into an empty directory. Neither file references a Dockerfile, source directory or another Compose file.
+
+```sh
+cp .env.example .env
+docker compose up --detach --wait
+docker compose exec -T nexa-home /nexa-home healthcheck
+```
+
+The copied preset is an explicit **isolated loopback HTTP exception**. Open `http://127.0.0.1:8080/setup` on the same host. Read the one-time setup token only in your local terminal:
+
+```sh
+docker compose logs nexa-home
+```
+
+Do not publish startup logs. There is no default administrator/password. A remote browser cannot use the host's loopback address. For remote access, configure the HTTPS proxy described below, set your exact HTTPS `NEXA_PUBLIC_ORIGIN` and `NEXA_ALLOW_HTTP_COOKIE=false`, and keep the backend private. Never expose the HTTP preset to the Internet.
+
+The image defaults to `ghcr.io/ame1973/nexa-home:latest`, selecting the host's Linux architecture. `pull_policy: always` pulls the selected reference on `up`; it is not a background updater. For controlled upgrades, set `NEXA_IMAGE` in `.env` to an existing version such as `ghcr.io/ame1973/nexa-home:1.0.1`, or the full index reference from `image-digest.txt`. Forks can set their own GHCR namespace. Shell variables take precedence over `.env`.
+
+Both Compose variants intentionally use project `nexa-home` and volume `nexa-home_nexa_data`. Before switching an existing installation, take a backup, stop the old service, and preserve that project/volume; never run two writers against the same data. The same nonroot user, healthcheck, resource limits and runtime protections apply to both files. Do not use `docker compose down --volumes` during normal updates. Keep local `.env` settings out of Git.
 
 ## Docker Compose
 

@@ -15,6 +15,22 @@
 
 ## Docker 部署
 
+### 使用已發布映像快速啟動
+
+將 [compose.yaml](compose.yaml) 與 [.env.example](.env.example) 下載至空目錄。這份獨立 Compose 會從 GHCR 拉取已發布的 Linux amd64／arm64 映像，不需要原始碼工作目錄、Dockerfile、Node 或 Go。
+
+```sh
+cp .env.example .env
+docker compose up --detach --wait
+docker compose exec -T nexa-home /nexa-home healthcheck
+```
+
+開啟 **http://127.0.0.1:8080/setup**，並透過 `docker compose logs nexa-home` 在**本機**讀取一次性權杖；請勿分享啟動日誌。複製後的預設設定明確允許 HTTP Cookie，但僅供隔離的回送位址存取。遠端存取必須設定 HTTPS 反向代理、精確的 `NEXA_PUBLIC_ORIGIN` 及 `NEXA_ALLOW_HTTP_COOKIE=false`，不可將 HTTP 預設設定暴露至網際網路。
+
+`latest` 會跟隨成功的穩定發行版本，`up` 會拉取所選映像。若要控制升級，可在 `.env` 將 `NEXA_IMAGE` 固定為已存在的版本，例如 `ghcr.io/ame1973/nexa-home:1.0.1`，或不可變的索引 digest。升級前先備份；具名資料卷會持久保存資料，一般更新不可使用 `docker compose down --volumes`。切換既有安裝方式前，請先閱讀下方部署指南。
+
+### 在本機建置映像
+
 從可信任的原始碼工作目錄，將 `deploy/.env.example` 複製為已被 Git 忽略的 `deploy/.env`，並設定精確的公開 Origin。進行隔離的回送位址測試時，使用 `NEXA_PUBLIC_ORIGIN=http://127.0.0.1:8080`，並明確設定 `NEXA_ALLOW_HTTP_COOKIE=true`。遠端存取則應設定可信任的 HTTPS 反向代理，並將此旗標維持為 `false`。
 
 ```sh
