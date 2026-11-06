@@ -2,7 +2,7 @@
 
 **English** | [繁體中文](CHANGELOG.zh-Hant.md)
 
-Notable user-visible changes are recorded here. Versions follow Semantic Versioning. An unreleased section is not a published artifact, a release tag or a claim that every release gate is clear.
+Notable user-visible changes are recorded here. Versions follow Semantic Versioning. An unreleased section is not a published artifact, a release tag or a claim that every release gate is clear. Automatically generated per-version notes are in the repository's GitHub Releases; this file remains a curated overview rather than receiving automated version-bump commits.
 
 ## Unreleased
 
@@ -11,7 +11,8 @@ Notable user-visible changes are recorded here. Versions follow Semantic Version
 - Simplified Chinese, Japanese, Korean, Spanish, French, German, Brazilian Portuguese, Russian, Arabic and Hindi interfaces, alongside Traditional Chinese and English.
 - Browser-language detection with Chinese script/region handling, persistent per-browser language selection and native language names in the menu.
 - Arabic right-to-left navigation, dialogs, tables, controls and keyboard interaction, with left-to-right URLs and color codes.
-- Version-tag releases with matching package/lockfile validation, injected executable/OCI versions, native amd64/arm64 verification and GHCR publication of the exact tested images.
+- Automatic stable versions and deterministic release notes from Conventional Commits on `master`, with read-only plans, squash-PR title checks, non-publishing previews and source/notes-bound retry receipts; explicit manual tags remain supported.
+- Isolated package/lockfile version stamping, injected executable/OCI versions, native amd64/arm64 verification and GHCR publication of the exact tested images, without version-bump commits to the source branch.
 - GitHub Release archives with retained licenses, SHA-256 checksums and immutable image digests; prereleases/backports do not move latest backwards, and only pipeline-owned unfinished drafts can be resumed.
 
 ## 1.0.0 — 2026-11-05

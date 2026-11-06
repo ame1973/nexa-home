@@ -2,88 +2,114 @@
 
 **English** | [繁體中文](zh-Hant/releases.md)
 
-The repository contains a tag-triggered release workflow. This describes what that workflow will do; it does **not** assert that a tag, GitHub Release, registry image or hosted workflow run already exists. Pushing a matching tag or manually dispatching the workflow on a tag authorizes external publication. The local build and verification commands do not publish anything.
+Merging or pushing reviewed changes to **`master`** is the normal publication trigger. The workflow calculates a version and release notes from Conventional Commits, verifies both native Linux architectures, and only then creates the tag and publishes. You do not manually bump package versions or create a tag for ordinary releases. This document describes configured behavior, not evidence of an existing hosted run, tag, GitHub Release or registry image. Local build/test commands do not publish.
 
 ## Registry and repository setup
 
-Images are published to `ghcr.io/<owner>/<repository>`, using the current GitHub repository name in lowercase. No Docker Hub account or long-lived registry secret is required. The publishing job uses its short-lived `GITHUB_TOKEN` with `contents: write` and `packages: write`; ordinary branch/PR verification retains `contents: read`.
+Images use `ghcr.io/<owner>/<repository>`, the current GitHub repository name in lowercase. Only the publishing job has short-lived `GITHUB_TOKEN` permissions `contents: write` and `packages: write`. Planning, PR checks and native verification are read-only; no Docker Hub account, long-lived PAT or npm-publishing secret is needed.
 
-Before the first release:
+Before enabling automatic releases:
 
-1. Enable GitHub Actions and permit the release job's requested permissions under the repository/organization policy.
-2. Configure the GitHub environment named `release`. Add required reviewers and version-tag deployment restrictions as appropriate. Naming an environment in YAML does **not** automatically enable approvals.
-3. Protect version tags and review changes to workflows, release scripts and dependency lockfiles. Tag issuers and workflow maintainers are trusted to publish executable code.
-4. If the GHCR package already exists, grant this repository Actions access to it. The image's source label associates it with the repository.
-5. Review package visibility after the first push. GHCR packages may initially be private; the owner must explicitly allow public access for anonymous pulls. This workflow does not change visibility.
+1. Enable GitHub Actions and permit the publishing job's requested permissions under repository/organization policy.
+2. Configure the environment named `release` to allow **`master` and the intended `v*` tags**. Add required reviewers if desired. Without reviewers the configured flow is automatic; the YAML environment name alone does not require approval.
+3. Protect `master`, require reviewed PRs and successful native verification plus **Conventional PR title**, and enable squash merging with the **PR title and description** as the squash commit message. The lightweight title workflow also reruns on title edits; those runs do not replace source-verification checks. Review direct pushes carefully: a releasable direct push to `master` also publishes.
+4. Protect version tags against unauthorized creation/updates while allowing the release identity to create new tags. Do not grant it permission to rewrite released tags. Review workflow, release-tool and lockfile changes as executable publishing policy.
+5. For an existing GHCR package, grant this repository's Actions access. After the first push, review package visibility: it may initially be private. An owner must explicitly enable public access for anonymous pulls; the workflow does not change visibility.
+6. Confirm the release baseline before rollout. With no successful published version the first relevant change releases `1.0.0`. An existing successful `v1.0.0` is a baseline, not a version to recreate. Drafts, prereleases and unrelated tags are not the automatic stable baseline.
 
-The workflow publishes images and download assets; it does not deploy an application to a NAS or another server.
+The workflow publishes downloads/images, not an application deployment to a NAS or remote server. Adopting this workflow on `master` may itself trigger the first real release.
 
-## Version policy
+## Commit and version policy
 
-- Git tags must be `vMAJOR.MINOR.PATCH`, optionally followed by a SemVer prerelease such as `v1.1.0-rc.1`.
-- The tag without `v` must equal the versions in root `package.json`, `apps/web/package.json` and both corresponding entries in `package-lock.json`.
-- Leading zeroes in numeric version components or numeric prerelease identifiers, empty identifiers, whitespace and build metadata (`+build`) are rejected. The image version is limited to 128 ASCII characters.
-- The Go executable version and OCI version label are stamped from that validated version. OCI revision/source labels identify the exact checked-out commit and repository. Both lightweight and annotated tags are supported.
-- Never move a released tag. Publication checks that the remote tag still resolves to the verified commit before writing release state and again before final promotion.
-- A published GitHub Release is not overwritten. Fixes require a new version. Only an unfinished draft created by this pipeline for the same commit can be resumed.
+The highest change since the latest successful stable release reachable from the source commit determines one version:
 
-`npm run build` stamps the root package version into the native executable. Direct Go builds must supply the equivalent `-ldflags "-X main.version=VERSION"` when a specific version is required. For manual Docker builds, pass the matching `VERSION` build argument; the existing local default is `1.0.0`, while CI always passes the validated source version explicitly.
+| Commit | Result from `1.4.2` |
+| ------ | ------------------- |
+| `fix: correct a defect` | Patch: `1.4.3` |
+| `perf: reduce search work` | Patch: `1.4.3` |
+| `feat: add a feature` | Minor: `1.5.0` |
+| `feat!: change behavior`, `fix(api)!: change a contract`, or a `BREAKING CHANGE:` footer | Major: `2.0.0` |
+| `docs`, `test`, `ci`, `chore`, `build`, `style`, or ordinary `refactor` only | Verification without a release |
 
-## Prepare and trigger a release
+Breaking changes on any type still release a major version. A feature and its matching revert in the same range cancel out. Use an allowed Conventional Commits type in PR titles; arbitrary titles fail the title check. Do not rely on a PR description surviving a squash unless repository merge settings preserve it.
 
-Use a reviewed checkout and an explicit version. The following example prepares a future stable version; it is not a claim that `1.1.0` has been released:
+Version tags are `vMAJOR.MINOR.PATCH`, optionally with a manual prerelease such as `v1.1.0-rc.1`. Numeric version/prerelease identifiers cannot have leading zeroes; empty identifiers, whitespace and `+build` metadata are rejected. Docker version tags omit `v` and are limited to 128 ASCII characters. Automatic releases are stable releases on `master`; no beta/next branch is introduced.
 
-```sh
-VERSION=1.1.0
-npm version "$VERSION" --workspaces --include-workspace-root \
-  --no-git-tag-version --ignore-scripts
-node scripts/release.mjs version
-npm run test:release
-npm run build
-npm run notices -- --check
-```
+## Version files and source builds
 
-Update the English/Traditional Chinese changelog and release documentation, run the normal [verification suite](../readme.md#development-and-verification), and commit/review the changes. The npm command changes the two package versions and their lockfile without creating a Git commit/tag or running package lifecycle scripts. It does not publish an npm package.
+Successful release tags are the version authority. Root `package.json`, `apps/web/package.json` and their lockfile entries remain a coherent **development baseline**, not an automatically committed release ledger. Verification validates a source-bound plan, stamps all version fields in its temporary checkout, then builds. It does not push a version-bump or generated CHANGELOG commit to `master`.
 
-After review/merge, check out the exact commit intended for release. The commands below are the **publication trigger**, not a local test:
+`npm run build` resolves `NEXA_BUILD_VERSION` first, then an exact version tag at the checked-out commit, then the development baseline. Ambiguous local version tags require an explicit override. A Git-less source archive also needs the explicit version when reproducing a release. For example, this builds locally and does not publish:
 
 ```sh
-VERSION=1.1.0
-git tag -a "v$VERSION" -m "Nexa Home $VERSION"
-git push origin HEAD
-git push origin "v$VERSION"
+NEXA_BUILD_VERSION=1.1.0 npm run build
+./bin/nexa-home version
 ```
 
-If releasing the current `1.0.0` source without a version change, use `VERSION=1.0.0` after reviewing that exact source. Do not force-push an existing version tag.
+Direct Go builds need equivalent `-ldflags "-X main.version=VERSION"`. Manual Docker builds must pass the matching `VERSION` build argument; the local fallback remains `1.0.0`. CI always passes the plan version and exact source revision/source URL. Retain Go symbols for executable vulnerability analysis.
+
+The two official semantic-release analysis plugins and the Conventional Commits preset are exact-locked development tools. They are called as standalone APIs, not the full release engine. `.npmrc` disables automatic peer installation to avoid pulling in unused semantic-release/npm publishing clients; the Docker build uses the matching install flag. Required frontend peers are explicitly declared. This is dependency selection, not an audit exclusion: the complete installed/locked development dependency audit remains a gate.
+
+## Automatic release notes
+
+The official commit analyzer and release-notes generator share the same Conventional Commits preset and commit range. Notes include features, fixes, performance changes, breaking descriptions, commit/issue/PR references where present, and the previous-to-next tag comparison link. English commit descriptions are retained; no AI translation or external text service is used.
+
+The release date is the source commit's UTC date, making planning/retries deterministic. A bounded plan binds version, source SHA, previous release SHA/tag, change type, date and generated notes under SHA-256. Both architecture manifests must carry that identity. The GitHub Release body uses these exact notes, plus image/license information and the verified immutable image digest; it does not delegate change selection to GitHub's generic generated-notes command.
+
+GitHub Releases are the automatically generated per-version history. Repository `CHANGELOG.md` and its Traditional Chinese counterpart remain curated overviews; product manuals are not machine-translated or automatically rewritten on every release.
 
 ## Verification and publishing order
 
-[Release](../.github/workflows/release.yaml) validates the tag/version, then calls the same [Verify workflow](../.github/workflows/ci.yaml) used by branch/PR checks. Its native `ubuntu-24.04` amd64 and `ubuntu-24.04-arm` arm64 jobs run:
+[Release](../.github/workflows/release.yaml) plans on a `master` push, a compatible manual tag push, or an explicit dispatch. It fetches complete history/tags and reads published releases without write permission. It calls the same [Verify workflow](../.github/workflows/ci.yaml) used by branch/PR checks; `master` does not also trigger a duplicate standalone Verify push run. No-release changes still run full verification. If planning fails, ordinary source verification still runs without versioned artifacts, and publication remains blocked.
 
-1. Workflow lint, generated-contract/API/docs/policy checks, TypeScript, ESLint and build-compatibility checks.
-2. Release-tool and frontend tests, embedded application build, license inventory, Go race/vet and input fuzzing.
+Native `ubuntu-24.04` amd64 and `ubuntu-24.04-arm` arm64 jobs run:
+
+1. Workflow lint, generated-contract/API/docs/policy checks, TypeScript, ESLint and build compatibility.
+2. Release-tool/frontend tests, embedded application build, license inventory, Go race/vet and input fuzzing. Frontend test concurrency is bounded; no test or timeout is removed.
 3. Dependency audits, source/executable vulnerability scans and an explicit rejection of direct/transitive OpenPGP runtime imports.
 4. The actual built-application Chromium E2E suite.
-5. A version/revision-stamped native OCI build, real Compose/HTTPS/cold-recovery acceptance and the policy-aware image scan.
-6. Extraction of the executable from that exact image, verification of its ELF architecture/reported version, portable archive creation and another executable vulnerability scan.
+5. Version/revision-stamped native OCI builds, real Compose/HTTPS/cold-recovery acceptance and policy-aware image scans.
+6. Exact-image executable extraction, ELF architecture/reported-version validation, portable archive creation and another executable vulnerability scan.
 
-Only successful tag verification exports the two architecture artifacts. They contain explicit public build files, not application data, browser traces, startup logs, credentials or local process reports. Temporary artifacts expire after seven days. A rerun can replace only its own same-run architecture artifact; downloads are scoped to the current workflow run.
+A versioned plan exports both verified architecture artifacts; no-release verification does not. The same-run plan/artifacts expire after seven days. Uploads contain declared public build files, never application data, credentials, startup logs, browser traces or local process reports. Reruns replace only their own same-run named artifacts; downloads never select a different run.
 
-The separate `release` environment publishing job validates the complete artifact set, source identities and SHA-256 hashes before registry login. It loads the checked image archives and pushes them **without rebuilding**. Immutable pushed digests are combined into a two-platform index; its runtime descriptors must match both tested architectures before release assets are uploaded and the draft is published.
+Only the environment-gated publisher receives write permission. It checks the plan digest and complete artifact set before registry login, rechecks the published baseline, creates an annotated automatic tag at the tested SHA, and creates its own draft. The tag contains a bounded public plan receipt, allowing recovery without relying on expired Actions artifacts. Existing automatic tags must match that exact receipt; manually managed tags are not silently adopted.
 
-The reviewed unused OpenPGP exception remains conditional, version/path-scoped and expiring. It does not bypass affected-package/symbol checks; see [security](../SECURITY.md). A failed or expired security gate blocks publication rather than weakening the policy.
+The publisher loads and pushes the tested image archives **without rebuilding**. Immutable pushed digests form a two-platform index whose runtime descriptors must equal the verified architectures. Assets/notes are uploaded, the tag/baseline are checked again, and only then is the draft made public. A tag created with `GITHUB_TOKEN` does not trigger another push workflow; this pipeline completes directly rather than relying on such recursion.
+
+All releases share a non-cancelling workflow concurrency group and serialized publication. GitHub concurrency is not a FIFO queue and may replace pending runs; later planning covers commits not yet successfully released. The reviewed unused OpenPGP exception remains conditional, exact-version/path-scoped and expiring; see [security](../SECURITY.md). A failed/expired gate blocks publication rather than relaxing policy.
+
+## Preview and compatible manual tags
+
+The default manual dispatch is a **preview**, including read-only planning and full verification but no tag, registry or Release writes. These commands start hosted workflows; they are not local tests:
+
+```sh
+gh workflow run release.yaml --ref master -f mode=preview
+```
+
+Inspect the plan/notes in the run summary and its `release-plan` artifact. Ordinary reviewed merges to `master` need no version command or tag command.
+
+An authorized maintainer can still deliberately publish a reviewed commit using an unused explicit version tag, including a prerelease/backport. This overrides automatic version selection but not verification. The commands below are a **publication trigger**, not a test:
+
+```sh
+VERSION=1.1.0-rc.1
+git tag -a "v$VERSION" -m "Nexa Home $VERSION"
+git push origin "v$VERSION"
+```
+
+Do not manually change development package versions just for this tag. The workflow stamps the selected tag version in the isolated build. The tagged source must contain the reviewed workflow/tools. Never force-push an existing release tag.
 
 ## Image tags and latest
 
 | Reference | Meaning |
 | --------- | ------- |
-| `ghcr.io/owner/repository:1.1.0` | The stable version index for Linux amd64 and arm64 |
-| `ghcr.io/owner/repository:1.1.0-rc.1` | A prerelease index; never promotes `latest` |
+| `ghcr.io/owner/repository:1.1.0` | Stable Linux amd64/arm64 index |
+| `ghcr.io/owner/repository:1.1.0-rc.1` | Manual prerelease index; never promotes `latest` |
 | `ghcr.io/owner/repository:latest` | Promoted only for a stable version newer than existing published stable releases |
 | `ghcr.io/owner/repository@sha256:...` | The exact index digest recorded in the release |
-| `build-<run>-<attempt>-<arch>` | Internal staging tags used to assemble the index; not deployment aliases |
+| `build-<run>-<attempt>-<arch>` | Internal staging tags, not deployment aliases |
 
-Git tags include `v`; Docker version tags do not. Older stable backports do not move either Docker `latest` or GitHub's Latest designation backwards. There are no automatic major/minor aliases. Published version tags should be treated as immutable; pin an index digest for an exact deployment.
+Older stable backports do not move Docker `latest` or GitHub Latest backwards. No automatic major/minor aliases are created. Treat published version tags as immutable; use an index digest for exact deployment.
 
 ## Download assets and integrity
 
@@ -91,10 +117,10 @@ Each GitHub Release provides:
 
 - `nexa-home_VERSION_linux_amd64.tar.gz`
 - `nexa-home_VERSION_linux_arm64.tar.gz`
-- `image-digest.txt`, containing the fully qualified registry index digest
+- `image-digest.txt`, the fully qualified registry index digest
 - `SHA256SUMS`, covering both archives and `image-digest.txt`
 
-Each executable archive contains only `nexa-home`, `LICENSE` and `THIRD_PARTY_NOTICES.md`. Node, Go, test tools and application data are not included. Preserve the license texts when redistributing it.
+Each executable archive contains only `nexa-home`, `LICENSE` and `THIRD_PARTY_NOTICES.md`. It contains no Node, Go, test tools or application data. Preserve original license texts when redistributing it.
 
 Download all four assets from the intended repository's HTTPS release page into an empty directory, then verify and extract the appropriate architecture:
 
@@ -108,7 +134,7 @@ tar -xzf "nexa-home_${VERSION}_linux_${ARCH}.tar.gz" \
 "./nexa-home_${VERSION}_${ARCH}/nexa-home" version
 ```
 
-Choose `ARCH=arm64` on AArch64. Checksums detect corruption; they are not a separate signing system. Verify the repository and HTTPS origin. See the [readme](../readme.md#run-locally) for private data-directory and transport settings before starting the application.
+Use `ARCH=arm64` on AArch64. Checksums detect corruption, not publisher identity through a separate signature system. Verify the repository and HTTPS origin. Set private data-directory/transport options from the [readme](../readme.md#run-locally) before starting the application.
 
 ## Use a published image
 
@@ -121,7 +147,7 @@ docker pull "$IMAGE:$VERSION"
 docker buildx imagetools inspect "$IMAGE:$VERSION"
 ```
 
-Set `NEXA_IMAGE` in ignored `deploy/.env` to that version reference or the exact digest from `image-digest.txt`. Keep the HTTPS/origin/data settings from the [deployment guide](deployment.md). Pull and run without replacing the published image with a local rebuild:
+Set `NEXA_IMAGE` in ignored `deploy/.env` to the version reference or exact `image-digest.txt` reference. Keep [deployment](deployment.md) HTTPS/origin/data settings. Do not replace a published image with a local rebuild:
 
 ```sh
 docker compose --env-file deploy/.env -f deploy/compose.yaml pull
@@ -129,19 +155,19 @@ docker compose --env-file deploy/.env -f deploy/compose.yaml \
   up --detach --no-build --pull always --wait
 ```
 
-The manifest selects the host's Linux architecture automatically. Private packages require an appropriate registry login; never put credentials in Compose files, image URLs or public logs.
+The index selects the host's Linux architecture. Private packages need an appropriate registry login; never put credentials in Compose, image URLs or public logs.
 
 ## Reruns and failure recovery
 
-Use GitHub Actions' rerun controls or dispatch Release explicitly on the same immutable version tag:
+Before tag creation, rerun the original `master` run at its original SHA. After an automatic tag exists, rerun that run or explicitly resume the same immutable tag:
 
 ```sh
 VERSION=1.1.0
-gh workflow run release.yaml --ref "v$VERSION"
+gh workflow run release.yaml --ref "v$VERSION" -f mode=resume
 ```
 
-A dispatch on a branch fails tag validation. A workflow file must be available to GitHub Actions, and the selected tag must contain the reviewed release configuration.
+`resume` on a branch is rejected; default `preview` never publishes. An automatic tag's plan receipt preserves the original type, baseline, notes and digest even when dispatching through a tag. Expired artifacts require complete verification again, not a skipped gate. A manual tag can resume only its same-plan draft. A published Release is a no-op during planning and cannot be overwritten.
 
-Publication to GHCR and GitHub Releases is not one atomic transaction. Failure/cancellation can leave staging tags, an unpublished pipeline-owned draft, or a version image/latest alias before the GitHub Release becomes public. Inspect the run and digests, retain the same tag/commit and rerun. The workflow can resume only its own draft for that commit, and never automatically deletes registry versions or a published release. If an artifact has expired or a prerequisite changed, rerun the complete verification instead of bypassing gates. A published release cannot be rerun as a replacement; prepare a new version.
+If an unfinished version belongs to an earlier SHA, a later `master` commit cannot take it over or move its tag. Resume the original source first; later planning can then include subsequent changes. A changed published baseline, moved tag, altered receipt or foreign draft stops publication. Inspect and resolve the exact state rather than deleting/replacing tags automatically.
 
-Fix permissions/visibility in repository and package settings, not by adding long-lived tokens to source. Do not disable TLS checks or broaden the security exception to make a release pass. Environment reviewers, tag protections and repository access controls remain the operator's responsibility.
+GHCR and GitHub Releases are not atomic. Failure/cancellation can leave an annotated tag, staging/version/latest image state or an unpublished pipeline-owned draft before the GitHub Release becomes public. No registry version or published Release is automatically deleted. Fix access/visibility in repository/package settings, not with source-embedded long-lived credentials. Never disable TLS or broaden a security exception to pass release gates. Environment reviewers, tag/branch protections and access controls remain operator responsibilities.

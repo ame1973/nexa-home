@@ -113,7 +113,7 @@ Store local overrides under ignored `.local/` and include them consistently in s
 
 1. Review release notes and supported architectures/schema changes. Pin a reviewed source revision or verified image; do not use an unreviewed floating image.
 2. Export a full portable JSON with icons. Take a complete stopped archive and record the exact old image/source and deployment configuration.
-3. Build the target version locally, or obtain a separately verified release artifact. Preserve the data volume, project name, origin, proxy trust and private ownership. Local builds and branch/PR checks do not publish images; version-tag publication is described in the [release guide](releases.md).
+3. Build the target version locally, or obtain a separately verified release artifact. Preserve the data volume, project name, origin, proxy trust and private ownership. Local builds and non-release-branch/PR checks do not publish images; automatic `master` and explicit tag publication are described in the [release guide](releases.md).
 4. Start one target instance with the preserved volume. Startup serializes migration with the data lock, checks the known schema and takes a safe pre-migration snapshot before forward migrations. Such an on-volume snapshot is not a substitute for the off-volume backup and its matching assets.
 5. Check readiness, version, restricted logs, login, public/private behavior, icons and a fresh export. Confirm a graceful stop/start preserves data and expected sessions.
 6. Keep the previous backup/image until the new version is accepted. Do not discard evidence after only a successful healthcheck.

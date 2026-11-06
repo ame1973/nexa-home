@@ -31,7 +31,7 @@ Read the one-time token locally with `docker compose --env-file deploy/.env -f d
 - [Deployment, HTTPS proxy, storage and troubleshooting](docs/deployment.md)
 - [Backup, upgrade, rollback and credential recovery](docs/backup-and-recovery.md)
 - [Security boundaries and reviewed dependency policy](SECURITY.md)
-- [Version tags, GitHub Releases and GHCR publishing](docs/releases.md)
+- [Automatic versions, release notes and GHCR publishing](docs/releases.md)
 - [Changelog](CHANGELOG.md) and [1.0.0 release notes](docs/release-notes-1.0.0.md)
 
 No registry publication or hosted CI run is implied by these local build instructions. Raw image scans retain an unused OpenPGP module advisory. Its reviewed path/version-specific exception expires on 2027-02-01 and is valid only while no direct or transitive runtime dependency uses OpenPGP; see the security notice. Other findings remain fatal.
@@ -48,12 +48,15 @@ npm run build
 
 `npm run build:web` writes the compiled frontend into `internal/web/dist/`. Build it before running Go commands that compile the executable or embedded web package. Do not edit generated bundles. Browser bundles use `/static/`; `/assets/{id}` belongs to the protected icon API.
 
+`npm run build` resolves an explicit `NEXA_BUILD_VERSION`, an exact checkout version tag, or the coherent development package baseline, in that order. Release CI stamps only its temporary checkout and does not commit version bumps; see [automatic version policy](docs/releases.md#version-files-and-source-builds).
+
 To cross-compile the Linux arm64 executable after building the frontend:
 
 ```sh
-GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -trimpath \
-  -ldflags "-X main.version=$(node scripts/release.mjs version)" \
-  -o bin/nexa-home-linux-arm64 ./cmd/nexa-home
+VERSION=$(node scripts/release.mjs version) &&
+  GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -trimpath \
+    -ldflags "-X main.version=$VERSION" \
+    -o bin/nexa-home-linux-arm64 ./cmd/nexa-home
 ```
 
 ## Run locally
@@ -197,7 +200,7 @@ npm run test:e2e
 
 Browser tests launch the actual built Go executable with a fresh private directory per test. They exercise real setup/login, CRUD, complete reorder scopes, backup/restore, CSP, session revocation, responsive targets, real axe contrast checks, and a 1000-service input-to-paint measurement. Traces, video, and automatic failure screenshots are disabled so credentials do not enter artifacts. Explicit screenshots use synthetic data and blank credential fields.
 
-After building the Docker image, `npm run test:container` exercises real Compose deployment, fresh-volume cold recovery and verified HTTPS with Secure cookies and exact-origin checks. It requires Docker/Compose, tar and OpenSSL, creates only its own isolated resources, and never installs a host CA or privileged emulator. `npm run scan:image` scans a saved image with pinned Trivy without exposing the daemon socket. Unhandled findings return nonzero and remain visible; reviewed suppressions retain their reasons and source in reports, which stay local/ignored. The Verify workflow runs native amd64/arm64 checks without registry credentials. A separate version-tag Release workflow publishes the exact verified images to GHCR and provides versioned executables/checksums only after both architecture jobs succeed; see [release setup and operation](docs/releases.md). Neither workflow deploys the application to a remote server.
+After building the Docker image, `npm run test:container` exercises real Compose deployment, fresh-volume cold recovery and verified HTTPS with Secure cookies and exact-origin checks. It requires Docker/Compose, tar and OpenSSL, creates only its own isolated resources, and never installs a host CA or privileged emulator. `npm run scan:image` scans a saved image with pinned Trivy without exposing the daemon socket. Unhandled findings return nonzero and remain visible; reviewed suppressions retain their reasons and source in reports, which stay local/ignored. The Verify workflow runs native amd64/arm64 checks without registry credentials. The Release workflow automatically plans versions and release notes from Conventional Commits on `master`, retaining explicit tag compatibility. Only after both architecture jobs succeed does it create the automatic tag, publish the exact verified images to GHCR and provide versioned executables/checksums. Preview dispatches never publish, and planning failures still run source verification; see [release setup and operation](docs/releases.md). Neither workflow deploys the application to a remote server.
 
 The HTTP contract is in [api/openapi.yaml](api/openapi.yaml); generated JSON and TypeScript remain checked for drift. Do not modify generated artifacts by hand.
 
