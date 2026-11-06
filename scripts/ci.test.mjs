@@ -4,10 +4,12 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import YAML from "yaml";
 
-const verify = YAML.parse(readFileSync(".github/workflows/ci.yaml", "utf8"));
-const release = YAML.parse(
-  readFileSync(".github/workflows/release.yaml", "utf8"),
-);
+const readWorkflow = (name) =>
+  YAML.parse(readFileSync(`.github/workflows/${name}.yaml`, "utf8"));
+const verify = readWorkflow("ci");
+const release = readWorkflow("release");
+const pullRequest = readWorkflow("pull-request");
+const workflows = [verify, release, pullRequest];
 const actions = {
   "actions/checkout": "d23441a48e516b6c34aea4fa41551a30e30af803",
   "actions/setup-node": "249970729cb0ef3589644e2896645e5dc5ba9c38",
@@ -15,33 +17,39 @@ const actions = {
   "actions/upload-artifact": "cf430e030ddbb5b0abf93d22962f4752f3646cd9",
   "actions/download-artifact": "9000827ccba6bdab643e8b6fd33ac0654aef8333",
 };
-
-function steps(workflow) {
-  return Object.values(workflow.jobs).flatMap((job) => job.steps || []);
-}
+const steps = (workflow) =>
+  Object.values(workflow.jobs).flatMap((job) => job.steps || []);
 const matching = (items, text) =>
   items.findIndex((step) => step.run?.includes(text));
 
-test("branch and PR verification stays read-only and supports the native release matrix", () => {
-  assert.deepEqual(verify.on.push.branches, ["**"]);
+const retention = {
+  "if-no-files-found": "error",
+  "retention-days": 7,
+  overwrite: true,
+  "compression-level": 0,
+  "include-hidden-files": false,
+  archive: true,
+};
+
+test("branch/PR verification remains read-only; master reuses it without duplicate push runs", () => {
+  assert.deepEqual(verify.on.push, { "branches-ignore": ["master"] });
   assert.ok(Object.hasOwn(verify.on, "pull_request"));
-  assert.equal(verify.on.workflow_call.inputs.release_version.type, "string");
-  assert.equal(verify.on.workflow_call.inputs.release_version.default, "");
+  for (const name of ["release_version", "release_plan_digest"]) {
+    assert.equal(verify.on.workflow_call.inputs[name].type, "string");
+    assert.equal(verify.on.workflow_call.inputs[name].default, "");
+  }
   assert.deepEqual(verify.permissions, { contents: "read" });
   assert.deepEqual(verify.jobs.verify.strategy.matrix.include, [
     { runner: "ubuntu-24.04", arch: "amd64" },
     { runner: "ubuntu-24.04-arm", arch: "arm64" },
   ]);
-  assert.ok(
-    !verify.jobs.verify.permissions ||
-      verify.jobs.verify.permissions.contents === "read",
-  );
   assert.equal(
     steps(verify).some((step) => step.env?.GH_TOKEN),
     false,
   );
   for (const value of [
     "github.com/rhysd/actionlint/cmd/actionlint@v1.7.12",
+    "pull-request.yaml",
     "npm run test:release",
     "npm run test:web",
     "playwright test",
@@ -56,28 +64,79 @@ test("branch and PR verification stays read-only and supports the native release
     );
 });
 
-test("release entry points validate tags and reuse full verification without inheriting secrets", () => {
-  assert.deepEqual(release.on.push.tags, ["v*"]);
-  assert.ok(Object.hasOwn(release.on, "workflow_dispatch"));
+test("master pushes plan semantic releases, tag compatibility remains, and dispatch defaults to preview", () => {
+  assert.deepEqual(release.on.push, { branches: ["master"], tags: ["v*"] });
   assert.equal(Object.hasOwn(release.on, "pull_request"), false);
+  assert.equal(release.on.workflow_dispatch.inputs.mode.default, "preview");
+  assert.deepEqual(release.on.workflow_dispatch.inputs.mode.options, [
+    "preview",
+    "resume",
+  ]);
   assert.deepEqual(release.permissions, { contents: "read" });
-  assert.equal(
-    release.jobs.metadata.steps.at(-1).run,
-    "node scripts/release.mjs metadata",
+  const list = release.jobs.plan.steps;
+  const checkout = list.find((step) =>
+    step.uses?.startsWith("actions/checkout@"),
   );
-  assert.deepEqual(release.jobs.verify.needs, "metadata");
+  assert.equal(checkout.with["fetch-depth"], 0);
+  assert.ok(
+    matching(list, "npm ci --ignore-scripts") <
+      matching(list, "node scripts/release-plan.mjs plan"),
+  );
+  assert.equal(release.jobs.verify.needs, "plan");
+  assert.equal(
+    release.jobs.verify.if,
+    undefined,
+    "No-release commits still receive full verification",
+  );
   assert.equal(release.jobs.verify.uses, "./.github/workflows/ci.yaml");
   assert.deepEqual(release.jobs.verify.permissions, { contents: "read" });
   assert.equal(release.jobs.verify.secrets, undefined);
   assert.equal(
     release.jobs.verify.with.release_version,
-    "${{ needs.metadata.outputs.version }}",
+    "${{ needs.plan.outputs.version }}",
   );
-  assert.deepEqual(release.jobs.publish.needs, ["metadata", "verify"]);
-  assert.match(release.jobs.publish.if, /github\.ref_type == 'tag'/);
+  assert.match(
+    release.jobs.verify.with.release_plan_digest,
+    /needs\.plan\.outputs\.version != ''/,
+  );
+  assert.deepEqual(release.jobs.publish.needs, ["plan", "verify"]);
+  assert.equal(
+    release.jobs.publish.if,
+    "${{ needs.plan.outputs.publish == 'true' }}",
+  );
+  const upload = list.find((step) =>
+    step.uses?.startsWith("actions/upload-artifact@"),
+  );
+  assert.deepEqual(upload.with, {
+    name: "release-plan",
+    path: "release-plan/plan.json",
+    ...retention,
+  });
 });
 
-test("only the serialized environment-scoped publisher gets registry and release write permissions", () => {
+test("PR title edits have a separate read-only check and cannot replace failed source-verification checks", () => {
+  assert.deepEqual(pullRequest.on.pull_request.types, [
+    "opened",
+    "edited",
+    "synchronize",
+    "reopened",
+  ]);
+  assert.deepEqual(pullRequest.permissions, { contents: "read" });
+  assert.equal(Object.hasOwn(pullRequest.on, "pull_request_target"), false);
+  assert.equal(
+    pullRequest.jobs["conventional-title"].name,
+    "Conventional PR title",
+  );
+  assert.ok(
+    steps(pullRequest).some(
+      (step) => step.run === "node scripts/release-plan.mjs check-pr",
+    ),
+  );
+  assert.equal(verify.on.pull_request, null);
+  assert.equal(verify.jobs.verify.if, undefined);
+});
+
+test("only the serialized environment-scoped publisher has write permissions or registry credentials", () => {
   assert.deepEqual(release.jobs.publish.permissions, {
     contents: "write",
     packages: "write",
@@ -87,15 +146,25 @@ test("only the serialized environment-scoped publisher gets registry and release
     group: "release-publish-${{ github.repository }}",
     "cancel-in-progress": false,
   });
-  assert.equal(release.concurrency["cancel-in-progress"], false);
+  assert.deepEqual(release.concurrency, {
+    group: "release-${{ github.repository }}",
+    "cancel-in-progress": false,
+  });
   assert.match(verify.concurrency.group, /^verify-/);
-  assert.match(release.concurrency.group, /^release-/);
-  for (const [name, job] of Object.entries(release.jobs))
-    if (name !== "publish") {
+  for (const workflow of workflows) {
+    for (const [name, job] of Object.entries(workflow.jobs)) {
+      if (workflow === release && name === "publish") continue;
       assert.ok(!job.permissions || job.permissions.contents === "read");
       assert.equal(job.permissions?.packages, undefined);
+      assert.equal(
+        steps({ jobs: { job } }).some((step) => step.env?.DOCKER_CONFIG),
+        false,
+      );
     }
-  assert.equal(release.jobs.publish.env, undefined);
+  }
+  assert.deepEqual(release.jobs.publish.env, {
+    NEXA_RELEASE_PLAN_DIGEST: "${{ needs.plan.outputs.plan_digest }}",
+  });
   const credentials = release.jobs.publish.steps.filter(
     (step) => step.env?.DOCKER_CONFIG,
   );
@@ -109,7 +178,7 @@ test("only the serialized environment-scoped publisher gets registry and release
   assert.equal(release.jobs.publish.steps.at(-1).run, "docker logout ghcr.io");
 });
 
-test("runner-scoped values are never evaluated in job-level environment expressions", () => {
+test("runner-scoped values never appear in job-level environment expressions", () => {
   const available = new Set([
     "github",
     "needs",
@@ -119,7 +188,7 @@ test("runner-scoped values are never evaluated in job-level environment expressi
     "secrets",
     "inputs",
   ]);
-  for (const workflow of [verify, release])
+  for (const workflow of workflows)
     for (const job of Object.values(workflow.jobs))
       for (const value of Object.values(job.env || {}))
         for (const match of String(value).matchAll(
@@ -131,7 +200,35 @@ test("runner-scoped values are never evaluated in job-level environment expressi
           );
 });
 
-test("artifact export occurs only after every existing gate and retains no runtime logs or data", () => {
+test("versioned builds require a source-bound plan and stamp all version files before dependency installation", () => {
+  const list = verify.jobs.verify.steps;
+  const download = list.find((step) =>
+    step.uses?.startsWith("actions/download-artifact@"),
+  );
+  assert.equal(download.if, "${{ inputs.release_version != '' }}");
+  assert.deepEqual(download.with, {
+    name: "release-plan",
+    path: "release-plan",
+    "skip-decompress": false,
+  });
+  const stamp = matching(list, "node scripts/release.mjs stamp");
+  assert.ok(
+    stamp > list.indexOf(download) &&
+      stamp < matching(list, "npm ci --ignore-scripts"),
+  );
+  assert.ok(list[stamp].run.includes('if [ -z "$NEXA_RELEASE_PLAN_DIGEST" ]'));
+  assert.ok(list[stamp].run.includes("node scripts/release.mjs metadata"));
+  assert.equal(
+    verify.jobs.verify.env.NEXA_BUILD_VERSION,
+    "${{ inputs.release_version }}",
+  );
+  assert.equal(
+    verify.jobs.verify.env.NEXA_RELEASE_PLAN_DIGEST,
+    "${{ inputs.release_plan_digest }}",
+  );
+});
+
+test("artifact export follows every gate on both branch and tag releases and retains no runtime data", () => {
   const list = verify.jobs.verify.steps;
   const build = matching(list, "docker buildx build");
   const deployed = matching(list, "npm run test:container");
@@ -155,19 +252,12 @@ test("artifact export occurs only after every existing gate and retains no runti
   );
   assert.ok(list.some((step) => step.run?.includes("git rev-parse HEAD")));
   assert.ok(list[packaged].run.includes("-mode=binary"));
-  for (const step of [list[packaged], list[uploaded]]) {
-    assert.match(step.if, /inputs\.release_version != ''/);
-    assert.match(step.if, /github\.ref_type == 'tag'/);
-  }
+  for (const step of [list[packaged], list[uploaded]])
+    assert.equal(step.if, "${{ inputs.release_version != '' }}");
   assert.deepEqual(list[uploaded].with, {
     name: "release-linux-${{ matrix.arch }}",
     path: "release-artifacts/${{ matrix.arch }}/",
-    "if-no-files-found": "error",
-    "retention-days": 7,
-    overwrite: true,
-    "compression-level": 0,
-    "include-hidden-files": false,
-    archive: true,
+    ...retention,
   });
   assert.equal(
     list.some(
@@ -177,12 +267,18 @@ test("artifact export occurs only after every existing gate and retains no runti
   );
 });
 
-test("publication downloads only this run's separate artifacts and validates them before login", () => {
+test("publication downloads only this run's separate plan and architecture artifacts before registry login, without rebuilding", () => {
   const list = release.jobs.publish.steps;
-  const download = list.find((step) =>
+  const downloads = list.filter((step) =>
     step.uses?.startsWith("actions/download-artifact@"),
   );
-  assert.deepEqual(download.with, {
+  assert.equal(downloads.length, 2);
+  assert.deepEqual(downloads[0].with, {
+    name: "release-plan",
+    path: "release-plan",
+    "skip-decompress": false,
+  });
+  assert.deepEqual(downloads[1].with, {
     pattern: "release-linux-*",
     path: "release-artifacts",
     "merge-multiple": false,
@@ -198,17 +294,51 @@ test("publication downloads only this run's separate artifacts and validates the
   );
   assert.equal(
     list.some((step) =>
-      /npm (?:ci|install)|go build|docker buildx build/.test(step.run || ""),
+      /npm (?:ci|install)|go build|docker buildx build|semantic-release-action/.test(
+        step.run || "",
+      ),
     ),
     false,
   );
   const login = list.find((step) => step.run?.includes("docker login"));
   assert.match(login.run, /--password-stdin/);
   assert.equal(login.env.GH_TOKEN, "${{ github.token }}");
+  const source = readFileSync("scripts/release.mjs", "utf8");
+  for (const match of source.matchAll(/from "([^"]+)"/g))
+    assert.ok(
+      match[1].startsWith("node:"),
+      "The publisher must need no installed npm code",
+    );
 });
 
-test("every external action is an explicitly reviewed official commit and checkout never persists credentials", () => {
-  for (const workflow of [verify, release]) {
+test("standalone tools are exact-locked without the unused semantic-release/npm publisher peer graph", () => {
+  const root = JSON.parse(readFileSync("package.json", "utf8"));
+  const lock = JSON.parse(readFileSync("package-lock.json", "utf8"));
+  for (const [name, version] of Object.entries({
+    "@semantic-release/commit-analyzer": "13.0.1",
+    "@semantic-release/release-notes-generator": "14.1.1",
+    "conventional-changelog-conventionalcommits": "9.3.1",
+  })) {
+    assert.equal(root.devDependencies[name], version);
+    assert.equal(lock.packages[`node_modules/${name}`].version, version);
+  }
+  assert.equal(lock.packages["node_modules/semantic-release"], undefined);
+  assert.equal(lock.packages["node_modules/npm"], undefined);
+  assert.match(readFileSync(".npmrc", "utf8"), /^legacy-peer-deps=true$/m);
+  assert.match(
+    readFileSync("deploy/Dockerfile", "utf8"),
+    /npm ci --ignore-scripts --legacy-peer-deps/,
+  );
+  assert.equal(
+    JSON.parse(readFileSync("apps/web/package.json", "utf8")).devDependencies[
+      "@testing-library/dom"
+    ],
+    "10.4.2",
+  );
+});
+
+test("every external action uses a reviewed official SHA and checkout never persists credentials or follows a moving branch", () => {
+  for (const workflow of workflows)
     for (const step of steps(workflow)) {
       if (!step.uses) continue;
       const [name, commit] = step.uses.split("@");
@@ -219,17 +349,16 @@ test("every external action is an explicitly reviewed official commit and checko
         if (step.with.ref) assert.equal(step.with.ref, "${{ github.sha }}");
       }
     }
-  }
 });
 
-test("workflow shell blocks parse without executing and never interpolate GitHub event text into shell source", () => {
-  for (const workflow of [verify, release])
+test("all workflow shell blocks parse without execution and never interpolate event data into shell source", () => {
+  for (const workflow of workflows)
     for (const step of steps(workflow)) {
       if (!step.run) continue;
       assert.equal(
         step.run.includes("${{"),
         false,
-        "Use quoted environment variables instead of expression interpolation in shell",
+        "Use files or quoted environment variables, not shell expression interpolation",
       );
       const result = spawnSync("bash", ["-n"], {
         encoding: "utf8",

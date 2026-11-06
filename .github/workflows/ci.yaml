@@ -2,13 +2,18 @@ name: Verify
 
 on:
   push:
-    branches: ["**"]
+    branches-ignore: [master]
   pull_request:
   workflow_dispatch:
   workflow_call:
     inputs:
       release_version:
-        description: Validated tag version whose tested artifacts should be exported
+        description: Validated plan version whose tested artifacts should be exported
+        type: string
+        required: false
+        default: ""
+      release_plan_digest:
+        description: Exact identity of this run's source-bound release plan
         type: string
         required: false
         default: ""
@@ -36,6 +41,8 @@ jobs:
     env:
       NEXA_TEST_PLATFORM: linux/${{ matrix.arch }}
       NEXA_TEST_IMAGE: nexa-home:ci-${{ matrix.arch }}
+      NEXA_BUILD_VERSION: ${{ inputs.release_version }}
+      NEXA_RELEASE_PLAN_DIGEST: ${{ inputs.release_plan_digest }}
       NPM_CONFIG_UPDATE_NOTIFIER: "false"
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
@@ -49,14 +56,29 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
-      - name: Validate build version
+      - name: Download this run's source-bound release plan
+        if: ${{ inputs.release_version != '' }}
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release-plan
+          path: release-plan
+          skip-decompress: false
+      - name: Validate and stamp the build version in this checkout only
         id: version
         env:
           RELEASE_VERSION: ${{ inputs.release_version }}
         run: |
+          if [ -n "$RELEASE_VERSION" ]; then
+            if [ -z "$NEXA_RELEASE_PLAN_DIGEST" ]; then
+              printf '%s\n' 'A versioned build requires the exact release plan.' >&2
+              exit 1
+            fi
+            node scripts/release.mjs metadata
+            node scripts/release.mjs stamp
+          fi
           version=$(node scripts/release.mjs version)
           if [ -n "$RELEASE_VERSION" ] && [ "$RELEASE_VERSION" != "$version" ]; then
-            printf '%s\n' 'The requested release and source versions must match.' >&2
+            printf '%s\n' 'The requested release and stamped versions must match.' >&2
             exit 1
           fi
           printf 'version=%s\n' "$version" >> "$GITHUB_OUTPUT"
@@ -65,7 +87,7 @@ jobs:
         run: npm ci --ignore-scripts
       - name: Check contracts and generated artifacts
         run: |
-          go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12 .github/workflows/ci.yaml .github/workflows/release.yaml
+          go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12 .github/workflows/ci.yaml .github/workflows/release.yaml .github/workflows/pull-request.yaml
           npm run check:generated
           npm run lint:api
           npm run test:contract
@@ -118,14 +140,14 @@ jobs:
       - name: Scan the runtime image without a daemon socket
         run: npm run scan:image
       - name: Export the tested release executable and image
-        if: ${{ inputs.release_version != '' && github.ref_type == 'tag' }}
+        if: ${{ inputs.release_version != '' }}
         run: |
           node scripts/release.mjs package
           arch=${NEXA_TEST_PLATFORM#linux/}
           go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 \
             -mode=binary -show verbose "release-artifacts/$arch/nexa-home"
       - name: Retain only verified release artifacts
-        if: ${{ inputs.release_version != '' && github.ref_type == 'tag' }}
+        if: ${{ inputs.release_version != '' }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: release-linux-${{ matrix.arch }}

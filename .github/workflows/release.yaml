@@ -2,48 +2,77 @@ name: Release
 
 on:
   push:
+    branches: [master]
     tags: ["v*"]
   workflow_dispatch:
+    inputs:
+      mode:
+        description: Preview a plan, or resume the exact selected version tag
+        required: true
+        type: choice
+        default: preview
+        options: [preview, resume]
 
 permissions:
   contents: read
 
 concurrency:
-  group: release-${{ github.ref }}
+  group: release-${{ github.repository }}
   cancel-in-progress: false
 
 jobs:
-  metadata:
-    name: Validate release tag
+  plan:
+    name: Plan semantic version and release notes
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     outputs:
       version: ${{ steps.release.outputs.version }}
+      plan_digest: ${{ steps.release.outputs.plan_digest }}
+      publish: ${{ steps.release.outputs.publish }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           ref: ${{ github.sha }}
+          fetch-depth: 0
           persist-credentials: false
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: 24.14.1
-      - name: Require a matching SemVer tag and locked source versions
+          cache: npm
+      - name: Install locked standalone analysis tools without lifecycle scripts
+        run: npm ci --ignore-scripts
+      - name: Plan without repository or registry write permission
         id: release
-        run: node scripts/release.mjs metadata
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NEXA_RELEASE_MODE: ${{ inputs.mode }}
+        run: node scripts/release-plan.mjs plan
+      - name: Retain this run's public release plan
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-plan
+          path: release-plan/plan.json
+          if-no-files-found: error
+          retention-days: 7
+          overwrite: true
+          compression-level: 0
+          include-hidden-files: false
+          archive: true
 
   verify:
     name: Verify both native Linux architectures
-    needs: metadata
+    needs: plan
     permissions:
       contents: read
     uses: ./.github/workflows/ci.yaml
     with:
-      release_version: ${{ needs.metadata.outputs.version }}
+      release_version: ${{ needs.plan.outputs.version }}
+      release_plan_digest: ${{ needs.plan.outputs.version != '' && needs.plan.outputs.plan_digest || '' }}
 
   publish:
     name: Publish tested images and GitHub Release
-    needs: [metadata, verify]
-    if: ${{ github.ref_type == 'tag' }}
+    needs: [plan, verify]
+    if: ${{ needs.plan.outputs.publish == 'true' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     environment: release
@@ -53,6 +82,8 @@ jobs:
     permissions:
       contents: write
       packages: write
+    env:
+      NEXA_RELEASE_PLAN_DIGEST: ${{ needs.plan.outputs.plan_digest }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
@@ -61,6 +92,12 @@ jobs:
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: 24.14.1
+      - name: Download only this run's release plan
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release-plan
+          path: release-plan
+          skip-decompress: false
       - name: Download only this run's architecture artifacts
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
@@ -68,7 +105,7 @@ jobs:
           path: release-artifacts
           merge-multiple: false
           skip-decompress: false
-      - name: Verify the complete artifact set before registry authentication
+      - name: Verify the plan and complete artifact set before registry authentication
         run: node scripts/release.mjs verify
       - name: Authenticate only this publishing job to GHCR
         env:
@@ -77,10 +114,11 @@ jobs:
         run: |
           install -d -m 700 "$DOCKER_CONFIG"
           printf '%s' "$GH_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
-      - name: Publish exact tested images and versioned downloads
+      - name: Create the verified tag and publish exact tested images and notes
         env:
           DOCKER_CONFIG: ${{ runner.temp }}/nexa-release-docker
           GH_TOKEN: ${{ github.token }}
+          NEXA_RELEASE_MODE: ${{ inputs.mode }}
         run: node scripts/release.mjs publish
       - name: Remove temporary registry credentials
         if: ${{ always() }}
