@@ -108,21 +108,26 @@ jobs:
           skip-decompress: false
       - name: Verify the plan and complete artifact set before registry authentication
         run: node scripts/release.mjs verify
-      - name: Authenticate only this publishing job to GHCR
+      - name: Prepare a private registry configuration
         env:
           DOCKER_CONFIG: ${{ runner.temp }}/nexa-release-docker
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          install -d -m 700 "$DOCKER_CONFIG"
-          printf '%s' "$GH_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+        run: install -d -m 700 "$DOCKER_CONFIG"
+      - name: Set up the same supported publishing toolchain
+        uses: ./.github/actions/docker-toolchain
+        env:
+          DOCKER_CONFIG: ${{ runner.temp }}/nexa-release-docker
+      - name: Authenticate only this publishing job to GHCR
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        env:
+          DOCKER_CONFIG: ${{ runner.temp }}/nexa-release-docker
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+          logout: true
       - name: Create the verified tag and publish exact tested images and notes
         env:
           DOCKER_CONFIG: ${{ runner.temp }}/nexa-release-docker
           GH_TOKEN: ${{ github.token }}
           NEXA_RELEASE_MODE: ${{ inputs.mode }}
         run: node scripts/release.mjs publish
-      - name: Remove temporary registry credentials
-        if: ${{ always() }}
-        env:
-          DOCKER_CONFIG: ${{ runner.temp }}/nexa-release-docker
-        run: docker logout ghcr.io

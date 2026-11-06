@@ -1,0 +1,39 @@
+name: Pinned Docker toolchain
+description: Use the same supported Docker and Buildx versions on both native architectures
+
+outputs:
+  builder:
+    description: The Buildx builder attached to this job's pinned Docker daemon
+    value: ${{ steps.buildx.outputs.name }}
+
+runs:
+  using: composite
+  steps:
+    - name: Set up the pinned Docker client and daemon
+      uses: docker/setup-docker-action@3f1ab1ab0e29231562e4db4ca600c1a49653bac6 # v5.7.0
+      with:
+        version: v29.5.3
+        set-host: true
+        daemon-config: |
+          {"features":{"containerd-snapshotter":true}}
+    - name: Set up the pinned Buildx builder
+      id: buildx
+      uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      with:
+        version: v0.38.2
+        driver: docker
+        cleanup: true
+    - name: Require the pinned versions and platform-aware image API
+      shell: bash
+      run: |
+        docker version --format '{{.Client.Version}} {{.Server.Version}} {{.Client.APIVersion}} {{.Server.APIVersion}}' | node -e '
+          const {readFileSync} = require("node:fs");
+          const [client, server, ...apis] = readFileSync(0, "utf8").trim().split(/\s+/);
+          if (client !== "29.5.3" || server !== "29.5.3" || apis.length !== 2 ||
+              apis.some(value => !/^1\.\d+$/.test(value) || Number(value.slice(2)) < 49)) {
+            throw new Error("Docker 29.5.3 client/daemon and API >= 1.49 are required for image inspect/save platform selection");
+          }
+          console.log(`Docker ${client}; client/server API ${apis.join("/")}`);
+        '
+        docker buildx version
+        docker compose version
