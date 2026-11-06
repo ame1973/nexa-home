@@ -64,6 +64,14 @@ test("branch/PR verification remains read-only; master reuses it without duplica
     );
 });
 
+test("Go verification always executes lifecycle tests instead of reusing cached results", () => {
+  const list = verify.jobs.verify.steps;
+  const check = list.find((step) => step.run?.includes("go test -race"));
+  assert.ok(check.run.includes("go test -race -cover -count=1 ./..."));
+  assert.ok(check.run.includes('test -z "$(gofmt -l api cmd db internal)"'));
+  assert.ok(check.run.includes("go vet ./..."));
+});
+
 test("master pushes plan semantic releases, tag compatibility remains, and dispatch defaults to preview", () => {
   assert.deepEqual(release.on.push, { branches: ["master"], tags: ["v*"] });
   assert.equal(Object.hasOwn(release.on, "pull_request"), false);
