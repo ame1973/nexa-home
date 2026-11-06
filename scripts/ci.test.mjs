@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import { parseEnv } from "node:util";
 import YAML from "yaml";
 import { fixtureEnvironment } from "./release-test-env.mjs";
 
@@ -42,6 +43,33 @@ const retention = {
   "include-hidden-files": false,
   archive: true,
 };
+
+test("pull-only Compose is standalone and retains the source deployment's security and storage", () => {
+  const source = YAML.parse(readFileSync("deploy/compose.yaml", "utf8"));
+  const quick = YAML.parse(readFileSync("compose.yaml", "utf8"));
+  const expected = structuredClone(source);
+  delete expected.services["nexa-home"].build;
+  expected.services["nexa-home"].image =
+    "${NEXA_IMAGE:-ghcr.io/ame1973/nexa-home:latest}";
+  expected.services["nexa-home"].pull_policy = "always";
+  assert.deepEqual(
+    quick,
+    expected,
+    "Only image selection, pulling and removal of the local build may differ",
+  );
+});
+
+test("quick-start environment explicitly opts into isolated loopback HTTP without credentials", () => {
+  assert.deepEqual(parseEnv(readFileSync(".env.example", "utf8")), {
+    NEXA_IMAGE: "ghcr.io/ame1973/nexa-home:latest",
+    NEXA_HOST_BIND: "127.0.0.1",
+    NEXA_HOST_PORT: "8080",
+    NEXA_PUBLIC_ORIGIN: "http://127.0.0.1:8080",
+    NEXA_TRUSTED_PROXY_CIDRS: "",
+    NEXA_ALLOW_HTTP_COOKIE: "true",
+    NEXA_LOG_LEVEL: "info",
+  });
+});
 
 test("branch/PR verification remains read-only; master reuses it without duplicate push runs", () => {
   assert.deepEqual(verify.on.push, { "branches-ignore": ["master"] });
@@ -344,6 +372,10 @@ test("artifact export follows every gate on both branch and tag releases and ret
       scanned < packaged &&
       packaged < uploaded,
   );
+  assert.deepEqual(list[deployed].run.trim().split("\n"), [
+    "npm run test:container",
+    "NEXA_TEST_COMPOSE_FILE=compose.yaml npm run test:container",
+  ]);
   assert.equal(
     list[build].with.context,
     ".",

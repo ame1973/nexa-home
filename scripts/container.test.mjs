@@ -13,6 +13,11 @@ const platform =
   process.env.NEXA_TEST_PLATFORM ||
   `linux/${process.arch === "arm64" ? "arm64" : "amd64"}`;
 assert.ok(["linux/amd64", "linux/arm64"].includes(platform));
+const composeFile = process.env.NEXA_TEST_COMPOSE_FILE || "deploy/compose.yaml";
+assert.ok(
+  ["deploy/compose.yaml", "compose.yaml"].includes(composeFile),
+  "Only reviewed Compose files may create and clean up fixture resources",
+);
 const qemu = process.env.NEXA_TEST_QEMU;
 if (qemu)
   assert.ok(
@@ -58,7 +63,7 @@ function startupToken(container) {
 }
 
 test(
-  `real ${platform} Compose image: security, backup, restart and persistence${qemu ? " (unprivileged user-mode emulation)" : ""}`,
+  `real ${platform} Compose image (${composeFile}): security, backup, restart and persistence${qemu ? " (unprivileged user-mode emulation)" : ""}`,
   { timeout: 240_000 },
   async (t) => {
     const directory = await mkdtemp(join(tmpdir(), "nexa-container-"));
@@ -123,7 +128,7 @@ test(
           "--project-name",
           project,
           "--file",
-          resolve("deploy/compose.yaml"),
+          resolve(composeFile),
           "--file",
           override,
           ...args,

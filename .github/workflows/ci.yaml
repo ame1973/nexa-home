@@ -147,8 +147,10 @@ jobs:
             VERSION=${{ steps.version.outputs.version }}
             REVISION=${{ steps.version.outputs.revision }}
             SOURCE=https://github.com/${{ github.repository }}
-      - name: Test real Compose deployment
-        run: npm run test:container
+      - name: Test source and pull-only Compose deployments
+        run: |
+          npm run test:container
+          NEXA_TEST_COMPOSE_FILE=compose.yaml npm run test:container
       - name: Scan the runtime image without a daemon socket
         run: npm run scan:image
       - name: Export the tested release executable and image
