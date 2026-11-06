@@ -23,7 +23,7 @@ One Go process, local SQLite, and no separate database service.
 | -------------------------- | ------------------------------------------------------------------------------------------------------------------- |
 | **Organize your services** | Favorites, categories, tags, keyboard ordering, and desktop drag-and-drop ordering.                                 |
 | **Find a link quickly**    | Search names, descriptions, categories, and tags entirely in the browser. The server never probes service URLs.     |
-| **Choose your look**       | A restrained Future Glass interface with dark, light, and system themes, plus optional glass effects.               |
+| **Choose your look**       | Five light/dark presets, custom token themes, optional glass effects, and advanced CSS with safe recovery.          |
 | **Use your language**      | Twelve interface languages, including Traditional/Simplified Chinese and Arabic right-to-left layouts.              |
 | **Control access**         | One administrator, protected first-run setup, and a public or private homepage.                                     |
 | **Pick your icons**        | Built-in Lucide icons and validated PNG, WebP, or inert SVG uploads. Favicons are uploaded, never fetched remotely. |
@@ -68,6 +68,7 @@ Open **http://127.0.0.1:8080/setup** on the same host. Read the one-time token *
 3. Optionally assign a category and up to 20 tags, mark a favorite, or hide a service/category.
 4. Search names, descriptions, categories, or tags from the homepage. Press `/` or <kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>K</kbd> to focus search; <kbd>Esc</kbd> clears it.
 5. In Manage, choose manual order with no text/tag/visibility filter to reorder. Explicit up/down controls support keyboard and mobile use. Editing a service also supports moving it to an empty category.
+6. Use the palette button for **Future Glass, Graphite, Tide, Forest or Dune**, or customize a copy. The sun/moon menu controls dark/light/system independently. Personal styles stay in your browser; **Manage → Appearance** sets shared defaults. See [themes and advanced CSS](docs/themes.md) for library/JSON/CSS workflows, feature availability, and `/?appearance=safe` recovery without bypassing sign-in.
 
 Public mode exposes only visible services in visible categories, plus the categories/tags actually needed by those services. Private mode requires authentication before service data or private icons are returned. Password changes revoke every session, including the current session. Settings use revision checks: a conflicting draft stays intact until you explicitly reload it.
 
@@ -75,7 +76,7 @@ Public mode exposes only visible services in visible categories, plus the catego
 
 ## Interface languages
 
-Switch immediately with the globe button in the header. Language and theme preferences stay in your browser; product manuals are available in **English and Traditional Chinese**.
+Switch immediately with the globe button in the header. Language and personal appearance preferences stay in your browser; product manuals are available in **English and Traditional Chinese**.
 
 繁體中文 · 简体中文 · English · 日本語 · 한국어 · Español · Français · Deutsch · Português (Brasil) · Русский · العربية · हिन्दी
 
@@ -101,15 +102,17 @@ Each language option uses its native name:
 
 A saved browser preference takes priority. Otherwise the first supported browser language is selected; unmatched preferences fall back to Traditional Chinese. Explicit Chinese scripts take precedence over region: `zh-Hant` stays Traditional and `zh-Hans` stays Simplified. Taiwan, Hong Kong and Macao default to Traditional Chinese; generic Chinese, mainland China, Singapore and Malaysia default to Simplified Chinese. Portuguese preferences use the Brazilian Portuguese translation.
 
-Arabic switches layout and keyboard direction to right-to-left, including navigation, dialogs, menus and controls. URLs and hexadecimal colors remain left-to-right; user-entered names and descriptions are not translated. Switching back restores left-to-right layout. Language and theme preferences are not shared site settings and do not enter portable backups.
+Arabic switches layout and keyboard direction to right-to-left, including navigation, dialogs, menus and controls. URLs and hexadecimal colors remain left-to-right; user-entered names and descriptions are not translated. Switching back restores left-to-right layout. Language and personal appearance preferences are not shared site settings and do not enter portable backups. Administrator appearance defaults, custom tokens and CSS are shared settings and do enter backups.
 
-The interface uses system fonts on the **browser's device** and does not download web fonts. Minimal Linux clients need fonts covering the scripts they display, including CJK, Arabic and Devanagari. Missing glyphs or square boxes require a suitable client-side system font, not a change to the server or scratch container.
+The built-in interface uses system fonts on the **browser's device** and does not download web fonts. Minimal Linux clients need fonts covering the scripts they display, including CJK, Arabic and Devanagari. Missing glyphs or square boxes require a suitable client-side system font, not a change to the server or scratch container.
 
 </details>
 
 ## Backup and restore
 
 Use **Manage → Backup → Export backup**. Leave **Include icon files** enabled for a fully restorable copy. Backups contain private names and URLs; protect them and keep a separate copy outside the application data directory. Credentials, sessions, rate-limit state, and audit history are not exported.
+
+Theme-enabled builds export **backup version 2**, including shared custom tokens and CSS; version 1 imports remain supported. Browser-only styles and theme libraries are not exported. Review imported CSS and keep a complete pre-upgrade backup for rollback; see [themes and compatibility](docs/themes.md).
 
 <details>
 <summary>Restore steps, size limits, and what is preserved</summary>
@@ -133,6 +136,7 @@ All accepted configuration must fit a **16 MiB full export, including exact base
 | -------------------------------------------------- | ----------------------------------------------------------------------------------------- |
 | [Deployment](docs/deployment.md)                   | Docker, HTTPS reverse proxies, storage, and troubleshooting.                              |
 | [Backup and recovery](docs/backup-and-recovery.md) | Portable exports, full backups, upgrades, rollback, and credential recovery.              |
+| [Themes and advanced CSS](docs/themes.md)          | Five presets, custom tokens, browser libraries, arbitrary CSS, and safe recovery.         |
 | [Security](SECURITY.md)                            | Access boundaries, session handling, dependency checks, and the reviewed advisory policy. |
 | [Releases](docs/releases.md)                       | Automatic versions, release notes, GHCR images, and release operation.                    |
 | [Changelog](CHANGELOG.md)                          | Project changes and the [1.0.0 release notes](docs/release-notes-1.0.0.md).               |

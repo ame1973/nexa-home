@@ -30,7 +30,7 @@ Persistent login/setup rate limits survive restarts. Five failed attempts lock a
 
 Public mode intentionally publishes visible services in visible categories and only their necessary categories/tags. A hidden category hides its children from the public launcher, even for an administrator viewing that launcher. Deleting the category moves its services to Uncategorized: individually visible services can become public. Review the confirmation before deleting a hidden category.
 
-Private mode requires a session before configuration or private icons are returned. Uploaded icons that are unreferenced or referenced only by hidden services cannot be retrieved anonymously. Browser storage does not retain private names or URLs after authentication loss; protected requests are cancelled before cached state is cleared.
+Private mode requires a session before configuration or private icons are returned. Uploaded icons that are unreferenced or referenced only by hidden services cannot be retrieved anonymously. The application does not cache the private service catalog in browser storage; protected requests are cancelled before cached state is cleared. Deliberately saved presentation names/CSS are separate and persist independently, so they must never contain private catalog content or secrets.
 
 The database and backups are not encrypted by the application. Host root, the Docker administrator, the data-directory owner, disk snapshots and backup operators are trusted. Use disk/backup encryption and host access controls. A copied infrastructure backup contains password/session digests and audit history; it must be treated as sensitive even though plaintext passwords are not stored.
 
@@ -40,9 +40,17 @@ The server never fetches saved service links, remote favicons, uploaded URL refe
 
 Icons are uploaded files, not remote downloads. PNG is decoded/re-encoded, WebP is fully decoded and validated, and SVG is rebuilt from a strict inert allowlist. Raster dimensions are at most 512 × 512; each file is at most 1 MiB. SVG scripts, events, entities, external references, animation and arbitrary styles are rejected. Asset paths are content-addressed and confined by `os.Root`, with no-overwrite publication and rollback cleanup.
 
-JSON rejects unknown/duplicate keys, invalid UTF-8 and excessive nesting. Ordinary JSON bodies are limited to 128 KiB; portable backups to 16 MiB. The entire restorable configuration, including exact base64 expansion, must remain within that 16 MiB budget. Entity and icon writes enforce it inside their transaction. Counts are bounded to 5000 services/categories/tags each and 1024 icons. A restore validates its graph and files before a separately confirmed, session-bound, five-minute, single-use commit. Credentials, sessions, rate limits and audit history are never replaced by a portable restore.
+JSON rejects unknown/duplicate keys, invalid UTF-8 and excessive nesting. Ordinary JSON bodies are limited to 128 KiB; settings updates allow 512 KiB so JSON escaping can represent the separate 64 KiB CSS source limit. Portable backups are limited to 16 MiB. The entire restorable configuration, including exact base64 expansion, must remain within that 16 MiB budget. Entity and icon writes enforce it inside their transaction. Counts are bounded to 5000 services/categories/tags each and 1024 icons. A restore validates its graph and files before a separately confirmed, session-bound, five-minute, single-use commit. Credentials, sessions, rate limits and audit history are never replaced by a portable restore.
 
 The script CSP is self-only: no inline scripts, eval, remote fonts or third-party analytics. Style elements use the response's nonce where needed; Sonner's stylesheet is external. Style attributes remain permitted for UI positioning and validated colors, not arbitrary script execution. Frames, objects and a foreign base URI are disallowed.
+
+## Custom themes and advanced CSS
+
+Token definitions are bounded to 16 KiB, use a closed versioned schema, and derive contrast-checked text/control colors. Raw CSS is a separate UTF-8 field/file capped at 64 KiB without NUL, not a selector/property allowlist. Shared CSS requires the authenticated administrator, CSRF/Origin checks and the existing revision/portable-budget transaction. A browser's personal CSS affects only that browser. UI CSS does not relax the inert SVG upload rules.
+
+Treat CSS authors as trusted presentation editors: CSS can hide controls, obscure a warning, impersonate visible UI or undermine accessibility. It is not a secret store or a multi-tenant isolation boundary. Shared styling is delivered to browsers allowed to access the site and appears in portable backups; browser-only styles/libraries remain local. Do not put credentials, private names or URLs in presentation definitions.
+
+Styles are inserted using nonce-bearing `style.textContent`, never HTML interpolation. Cached CSS receives each new document's style nonce before paint. The unchanged CSP blocks external imports/fonts/images and inline/eval scripts; existing same-origin and permitted data/blob image rules still apply. The server never fetches CSS URLs. Explicit preview is temporary and Escape restores the prior style. `/?appearance=safe` disables custom tokens/CSS without altering settings, creating a session or bypassing private/admin authentication. See [theme operation and recovery](docs/themes.md). Arbitrary CSS has no automatic accessibility guarantee; do not loosen CSP/TLS to make it work.
 
 ## Storage and runtime
 

@@ -10,6 +10,7 @@ const translations = [
   ["CHANGELOG.md", "CHANGELOG.zh-Hant.md"],
   ["docs/deployment.md", "docs/zh-Hant/deployment.md"],
   ["docs/backup-and-recovery.md", "docs/zh-Hant/backup-and-recovery.md"],
+  ["docs/themes.md", "docs/zh-Hant/themes.md"],
   ["docs/release-notes-1.0.0.md", "docs/zh-Hant/release-notes-1.0.0.md"],
   ["docs/releases.md", "docs/zh-Hant/releases.md"],
   ["licenses/readme.md", "licenses/readme.zh-Hant.md"],
@@ -18,7 +19,9 @@ const documents = translations.flat();
 
 function operationalExamples(source) {
   return [
-    ...source.matchAll(/^[ \t]*```(sh|yaml|dotenv)\n([\s\S]*?)^[ \t]*```/gm),
+    ...source.matchAll(
+      /^[ \t]*```(sh|yaml|dotenv|json|css)\n([\s\S]*?)^[ \t]*```/gm,
+    ),
   ].map(([, language, body]) => ({ language, body: body.trim() }));
 }
 
@@ -44,6 +47,11 @@ test("product documentation links resolve and shell examples parse without execu
       links++;
     }
     for (const { language, body } of operationalExamples(source)) {
+      if (language === "json")
+        assert.doesNotThrow(
+          () => JSON.parse(body),
+          `${name}: JSON example syntax`,
+        );
       if (language !== "sh") continue;
       const parsed = spawnSync("sh", ["-n"], { input: body, encoding: "utf8" });
       assert.equal(parsed.status, 0, `${name}: shell example syntax`);

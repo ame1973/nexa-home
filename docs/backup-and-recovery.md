@@ -28,6 +28,8 @@ The full restorable configuration is capped at **16 MiB including exact base64 i
 
 Restoring appearance can change public/private mode and visibility. Check the warning and verify the resulting exposure before opening the instance to visitors. Private mode is not backup encryption.
 
+New exports use backup version 2 and include the shared preset, custom token definition and advanced CSS; browser-only preferences/library entries remain excluded. Version 1 imports still work, defaulting missing style extensions to Future Glass without CSS. Review imported CSS as trusted presentation: it may hide controls or change accessibility, even though CSP still blocks external resources and inline/eval scripts. `/?appearance=safe` disables custom styling without bypassing authentication or changing saved data; see [themes and recovery](themes.md). Do not relabel a version 2 backup for an older application.
+
 ## Complete stopped Docker archive
 
 **Never copy only a live `nexa.db`, or omit live WAL files.** Use portable export while running, or stop the application and copy the complete data directory. Do not delete the lock file: stopping releases its kernel lock without unlinking the inode.
@@ -119,6 +121,8 @@ Store local overrides under ignored `.local/` and include them consistently in s
 6. Keep the previous backup/image until the new version is accepted. Do not discard evidence after only a successful healthcheck.
 
 For rollback, first stop the target. Use an older executable only with a schema it supports. If the schema advanced, recover the **pre-upgrade complete backup** into separate storage with its compatible old image, verify it, then switch mounts while both instances are stopped. Never force `user_version`, edit the initial migration or overwrite only the database while leaving mismatched assets.
+
+The theme upgrade advances database schema 1 to 2 after writing private `nexa.pre-migration-v1-to-v2.db`. That on-volume file includes authentication state, but not the matching icon files or an off-volume copy. It is never overwritten. An existing file while migration remains pending blocks startup; stop the service, inspect the failure and preserve/move that exact snapshot before a deliberate retry. Normal restarts after a successful upgrade do not create more snapshots. `doctor` uses a read-only connection and does not migrate either schema. Keep the complete pre-upgrade archive for an actual rollback.
 
 ## Credential loss and incident recovery
 
