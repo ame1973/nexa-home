@@ -71,11 +71,15 @@ GitHub Releases 是自動產生的逐版歷程。儲存庫的 `CHANGELOG.md` 與
 5. 注入版本／revision 的原生 OCI 建置、真實 Compose／HTTPS／冷復原驗收，以及符合政策的映像掃描。
 6. 從確切映像擷取執行檔、驗證 ELF 架構／回報版本、建立可攜式封存檔，再執行一次執行檔弱點掃描。
 
+驗證與發布共用同一份 [Docker 工具鏈](../../.github/actions/docker-toolchain/action.yaml)。由 Docker 維護且以 SHA 固定的 `docker/setup-docker-action` 與 `docker/setup-buildx-action`，安裝 Docker **29.5.3**（用戶端與 daemon）及 Buildx **0.38.2**，明確選取新安裝的 daemon，並啟用 containerd 映像儲存。`docker` builder driver 使用該 daemon；原生工作不需要模擬器或額外的特權 builder 容器。提早執行的版本／API 檢查會拒絕不支援的用戶端或 daemon，而不是移除映像檢查／匯出的平台選擇。
+
+`docker/build-push-action` 使用 checkout 的路徑 context（`.`）建置，因此經驗證的暫存版本同步會納入建置，不會被預設 Git context 忽略。設定為 `load: true` 與 `push: false`，先完成部署驗收及掃描，才允許發布。Docker build record 上傳與 build summary 已停用，只保留明確宣告的計畫及架構產物。
+
 有版本的計畫才匯出兩種已驗證架構的產物；不發行的驗證不會匯出。同一次 run 的計畫／產物七天後到期。上傳僅包含明確宣告的公開建置檔，不包含應用程式資料、憑證、啟動日誌、瀏覽器 trace 或本機過程報告。重跑只取代同一次 run 自己的同名產物；下載不會選取其他 run。
 
-只有通過 environment 閘門的發布工作取得寫入權限。它在登入登錄檔前檢查計畫雜湊與完整產物集合，重新確認已發布基準，在已測試 SHA 建立自動附註 tag，再建立自己的草稿。Tag 包含有大小限制的公開計畫收據，因此不必依賴已到期的 Actions 產物即可復原。既有自動 tag 必須與該確切收據相符；不會悄悄接管人工管理的 tag。
+只有通過 environment 閘門的發布工作取得寫入權限。它在登入登錄檔前檢查計畫雜湊與完整產物集合，再透過以 SHA 固定的 `docker/login-action`，使用私有 `DOCKER_CONFIG`、該工作的短期權杖及工作結束後的登出。接著重新確認已發布基準，在已測試 SHA 建立自動附註 tag，再建立自己的草稿。Tag 包含有大小限制的公開計畫收據，因此不必依賴已到期的 Actions 產物即可復原。既有自動 tag 必須與該確切收據相符；不會悄悄接管人工管理的 tag。
 
-發布工作載入並推送已測試的映像封存檔，**不重新建置**。推送後的不可變 digest 組成雙平台索引，其執行期 descriptor 必須與已驗證架構一致。上傳資產／notes，重新檢查 tag／基準後，才公開草稿。由 `GITHUB_TOKEN` 建立的 tag 不會再觸發另一個 push workflow；此流程直接完成，不依賴遞迴觸發。
+發布工作載入並推送已測試的映像封存檔，**不重新建置**。不會再次呼叫 `build-push-action`；保留的 `docker load`／`tag`／`push` 與 `buildx imagetools` 命令，發布的是已驗證映像，不是另一次建置。推送後的不可變 digest 組成雙平台索引，其執行期 descriptor 必須與已驗證架構一致。上傳資產／notes，重新檢查 tag／基準後，才公開草稿。由 `GITHUB_TOKEN` 建立的 tag 不會再觸發另一個 push workflow；此流程直接完成，不依賴遞迴觸發。
 
 所有發行共用不取消進行中工作的 workflow concurrency group，發布亦序列化。GitHub concurrency 不是 FIFO 佇列，可能取代等待中的 run；後續規劃會涵蓋尚未成功發行的 commit。經審查的未使用 OpenPGP 例外仍有條件、精確版本／路徑範圍與到期日，詳見[安全說明](../../SECURITY.zh-Hant.md)。閘門失敗／到期時會阻擋發布，而不是放寬政策。
 
