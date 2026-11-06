@@ -1,6 +1,7 @@
 import {
   createContext,
   useContext,
+  useCallback,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -9,31 +10,21 @@ import {
   type ReactNode,
 } from "react";
 import { Direction } from "radix-ui";
-import type { Settings } from "@/lib/api/client";
+import {
+  appearanceFields,
+  persist,
+  preference,
+  readThemeLibrary,
+  type Appearance,
+  type PersonalAppearance,
+  type ThemeChoice,
+  type ThemeLibraryEntry,
+} from "@/lib/themes";
 import type { MessageKey } from "@/locales/en";
 import { detectLocale, isLocale, localeRegistry, type Locale } from "@/locales";
 
 export { detectLocale } from "@/locales";
 export type { Locale } from "@/locales";
-type ThemeChoice = "dark" | "light" | "system" | null;
-type Appearance = Partial<
-  Pick<Settings, "theme" | "accent" | "cardDensity" | "glassEnabled">
->;
-const preference = (key: string) => {
-  try {
-    return localStorage.getItem(key);
-  } catch {
-    return null;
-  }
-};
-const persist = (key: string, value: string | null) => {
-  try {
-    if (value === null) localStorage.removeItem(key);
-    else localStorage.setItem(key, value);
-  } catch {
-    /* Preferences are optional when browser storage is unavailable. */
-  }
-};
 const media = () => matchMedia("(prefers-color-scheme: dark)");
 const subscribeSystem = (notify: () => void) => {
   const query = media();
@@ -47,6 +38,14 @@ const Preferences = createContext<{
   theme: ThemeChoice;
   setTheme(value: ThemeChoice): void;
   resolvedTheme: "light" | "dark";
+  sharedAppearance: Appearance;
+  personal: PersonalAppearance | null;
+  setPersonal(value: PersonalAppearance | null): boolean;
+  library: ThemeLibraryEntry[];
+  setLibrary(value: ThemeLibraryEntry[]): boolean;
+  preview: Appearance | null;
+  setPreview(value: Appearance | null): void;
+  safeMode: boolean;
 } | null>(null);
 
 export function PreferencesProvider({
@@ -66,6 +65,31 @@ export function PreferencesProvider({
       ? saved
       : null;
   });
+  const [personal, setPersonalState] = useState(window.NexaTheme.readPersonal);
+  const [library, setLibraryState] = useState(readThemeLibrary);
+  const [preview, setPreview] = useState<Appearance | null>(null);
+  const setPersonal = useCallback((value: PersonalAppearance | null) => {
+    if (value !== null && !window.NexaTheme.validPersonal(value)) return false;
+    if (
+      !persist(
+        "nexa.personalAppearance",
+        value === null ? null : JSON.stringify(value),
+      )
+    )
+      return false;
+    setPersonalState(value);
+    return true;
+  }, []);
+  const setLibrary = useCallback((value: ThemeLibraryEntry[]) => {
+    if (
+      value.length > 10 ||
+      value.some((entry) => !window.NexaTheme.validTheme(entry.theme))
+    )
+      return false;
+    if (!persist("nexa.themes", JSON.stringify(value))) return false;
+    setLibraryState(value);
+    return true;
+  }, []);
   const systemDark = useSyncExternalStore(
     subscribeSystem,
     () => media().matches,
@@ -75,27 +99,34 @@ export function PreferencesProvider({
     () => appearance ?? window.NexaTheme.readAppearance(),
     [appearance],
   );
+  const current = preview ?? global;
   const shared =
-    global.theme === "light" || global.theme === "system"
-      ? global.theme
+    current.theme === "light" || current.theme === "system"
+      ? current.theme
       : "dark";
-  const choice = theme ?? shared;
+  const choice = (preview ? null : theme) ?? shared;
   const resolvedTheme =
     choice === "system" ? (systemDark ? "dark" : "light") : choice;
   const direction = localeRegistry[locale].direction;
+  useLayoutEffect(() => {
+    window.NexaTheme.apply(
+      preview ?? global,
+      preview ? null : theme,
+      preview ? null : personal,
+    );
+  }, [global, theme, personal, preview, systemDark]);
   useEffect(() => {
-    window.NexaTheme.apply(global, theme);
     if (appearance)
-      persist(
-        "nexa.appearance",
-        JSON.stringify({
-          theme: appearance.theme,
-          accent: appearance.accent,
-          cardDensity: appearance.cardDensity,
-          glassEnabled: appearance.glassEnabled,
-        }),
-      );
-  }, [global, appearance, theme, systemDark]);
+      persist("nexa.appearance", JSON.stringify(appearanceFields(appearance)));
+  }, [appearance]);
+  useEffect(() => {
+    if (!preview) return;
+    const cancel = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setPreview(null);
+    };
+    window.addEventListener("keydown", cancel, true);
+    return () => window.removeEventListener("keydown", cancel, true);
+  }, [preview]);
   useLayoutEffect(() => {
     document.documentElement.lang = locale;
     document.documentElement.dir = direction;
@@ -108,6 +139,14 @@ export function PreferencesProvider({
           direction,
           theme,
           resolvedTheme,
+          sharedAppearance: global,
+          personal,
+          setPersonal,
+          library,
+          setLibrary,
+          preview,
+          setPreview,
+          safeMode: window.NexaTheme.safeMode,
           setLocale(value) {
             persist("nexa.locale", value);
             setLocaleState(value);

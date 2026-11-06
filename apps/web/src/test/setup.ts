@@ -60,7 +60,6 @@ afterEach(async () => {
   server.resetHandlers();
   localStorage.clear();
   vi.restoreAllMocks();
-  document.documentElement.dataset.theme = "dark";
-  document.documentElement.classList.add("dark");
+  window.NexaTheme.apply({}, "dark", null);
 });
 afterAll(() => server.close());
