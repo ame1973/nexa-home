@@ -82,7 +82,7 @@ func doctor(ctx context.Context, c config.Config, output io.Writer) (err error) 
 		return err
 	}
 	defer func() { err = errors.Join(err, lock.Close()) }()
-	database, err := db.Open(ctx, c.DataDir)
+	database, err := db.OpenReadOnly(ctx, c.DataDir)
 	if err != nil {
 		return err
 	}
