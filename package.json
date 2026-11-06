@@ -13,10 +13,10 @@
   "scripts": {
     "dev:web": "npm run dev --workspace=@nexa-home/web",
     "build:web": "npm run build --workspace=@nexa-home/web",
-    "build": "npm run build:web && CGO_ENABLED=0 go build -trimpath -ldflags=\"-X main.version=$npm_package_version\" -o bin/nexa-home ./cmd/nexa-home",
+    "build": "npm run build:web && VERSION=$(node scripts/release.mjs version) && CGO_ENABLED=0 go build -trimpath -ldflags=\"-X main.version=$VERSION\" -o bin/nexa-home ./cmd/nexa-home",
     "typecheck": "npm run typecheck --workspace=@nexa-home/web && tsc --project e2e/tsconfig.json",
     "test:build": "node --test scripts/sonner-csp.test.mjs",
-    "test:release": "node --test scripts/release.test.mjs scripts/ci.test.mjs",
+    "test:release": "node --test scripts/release.test.mjs scripts/release-plan.test.mjs scripts/ci.test.mjs",
     "test:docs": "node --test scripts/docs.test.mjs",
     "test:security-policy": "node --test scripts/security-policy.test.mjs",
     "test:e2e": "npm run build && playwright test",

@@ -89,17 +89,67 @@ export function sourceVersion(root = ".") {
   return version;
 }
 
-export function releaseMetadata({ tag, repository, revision, root = "." }) {
+export function buildVersion({
+  root = ".",
+  env = process.env,
+  run = command,
+} = {}) {
+  const development = sourceVersion(root);
+  if (env.NEXA_BUILD_VERSION)
+    return parseVersion(env.NEXA_BUILD_VERSION).version;
+  if (env.GITHUB_ACTIONS === "true" && env.GITHUB_REF_TYPE === "tag") {
+    assert.ok(env.GITHUB_REF_NAME?.startsWith("v"), "Expected a version tag");
+    return parseVersion(env.GITHUB_REF_NAME.slice(1)).version;
+  }
+  let tags;
+  try {
+    tags = run("git", ["tag", "--points-at", "HEAD"], { cwd: root }).split(
+      "\n",
+    );
+  } catch {
+    return development; // Source archives need no Git installation or history.
+  }
+  const versions = tags.flatMap((tag) => {
+    if (!tag.startsWith("v")) return [];
+    try {
+      return [parseVersion(tag.slice(1)).version];
+    } catch {
+      return [];
+    }
+  });
+  assert.ok(
+    versions.length <= 1,
+    "Multiple version tags: set NEXA_BUILD_VERSION explicitly",
+  );
+  return versions[0] || development;
+}
+
+export function stampVersion(version, root = ".") {
+  parseVersion(version);
+  sourceVersion(root);
+  for (const name of [
+    "package.json",
+    "apps/web/package.json",
+    "package-lock.json",
+  ]) {
+    const file = join(root, name);
+    const value = JSON.parse(readFileSync(file, "utf8"));
+    value.version = version;
+    if (name === "package-lock.json") {
+      value.packages[""].version = version;
+      value.packages["apps/web"].version = version;
+    }
+    writeFileSync(file, JSON.stringify(value, null, 2) + "\n");
+  }
+  assert.equal(sourceVersion(root), version);
+}
+
+export function releaseMetadata({ tag, repository, revision }) {
   assert.ok(
     typeof tag === "string" && tag.startsWith("v"),
     "Release tags must start with v",
   );
   const parsed = parseVersion(tag.slice(1));
-  assert.equal(
-    sourceVersion(root),
-    parsed.version,
-    "The tag and package versions must match",
-  );
   assert.match(
     revision,
     /^[0-9a-f]{40}$/,
@@ -133,7 +183,141 @@ export function releaseMetadata({ tag, repository, revision, root = "." }) {
   };
 }
 
-function command(name, args, options = {}) {
+export function validatePlan(value) {
+  assert.ok(
+    value && typeof value === "object" && !Array.isArray(value),
+    "Invalid release plan",
+  );
+  assert.deepEqual(Object.keys(value).sort(), [
+    "base",
+    "date",
+    "mode",
+    "notes",
+    "repository",
+    "revision",
+    "schema",
+    "type",
+    "version",
+  ]);
+  const {
+    schema,
+    repository,
+    revision,
+    mode,
+    base,
+    date,
+    version,
+    type,
+    notes,
+  } = value;
+  assert.equal(schema, 1, "Unsupported release plan");
+  releaseMetadata({ repository, revision, tag: `v${version || "1.0.0"}` });
+  assert.ok(["auto", "tag"].includes(mode), "Invalid release mode");
+  assert.ok(
+    typeof date === "string" &&
+      /^\d{4}-\d{2}-\d{2}$/.test(date) &&
+      new Date(`${date}T00:00:00Z`).toISOString().slice(0, 10) === date,
+    "Invalid release date",
+  );
+  assert.ok(
+    typeof notes === "string" &&
+      Buffer.byteLength(notes) <= 65536 &&
+      !/[\x00-\x08\x0b-\x1f\x7f]/.test(notes),
+    "Invalid release notes",
+  );
+  let previous = null;
+  if (base !== null) {
+    assert.ok(base && typeof base === "object" && !Array.isArray(base));
+    assert.deepEqual(Object.keys(base).sort(), ["revision", "tag"]);
+    releaseMetadata({ repository, revision: base.revision, tag: base.tag });
+    assert.equal(parseVersion(base.tag.slice(1)).prerelease, "");
+    previous = { tag: base.tag, revision: base.revision };
+  }
+  if (version === null) {
+    assert.equal(type, "none");
+    assert.equal(notes, "");
+  } else {
+    const parsed = parseVersion(version);
+    assert.ok(notes.trim(), "Release notes must not be empty");
+    if (mode === "tag") assert.equal(type, "manual");
+    else {
+      assert.equal(parsed.prerelease, "");
+      if (!previous) {
+        assert.equal(type, "initial");
+        assert.equal(version, "1.0.0");
+      } else {
+        assert.ok(["major", "minor", "patch"].includes(type));
+        assert.ok(compareVersions(version, previous.tag.slice(1)) > 0);
+      }
+    }
+  }
+  // Canonical field order makes the plan identity independent of JSON formatting.
+  return {
+    schema,
+    repository,
+    revision,
+    mode,
+    base: previous,
+    date,
+    version,
+    type,
+    notes,
+  };
+}
+
+export function planDigest(plan) {
+  return createHash("sha256")
+    .update(JSON.stringify(validatePlan(plan)))
+    .digest("hex");
+}
+
+export function readPlan(file = "release-plan/plan.json", expected = {}) {
+  const stat = lstatSync(file);
+  assert.ok(
+    stat.isFile() && stat.size <= 128 * 1024,
+    "The release plan must be a bounded regular file",
+  );
+  const plan = validatePlan(
+    JSON.parse(
+      new TextDecoder("utf-8", { fatal: true }).decode(readFileSync(file)),
+    ),
+  );
+  for (const key of ["repository", "revision", "version"])
+    if (expected[key] !== undefined)
+      assert.equal(plan[key], expected[key], `Release plan ${key} mismatch`);
+  if (expected.digest !== undefined) {
+    assert.ok(
+      typeof expected.digest === "string" &&
+        expected.digest.length === 64 &&
+        /^[0-9a-f]+$/.test(expected.digest),
+      "Invalid release plan digest",
+    );
+    assert.equal(
+      planDigest(plan),
+      expected.digest,
+      "Release plan digest mismatch",
+    );
+  }
+  return plan;
+}
+
+export function releaseHistory(repository, run = command) {
+  const pages = JSON.parse(
+    run("gh", [
+      "api",
+      "--paginate",
+      "--slurp",
+      `repos/${repository}/releases?per_page=100`,
+    ]),
+  );
+  assert.ok(
+    Array.isArray(pages) && pages.every(Array.isArray),
+    "Expected paginated GitHub releases",
+  );
+  return pages.flat();
+}
+
+export function command(name, args, options = {}) {
   const result = spawnSync(name, args, {
     encoding: "utf8",
     timeout: 120_000,
@@ -683,12 +867,7 @@ export function publishRelease({
   return { reference: immutable, latest };
 }
 
-function metadataFromEnvironment() {
-  assert.equal(
-    process.env.GITHUB_REF_TYPE,
-    "tag",
-    "Publishing requires an explicit version tag",
-  );
+export function workflowRevision() {
   const requested = process.env.GITHUB_SHA;
   assert.ok(
     typeof requested === "string" &&
@@ -702,10 +881,20 @@ function metadataFromEnvironment() {
     revision,
     "Checkout must match the triggering source commit",
   );
+  return revision;
+}
+
+function metadataFromEnvironment() {
+  assert.equal(
+    process.env.GITHUB_REF_TYPE,
+    "tag",
+    "Publishing requires an explicit version tag",
+  );
+  sourceVersion();
   return releaseMetadata({
     tag: process.env.GITHUB_REF_NAME,
     repository: process.env.GITHUB_REPOSITORY,
-    revision,
+    revision: workflowRevision(),
   });
 }
 
@@ -713,7 +902,15 @@ function main() {
   const [operation, ...extra] = process.argv.slice(2);
   assert.equal(extra.length, 0, "Unexpected release arguments");
   if (operation === "version") {
-    console.log(sourceVersion());
+    console.log(buildVersion());
+    return;
+  }
+  if (operation === "stamp") {
+    assert.ok(process.env.NEXA_BUILD_VERSION, "NEXA_BUILD_VERSION is required");
+    stampVersion(process.env.NEXA_BUILD_VERSION);
+    console.log(
+      `Stamped ${process.env.NEXA_BUILD_VERSION} in the local build checkout only.`,
+    );
     return;
   }
   if (operation === "publish") {

@@ -224,14 +224,18 @@ test("rejects drift across root, workspace and locked versions", () => {
   }
 });
 
-test("derives normalized GHCR metadata only from a matching tag and a full commit", () => {
+test("derives normalized GHCR metadata from a valid release tag and full commit", () => {
   const { root, metadata } = fixture();
   assert.equal(metadata.image, "ghcr.io/owner/nexa-home");
   assert.equal(metadata.source, "https://github.com/Owner/Nexa-Home");
   assert.equal(metadata.prerelease, false);
   assert.equal(fixture("1.0.0-rc.1").metadata.prerelease, true);
+  assert.equal(
+    releaseMetadata({ tag: "v1.0.1", repository: "owner/repo", revision })
+      .version,
+    "1.0.1",
+  );
   for (const values of [
-    { tag: "v1.0.1" },
     { tag: "1.0.0" },
     { tag: "v1.0.0\n" },
     { revision: "abcd" },

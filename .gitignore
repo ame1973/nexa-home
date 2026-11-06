@@ -28,6 +28,7 @@ node_modules/
 /internal/web/dist/
 /bin/
 /release-artifacts/
+/release-plan/
 /coverage/
 *.coverprofile
 playwright-report/
