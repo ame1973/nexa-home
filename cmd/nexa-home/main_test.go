@@ -10,9 +10,11 @@ import (
 	"net/http"
 	"net/http/cookiejar"
 	"net/http/httptest"
+	"net/http/httptrace"
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -45,24 +47,75 @@ func (out *safeOutput) events() []map[string]any {
 	}
 	return events
 }
+func lifecycleClient(jar http.CookieJar) *http.Client {
+	// Each fixture owns its pool, including unused speculative connections.
+	return &http.Client{Transport: &http.Transport{Proxy: nil}, Jar: jar, Timeout: 3 * time.Second}
+}
+
+func readResponse(t *testing.T, response *http.Response) []byte {
+	t.Helper()
+	defer response.Body.Close()
+	data, err := io.ReadAll(response.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return data
+}
+
+func TestLifecycleClientsOwnTheirConnectionPools(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = io.WriteString(w, "ready")
+	}))
+	defer server.Close()
+	first, second := lifecycleClient(nil), lifecycleClient(nil)
+	defer first.CloseIdleConnections()
+	defer second.CloseIdleConnections()
+	request := func(trace *httptrace.ClientTrace) {
+		t.Helper()
+		req, err := http.NewRequest(http.MethodGet, server.URL, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if trace != nil {
+			req = req.WithContext(httptrace.WithClientTrace(req.Context(), trace))
+		}
+		response, err := second.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		readResponse(t, response)
+	}
+	request(nil)
+	first.CloseIdleConnections()
+	var reused atomic.Bool
+	request(&httptrace.ClientTrace{GotConn: func(info httptrace.GotConnInfo) { reused.Store(info.Reused) }})
+	if !reused.Load() {
+		t.Fatal("closing one fixture client closed another client's idle connection")
+	}
+}
+
 func start(t *testing.T, c config.Config) (string, *safeOutput, func()) {
 	t.Helper()
 	ctx, cancel := context.WithCancel(context.Background())
 	out := new(safeOutput)
 	logger := slog.New(slog.NewJSONHandler(out, nil))
-	done := make(chan error, 1)
-	go func() { done <- serve(ctx, c, logger, out) }()
+	done := make(chan struct{})
+	var serveErr error
+	go func() {
+		serveErr = serve(ctx, c, logger, out)
+		close(done)
+	}()
 	var once sync.Once
 	stop := func() {
 		once.Do(func() {
 			cancel()
 			select {
-			case err := <-done:
-				if err != nil {
-					t.Error(err)
+			case <-done:
+				if serveErr != nil {
+					t.Fatal(serveErr)
 				}
 			case <-time.After(5 * time.Second):
-				t.Error("server did not stop gracefully")
+				t.Fatal("server did not stop gracefully")
 			}
 		})
 	}
@@ -75,13 +128,13 @@ func start(t *testing.T, c config.Config) (string, *safeOutput, func()) {
 			}
 		}
 		select {
-		case err := <-done:
-			t.Fatal("startup failed", err)
+		case <-done:
+			t.Fatal("startup failed", serveErr)
 		default:
 		}
 		time.Sleep(5 * time.Millisecond)
 	}
-	t.Fatal("server did not start", out.String())
+	t.Fatal("server did not start")
 	return "", out, stop
 }
 func jsonRequest(t *testing.T, client *http.Client, address, method, path, csrf string, body any) map[string]any {
@@ -107,13 +160,12 @@ func jsonRequest(t *testing.T, client *http.Client, address, method, path, csrf 
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer response.Body.Close()
+	data := readResponse(t, response)
 	if response.StatusCode >= 400 {
-		data, _ := io.ReadAll(response.Body)
-		t.Fatalf("%s %s: %d %s", method, path, response.StatusCode, data)
+		t.Fatalf("%s %s: %d", method, path, response.StatusCode)
 	}
 	var value map[string]any
-	if err := json.NewDecoder(response.Body).Decode(&value); err != nil {
+	if err := json.Unmarshal(data, &value); err != nil {
 		t.Fatal(err)
 	}
 	return value
@@ -135,13 +187,13 @@ func TestBuiltApplicationLifecyclePersistenceAndLogs(t *testing.T) {
 		t.Fatal("missing setup token")
 	}
 	jar, _ := cookiejar.New(nil)
-	client := &http.Client{Jar: jar, Timeout: 3 * time.Second}
+	client := lifecycleClient(jar)
+	defer client.CloseIdleConnections()
 	response, err := client.Get("http://" + address + "/admin?password=never-log-this-query")
 	if err != nil {
 		t.Fatal(err)
 	}
-	html, _ := io.ReadAll(response.Body)
-	response.Body.Close()
+	html := readResponse(t, response)
 	if response.StatusCode != 200 || !strings.Contains(string(html), "/static/") || !strings.Contains(response.Header.Get("Content-Security-Policy"), "'nonce-") || strings.Contains(string(html), token) {
 		t.Fatal("embedded SPA or CSP missing")
 	}
@@ -157,7 +209,7 @@ func TestBuiltApplicationLifecyclePersistenceAndLogs(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		res.Body.Close()
+		readResponse(t, res)
 		if res.StatusCode != 404 || !strings.HasPrefix(res.Header.Get("Content-Type"), "application/json") {
 			t.Fatal("SPA shadowed reserved API namespace", path)
 		}
@@ -170,8 +222,10 @@ func TestBuiltApplicationLifecyclePersistenceAndLogs(t *testing.T) {
 		t.Fatal("second writer acquired a running data directory")
 	}
 	if text := logs.String(); strings.Contains(text, "a unique runtime test password") || strings.Contains(text, "never-log-this-query") || strings.Contains(text, csrf) || strings.Contains(text, "Persisted category") {
-		t.Fatal("private request data reached logs", text)
+		t.Fatal("private request data reached logs")
 	}
+	// Close unused client connections before asserting bounded server shutdown.
+	client.CloseIdleConnections()
 	stop()
 	output := new(bytes.Buffer)
 	getenv := func(name string) string {
@@ -198,10 +252,9 @@ func TestBuiltApplicationLifecyclePersistenceAndLogs(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	data, _ := io.ReadAll(response.Body)
-	response.Body.Close()
+	data := readResponse(t, response)
 	if response.StatusCode != 200 || !bytes.Contains(data, []byte("Persisted category")) {
-		t.Fatal("database/session did not survive restart", response.StatusCode, string(data))
+		t.Fatal("database/session did not survive restart", response.StatusCode)
 	}
 }
 func TestCommandsConfigurationAndOfflineDoctor(t *testing.T) {
@@ -264,12 +317,13 @@ func TestSetupTokenBypassesErrorLogLevel(t *testing.T) {
 	if !strings.Contains(out.String(), "setupToken") {
 		t.Fatal("error logging hid the first-run token")
 	}
-	client := &http.Client{Timeout: 3 * time.Second}
+	client := lifecycleClient(nil)
+	defer client.CloseIdleConnections()
 	response, err := client.Get("http://" + address + "/healthz")
 	if err != nil {
 		t.Fatal(err)
 	}
-	response.Body.Close()
+	readResponse(t, response)
 	for _, event := range out.events() {
 		if event["msg"] == "listening" || event["msg"] == "request" {
 			t.Fatal("info logging was not filtered")
