@@ -8,6 +8,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"net/http"
+	"reflect"
 	"strconv"
 	"time"
 
@@ -48,7 +49,7 @@ type stagedImport struct {
 }
 
 func configuration(ctx context.Context, tx *sql.Tx) (Backup, []storedAsset, error) {
-	value := Backup{Format: "nexa-home-backup", Version: 1, ExportedAt: db.Timestamp(time.Now()), Assets: make([]BackupAsset, 0)}
+	value := Backup{Format: "nexa-home-backup", Version: 2, ExportedAt: db.Timestamp(time.Now()), Assets: make([]BackupAsset, 0)}
 	var err error
 	value.Settings, err = readSettings(ctx, tx)
 	if err != nil {
@@ -216,7 +217,7 @@ func (s *Server) validateBackup(w http.ResponseWriter, r *http.Request, session 
 	s.imports[key] = pending
 	s.importMu.Unlock()
 	changed := 0
-	if value.Settings.SettingsFields != current.SettingsFields {
+	if !reflect.DeepEqual(value.Settings.SettingsFields, current.SettingsFields) {
 		changed = 1
 	}
 	return jsonResponse(w, 200, struct {
@@ -318,7 +319,11 @@ func replaceConfiguration(ctx context.Context, tx *sql.Tx, value Backup, images 
 		}
 	}
 	settings := value.Settings
-	if _, err := tx.ExecContext(ctx, `INSERT INTO app_settings(id,site_title,site_subtitle,access_mode,theme,accent,card_density,glass_enabled,revision,updated_at) VALUES(1,?,?,?,?,?,?,?,?,?)`, settings.SiteTitle, settings.SiteSubtitle, settings.AccessMode, settings.Theme, settings.Accent, settings.CardDensity, settings.GlassEnabled, settings.Revision, settings.UpdatedAt); err != nil {
+	theme, err := json.Marshal(settings.CustomTheme)
+	if err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, `INSERT INTO app_settings(id,site_title,site_subtitle,access_mode,theme,accent,card_density,glass_enabled,theme_preset,custom_theme,custom_css,revision,updated_at) VALUES(1,?,?,?,?,?,?,?,?,?,?,?,?)`, settings.SiteTitle, settings.SiteSubtitle, settings.AccessMode, settings.Theme, settings.Accent, settings.CardDensity, settings.GlassEnabled, settings.ThemePreset, string(theme), settings.CustomCSS, settings.Revision, settings.UpdatedAt); err != nil {
 		return err
 	}
 	for _, category := range value.Categories {

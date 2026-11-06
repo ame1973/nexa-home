@@ -1702,6 +1702,16 @@ components:
           - comfortable
         glassEnabled:
           type: boolean
+        themePreset:
+          $ref: '#/components/schemas/ThemePreset'
+        customTheme:
+          oneOf:
+          - $ref: '#/components/schemas/CustomTheme'
+          - type: 'null'
+        customCSS:
+          type: string
+          maxLength: 65536
+          description: Public advanced stylesheet, at most 65536 UTF-8 bytes without NUL. Arbitrary CSS selectors and rules are accepted; CSP still blocks external resources and JavaScript.
         revision:
           type: integer
         updatedAt:
@@ -1711,6 +1721,11 @@ components:
     SettingsUpdate:
       type: object
       additionalProperties: false
+      dependentRequired:
+        themePreset: [customTheme, customCSS]
+        customTheme: [themePreset, customCSS]
+        customCSS: [themePreset, customTheme]
+      description: Omit all three appearance extensions for a legacy update that preserves them. New clients send all three together; theme still selects dark, light or system independently of the style preset.
       required:
       - expectedRevision
       - siteTitle
@@ -1752,6 +1767,61 @@ components:
           - comfortable
         glassEnabled:
           type: boolean
+        themePreset:
+          $ref: '#/components/schemas/ThemePreset'
+        customTheme:
+          oneOf:
+          - $ref: '#/components/schemas/CustomTheme'
+          - type: 'null'
+        customCSS:
+          type: string
+          maxLength: 65536
+          description: Public advanced stylesheet, at most 65536 UTF-8 bytes without NUL. Arbitrary CSS selectors and rules are accepted; CSP still blocks external resources and JavaScript.
+    ThemePreset:
+      type: string
+      enum: [future-glass, graphite, tide, forest, dune, custom]
+    ThemePalette:
+      type: object
+      additionalProperties: false
+      required: [background, surface, accent]
+      properties:
+        background:
+          type: string
+          pattern: ^#[0-9A-Fa-f]{6}$
+        surface:
+          type: string
+          pattern: ^#[0-9A-Fa-f]{6}$
+        accent:
+          type: string
+          pattern: ^#[0-9A-Fa-f]{6}$
+    CustomTheme:
+      type: object
+      additionalProperties: false
+      required: [schemaVersion, name, variants, radius, shadow]
+      description: A token-only theme, at most 16384 canonical JSON bytes. Background and surface must share black or white text at 4.5:1 or better; remaining semantic tokens are derived. Raw CSS is a separate field/file.
+      properties:
+        schemaVersion:
+          type: integer
+          const: 1
+        name:
+          type: string
+          minLength: 1
+          maxLength: 80
+        variants:
+          type: object
+          additionalProperties: false
+          required: [light, dark]
+          properties:
+            light:
+              $ref: '#/components/schemas/ThemePalette'
+            dark:
+              $ref: '#/components/schemas/ThemePalette'
+        radius:
+          type: integer
+          enum: [8, 12, 16, 20]
+        shadow:
+          type: string
+          enum: [none, soft]
     Asset:
       type: object
       required:
@@ -1789,6 +1859,17 @@ components:
             $ref: '#/components/schemas/UUID'
     Backup:
       type: object
+      description: Exports use version 2 and include the shared preset, custom token definition and advanced CSS. Version 1 imports remain supported and default to Future Glass without custom CSS. Browser-only preferences and themes are never exported.
+      allOf:
+      - if:
+          properties:
+            version:
+              const: 2
+        then:
+          properties:
+            settings:
+              $ref: '#/components/schemas/Settings'
+              required: [themePreset, customTheme, customCSS]
       required:
       - format
       - version
@@ -1804,7 +1885,7 @@ components:
           const: nexa-home-backup
         version:
           type: integer
-          const: 1
+          enum: [1, 2]
         exportedAt:
           type: string
           format: date-time

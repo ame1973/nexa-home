@@ -75,7 +75,7 @@ func TestUnknownVersionFailsWithoutMutation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := database.Exec("INSERT INTO schema_migrations(version,applied_at) VALUES(2,'future')"); err != nil {
+	if _, err := database.Exec("INSERT INTO schema_migrations(version,applied_at) VALUES(?,'future')", Version+1); err != nil {
 		t.Fatal(err)
 	}
 	database.Close()

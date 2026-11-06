@@ -31,7 +31,7 @@ func validateSettings(value *SettingsFields) error {
 	if !security.Color(value.Accent) {
 		return invalid("accent", "Use a six-digit hex color")
 	}
-	return nil
+	return validateAppearance(value)
 }
 
 func validateCategory(value *CategoryInput) error {

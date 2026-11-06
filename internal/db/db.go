@@ -16,7 +16,7 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-const Version = 1
+const Version = 2
 
 func Open(ctx context.Context, directory string) (*sql.DB, error) {
 	if err := os.MkdirAll(directory, 0o700); err != nil {
@@ -61,13 +61,14 @@ func migrate(ctx context.Context, database *sql.DB) error {
 	if err := tx.QueryRowContext(ctx, "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type='table' AND name='schema_migrations')").Scan(&exists); err != nil {
 		return err
 	}
+	version := 0
 	if exists {
-		var version, count int
-		if err := tx.QueryRowContext(ctx, "SELECT COALESCE(MAX(version),0),COUNT(*) FROM schema_migrations").Scan(&version, &count); err != nil {
+		var count, first int
+		if err := tx.QueryRowContext(ctx, "SELECT COALESCE(MAX(version),0),COUNT(*),COALESCE(MIN(version),0) FROM schema_migrations").Scan(&version, &count, &first); err != nil {
 			return err
 		}
-		if version != Version || count != Version {
-			return fmt.Errorf("unsupported schema version %d; expected %d", version, Version)
+		if version < 1 || version > Version || count != version || first != 1 {
+			return fmt.Errorf("unsupported schema version %d; expected a contiguous history through %d", version, Version)
 		}
 	} else {
 		var tables int
@@ -77,7 +78,9 @@ func migrate(ctx context.Context, database *sql.DB) error {
 		if tables != 0 {
 			return errors.New("unversioned database is not empty")
 		}
-		schema, err := migrations.Files.ReadFile("001_init.sql")
+	}
+	for _, name := range []string{"001_init.sql", "002_themes.sql"}[version:] {
+		schema, err := migrations.Files.ReadFile(name)
 		if err != nil {
 			return err
 		}

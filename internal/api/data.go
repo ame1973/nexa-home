@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"net/http"
 	"time"
 
@@ -35,8 +36,12 @@ func (s *Server) mutate(r *http.Request, action, targetType, targetID string, fn
 
 func readSettings(ctx context.Context, tx *sql.Tx) (Settings, error) {
 	var value Settings
-	err := tx.QueryRowContext(ctx, `SELECT site_title,site_subtitle,access_mode,theme,accent,card_density,glass_enabled,revision,updated_at FROM app_settings WHERE id=1`).Scan(
-		&value.SiteTitle, &value.SiteSubtitle, &value.AccessMode, &value.Theme, &value.Accent, &value.CardDensity, &value.GlassEnabled, &value.Revision, &value.UpdatedAt)
+	var theme string
+	err := tx.QueryRowContext(ctx, `SELECT site_title,site_subtitle,access_mode,theme,accent,card_density,glass_enabled,theme_preset,custom_theme,custom_css,revision,updated_at FROM app_settings WHERE id=1`).Scan(
+		&value.SiteTitle, &value.SiteSubtitle, &value.AccessMode, &value.Theme, &value.Accent, &value.CardDensity, &value.GlassEnabled, &value.ThemePreset, &theme, &value.CustomCSS, &value.Revision, &value.UpdatedAt)
+	if err == nil {
+		err = json.Unmarshal([]byte(theme), &value.CustomTheme)
+	}
 	return value, err
 }
 

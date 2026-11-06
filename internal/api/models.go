@@ -3,13 +3,16 @@ package api
 // Shared fields keep mutation and response models aligned. Contract tests remain
 // authoritative; response-only IDs, positions, and timestamps are never inputs.
 type SettingsFields struct {
-	SiteTitle    string `json:"siteTitle"`
-	SiteSubtitle string `json:"siteSubtitle"`
-	AccessMode   string `json:"accessMode"`
-	Theme        string `json:"theme"`
-	Accent       string `json:"accent"`
-	CardDensity  string `json:"cardDensity"`
-	GlassEnabled bool   `json:"glassEnabled"`
+	SiteTitle    string       `json:"siteTitle"`
+	SiteSubtitle string       `json:"siteSubtitle"`
+	AccessMode   string       `json:"accessMode"`
+	Theme        string       `json:"theme"`
+	Accent       string       `json:"accent"`
+	CardDensity  string       `json:"cardDensity"`
+	GlassEnabled bool         `json:"glassEnabled"`
+	ThemePreset  string       `json:"themePreset"`
+	CustomTheme  *CustomTheme `json:"customTheme"`
+	CustomCSS    string       `json:"customCSS"`
 }
 type Settings struct {
 	SettingsFields

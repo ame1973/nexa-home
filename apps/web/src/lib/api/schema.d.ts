@@ -515,10 +515,15 @@ export interface components {
             /** @enum {string} */
             cardDensity: "compact" | "comfortable";
             glassEnabled: boolean;
+            themePreset?: components["schemas"]["ThemePreset"];
+            customTheme?: components["schemas"]["CustomTheme"] | null;
+            /** @description Public advanced stylesheet, at most 65536 UTF-8 bytes without NUL. Arbitrary CSS selectors and rules are accepted; CSP still blocks external resources and JavaScript. */
+            customCSS?: string;
             revision: number;
             /** Format: date-time */
             updatedAt: string;
         };
+        /** @description Omit all three appearance extensions for a legacy update that preserves them. New clients send all three together; theme still selects dark, light or system independently of the style preset. */
         SettingsUpdate: {
             expectedRevision: number;
             siteTitle: string;
@@ -531,6 +536,31 @@ export interface components {
             /** @enum {string} */
             cardDensity: "compact" | "comfortable";
             glassEnabled: boolean;
+            themePreset?: components["schemas"]["ThemePreset"];
+            customTheme?: components["schemas"]["CustomTheme"] | null;
+            /** @description Public advanced stylesheet, at most 65536 UTF-8 bytes without NUL. Arbitrary CSS selectors and rules are accepted; CSP still blocks external resources and JavaScript. */
+            customCSS?: string;
+        };
+        /** @enum {string} */
+        ThemePreset: "future-glass" | "graphite" | "tide" | "forest" | "dune" | "custom";
+        ThemePalette: {
+            background: string;
+            surface: string;
+            accent: string;
+        };
+        /** @description A token-only theme, at most 16384 canonical JSON bytes. Background and surface must share black or white text at 4.5:1 or better; remaining semantic tokens are derived. Raw CSS is a separate field/file. */
+        CustomTheme: {
+            /** @constant */
+            schemaVersion: 1;
+            name: string;
+            variants: {
+                light: components["schemas"]["ThemePalette"];
+                dark: components["schemas"]["ThemePalette"];
+            };
+            /** @enum {integer} */
+            radius: 8 | 12 | 16 | 20;
+            /** @enum {string} */
+            shadow: "none" | "soft";
         };
         Asset: {
             id: components["schemas"]["UUID"];
@@ -544,11 +574,12 @@ export interface components {
         ReorderInput: {
             ids: components["schemas"]["UUID"][];
         };
+        /** @description Exports use version 2 and include the shared preset, custom token definition and advanced CSS. Version 1 imports remain supported and default to Future Glass without custom CSS. Browser-only preferences and themes are never exported. */
         Backup: {
             /** @constant */
             format: "nexa-home-backup";
-            /** @constant */
-            version: 1;
+            /** @enum {integer} */
+            version: 1 | 2;
             /** Format: date-time */
             exportedAt: string;
             settings: components["schemas"]["Settings"];
@@ -561,7 +592,7 @@ export interface components {
                 mimeType: "image/png" | "image/webp" | "image/svg+xml";
                 base64: string;
             }[];
-        };
+        } & unknown;
     };
     responses: never;
     parameters: never;

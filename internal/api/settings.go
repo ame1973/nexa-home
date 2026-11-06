@@ -2,6 +2,7 @@ package api
 
 import (
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"time"
@@ -21,16 +22,30 @@ func (s *Server) settingsRoutes() {
 	})
 	s.route("PUT", "/api/v1/admin/settings", true, func(w http.ResponseWriter, r *http.Request, _ auth.Session) error {
 		var input SettingsInput
-		if err := s.decode(w, r, &input, JSONLimit); err != nil {
-			return err
-		}
-		if err := validateSettings(&input.SettingsFields); err != nil {
+		// CSS JSON escaping can expand the 64 KiB source sixfold.
+		if err := s.decode(w, r, &input, 512<<10); err != nil {
 			return err
 		}
 		var value Settings
 		err := s.mutate(r, "settings.update", "settings", "1", func(tx *sql.Tx) error {
-			result, err := tx.ExecContext(r.Context(), `UPDATE app_settings SET site_title=?,site_subtitle=?,access_mode=?,theme=?,accent=?,card_density=?,glass_enabled=?,revision=revision+1,updated_at=? WHERE id=1 AND revision=?`,
-				input.SiteTitle, input.SiteSubtitle, input.AccessMode, input.Theme, input.Accent, input.CardDensity, input.GlassEnabled, db.Timestamp(time.Now()), input.ExpectedRevision)
+			if input.ThemePreset == "" {
+				// Older clients omit all three appearance extensions. Preserve the
+				// current definition instead of erasing a newer administrator's CSS.
+				current, err := readSettings(r.Context(), tx)
+				if err != nil {
+					return err
+				}
+				input.ThemePreset, input.CustomTheme, input.CustomCSS = current.ThemePreset, current.CustomTheme, current.CustomCSS
+			}
+			if err := validateSettings(&input.SettingsFields); err != nil {
+				return err
+			}
+			theme, err := json.Marshal(input.CustomTheme)
+			if err != nil {
+				return err
+			}
+			result, err := tx.ExecContext(r.Context(), `UPDATE app_settings SET site_title=?,site_subtitle=?,access_mode=?,theme=?,accent=?,card_density=?,glass_enabled=?,theme_preset=?,custom_theme=?,custom_css=?,revision=revision+1,updated_at=? WHERE id=1 AND revision=?`,
+				input.SiteTitle, input.SiteSubtitle, input.AccessMode, input.Theme, input.Accent, input.CardDensity, input.GlassEnabled, input.ThemePreset, string(theme), input.CustomCSS, db.Timestamp(time.Now()), input.ExpectedRevision)
 			if err != nil {
 				return err
 			}
