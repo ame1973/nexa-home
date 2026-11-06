@@ -180,7 +180,15 @@ export function ThemeControls({
               aria-label={t(presetNames[preset])}
               aria-description={t(presetHints[preset])}
               aria-pressed={value.themePreset === preset}
-              onClick={() => change({ ...value, themePreset: preset })}
+              onClick={() =>
+                change({
+                  ...value,
+                  themePreset: preset,
+                  customTheme: window.NexaTheme.validTheme(custom)
+                    ? custom
+                    : null,
+                })
+              }
             >
               <span className="theme-miniatures">
                 <ThemeSample

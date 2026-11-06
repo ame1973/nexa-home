@@ -37,6 +37,54 @@ const jsonFile = (value: unknown) =>
     { type: "application/json" },
   );
 
+it("opens recovery controls from a corrupt shared appearance cache before private bootstrap is available", async () => {
+  localStorage.setItem(
+    "nexa.appearance",
+    JSON.stringify({
+      themePreset: "custom",
+      customTheme: { broken: true },
+      customCSS: "body { display:none!important; }",
+    }),
+  );
+  const { user } = renderRoutes([
+    {
+      path: "/",
+      element: (
+        <PreferencesProvider>
+          <PersonalThemes />
+        </PreferencesProvider>
+      ),
+    },
+  ]);
+  const dialog = await openThemes(user);
+  expect(dialog.getByRole("button", { name: "Future Glass" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  expect(document.getElementById("nexa-custom-css")).toBeNull();
+  await user.click(dialog.getByRole("button", { name: "Graphite" }));
+  await user.click(dialog.getByRole("button", { name: "Use in this browser" }));
+  expect(document.documentElement.dataset.themePreset).toBe("graphite");
+});
+
+it("lets a preset replace an invalid custom draft instead of retaining invisible validation errors", async () => {
+  const { user } = renderThemes();
+  const dialog = await openThemes(user);
+  await user.click(dialog.getByRole("button", { name: "Customize a copy" }));
+  await user.clear(dialog.getByRole("textbox", { name: "Name" }));
+  expect(
+    dialog.getByRole("button", { name: "Use in this browser" }),
+  ).toBeDisabled();
+  await user.click(dialog.getByRole("button", { name: "Graphite" }));
+  expect(
+    dialog.getByRole("button", { name: "Use in this browser" }),
+  ).toBeEnabled();
+  await user.click(dialog.getByRole("button", { name: "Use in this browser" }));
+  expect(
+    JSON.parse(localStorage.getItem("nexa.personalAppearance")!).customTheme,
+  ).toBeNull();
+});
+
 it("keeps preset changes local, supports explicit cancel/save, and restores site styling as a unit", async () => {
   const { user } = renderThemes({
     ...settings,

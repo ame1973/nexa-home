@@ -51,6 +51,30 @@ const wrapper = ({ children }: { children: React.ReactNode }) => (
 );
 
 describe("shared pre-paint theme engine", () => {
+  it("normalizes malformed cached fields before exposing them to the React editor", () => {
+    const { document, theme } = prepaint({
+      stored: {
+        "nexa.appearance": JSON.stringify({
+          theme: "light",
+          themePreset: "custom",
+          customTheme: { broken: true },
+          customCSS: "body { display:none!important; }",
+          accent: "red;bad",
+          cardDensity: [],
+          glassEnabled: "false",
+        }),
+      },
+    });
+    expect(theme.readAppearance()).toEqual({
+      theme: "light",
+      themePreset: "future-glass",
+      customTheme: null,
+      customCSS: "",
+    });
+    expect(document.getElementById("nexa-custom-css")).toBeNull();
+    expect(document.documentElement.dataset.theme).toBe("light");
+  });
+
   it("provides five complete distinct presets and ten contrast-checked palettes", () => {
     const { theme } = prepaint();
     expect(theme.presets).toEqual([

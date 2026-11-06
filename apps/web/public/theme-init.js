@@ -141,9 +141,14 @@
     const stored = readJSON('nexa.appearance');
     if (!object(stored)) return {};
     const value = {};
-    for (const key of ['theme', 'accent', 'cardDensity', 'glassEnabled', 'themePreset', 'customTheme', 'customCSS']) {
-      if (Object.hasOwn(stored, key)) value[key] = stored[key];
-    }
+    if (['dark', 'light', 'system'].includes(stored.theme)) value.theme = stored.theme;
+    if (isHex(stored.accent)) value.accent = stored.accent;
+    if (['compact', 'comfortable'].includes(stored.cardDensity)) value.cardDensity = stored.cardDensity;
+    if (typeof stored.glassEnabled === 'boolean') value.glassEnabled = stored.glassEnabled;
+    const validStyle = !Object.hasOwn(stored, 'themePreset') || presets.includes(stored.themePreset) || (stored.themePreset === 'custom' && validTheme(stored.customTheme));
+    if (Object.hasOwn(stored, 'themePreset')) value.themePreset = validStyle ? stored.themePreset : 'future-glass';
+    if (Object.hasOwn(stored, 'customTheme')) value.customTheme = validStyle && validTheme(stored.customTheme) ? stored.customTheme : null;
+    if (Object.hasOwn(stored, 'customCSS')) value.customCSS = validStyle && validCSS(stored.customCSS) ? stored.customCSS : '';
     return value;
   };
   const readPersonal = () => {

@@ -392,8 +392,29 @@ test("safe appearance recovers a hidden administrator UI without deleting settin
     "data-theme-preset",
     "forest",
   );
+  const beforePrivate = (await (
+    await page.request.get(`${app.url}/api/v1/admin/settings`)
+  ).json()) as Settings;
+  expect(
+    (
+      await page.request.put(`${app.url}/api/v1/admin/settings`, {
+        data: { ...settingsInput(beforePrivate), accessMode: "private" },
+        headers: { Origin: app.url, "X-CSRF-Token": csrf },
+      })
+    ).status(),
+  ).toBe(200);
   const logout = await post(page.request, app, "/auth/logout", {}, csrf);
   expect(logout.status()).toBe(204);
+  await page.evaluate(() =>
+    localStorage.setItem(
+      "nexa.appearance",
+      JSON.stringify({
+        themePreset: "custom",
+        customTheme: { broken: true },
+        customCSS: "body { display:none!important; }",
+      }),
+    ),
+  );
   await page.goto(`${app.url}/admin/appearance?appearance=safe`);
   await expect(
     page.getByRole("heading", { name: "Sign in", exact: true }),
@@ -405,6 +426,16 @@ test("safe appearance recovers a hidden administrator UI without deleting settin
   expect(
     (await page.request.get(`${app.url}/api/v1/admin/settings`)).status(),
   ).toBe(401);
+  await page.getByRole("button", { name: "Theme styles", exact: true }).click();
+  const recovery = page.getByRole("dialog", {
+    name: "Your appearance",
+    exact: true,
+  });
+  await expect(
+    recovery.getByRole("button", { name: "Future Glass", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await page.keyboard.press("Escape");
+  await expect(recovery).toHaveCount(0);
   await layoutAndTargets(page);
   await accessibility(page);
 });
