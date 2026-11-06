@@ -24,7 +24,7 @@
     "scan:image": "sh scripts/scan-image.sh",
     "notices": "node scripts/notices.mjs",
     "lint:web": "npm run lint --workspace=@nexa-home/web",
-    "test:web": "npm run test --workspace=@nexa-home/web",
+    "test:web": "npm run test --workspace=@nexa-home/web -- --maxWorkers=2",
     "generate": "node scripts/generate-contract.mjs",
     "lint:api": "redocly lint api/openapi.yaml",
     "test:contract": "node --test scripts/contract.test.mjs",

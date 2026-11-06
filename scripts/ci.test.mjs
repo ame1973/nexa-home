@@ -85,24 +85,24 @@ test("master pushes plan semantic releases, tag compatibility remains, and dispa
   assert.equal(release.jobs.verify.needs, "plan");
   assert.equal(
     release.jobs.verify.if,
-    undefined,
-    "No-release commits still receive full verification",
+    "${{ !cancelled() }}",
+    "No-release and failed-plan commits still receive full verification",
   );
   assert.equal(release.jobs.verify.uses, "./.github/workflows/ci.yaml");
   assert.deepEqual(release.jobs.verify.permissions, { contents: "read" });
   assert.equal(release.jobs.verify.secrets, undefined);
   assert.equal(
     release.jobs.verify.with.release_version,
-    "${{ needs.plan.outputs.version }}",
+    "${{ needs.plan.result == 'success' && needs.plan.outputs.version || '' }}",
   );
-  assert.match(
+  assert.equal(
     release.jobs.verify.with.release_plan_digest,
-    /needs\.plan\.outputs\.version != ''/,
+    "${{ needs.plan.result == 'success' && needs.plan.outputs.version != '' && needs.plan.outputs.plan_digest || '' }}",
   );
   assert.deepEqual(release.jobs.publish.needs, ["plan", "verify"]);
   assert.equal(
     release.jobs.publish.if,
-    "${{ needs.plan.outputs.publish == 'true' }}",
+    "${{ needs.plan.result == 'success' && needs.plan.outputs.publish == 'true' }}",
   );
   const upload = list.find((step) =>
     step.uses?.startsWith("actions/upload-artifact@"),
@@ -322,6 +322,10 @@ test("standalone tools are exact-locked without the unused semantic-release/npm 
     assert.equal(root.devDependencies[name], version);
     assert.equal(lock.packages[`node_modules/${name}`].version, version);
   }
+  assert.equal(
+    root.scripts["test:web"],
+    "npm run test --workspace=@nexa-home/web -- --maxWorkers=2",
+  );
   assert.equal(lock.packages["node_modules/semantic-release"], undefined);
   assert.equal(lock.packages["node_modules/npm"], undefined);
   assert.match(readFileSync(".npmrc", "utf8"), /^legacy-peer-deps=true$/m);

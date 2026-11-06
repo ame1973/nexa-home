@@ -453,6 +453,49 @@ for (const [event, refType, dispatch, publish] of [
       },
     );
     assert.equal(metadata.status, 0, metadata.stderr);
+    const preview = spawnSync(
+      process.execPath,
+      [resolve("scripts/release.mjs"), "publish"],
+      {
+        cwd: input.root,
+        encoding: "utf8",
+        env: {
+          ...env,
+          GITHUB_EVENT_NAME: "workflow_dispatch",
+          NEXA_RELEASE_MODE: "preview",
+          NEXA_RELEASE_PLAN_DIGEST: values.plan_digest,
+        },
+      },
+    );
+    assert.notEqual(preview.status, 0);
+    assert.match(preview.stderr, /Preview mode cannot publish/);
+    if (event === "push" && refType === "branch") {
+      for (const changed of [
+        { NEXA_RELEASE_PLAN_DIGEST: "e".repeat(64) },
+        { GITHUB_REPOSITORY: "other/repository" },
+        { GITHUB_REPOSITORY: "" },
+        { GITHUB_REF_NAME: "untrusted-branch" },
+      ]) {
+        const rejected = spawnSync(
+          process.execPath,
+          [resolve("scripts/release.mjs"), "metadata"],
+          {
+            cwd: input.root,
+            encoding: "utf8",
+            env: {
+              ...env,
+              NEXA_RELEASE_PLAN_DIGEST: values.plan_digest,
+              ...changed,
+            },
+          },
+        );
+        assert.notEqual(
+          rejected.status,
+          0,
+          "Foreign workflow context must not accept a plan",
+        );
+      }
+    }
     const stamped = spawnSync(
       process.execPath,
       [resolve("scripts/release.mjs"), "stamp"],

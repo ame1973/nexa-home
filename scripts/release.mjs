@@ -1119,9 +1119,15 @@ export function workflowRevision() {
 }
 
 function workflowPlan() {
+  const revision = workflowRevision();
+  releaseMetadata({
+    tag: "v1.0.0",
+    repository: process.env.GITHUB_REPOSITORY,
+    revision,
+  });
   const plan = readPlan("release-plan/plan.json", {
     repository: process.env.GITHUB_REPOSITORY,
-    revision: workflowRevision(),
+    revision,
     digest: process.env.NEXA_RELEASE_PLAN_DIGEST,
   });
   if (process.env.GITHUB_REF_TYPE === "tag")

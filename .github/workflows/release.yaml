@@ -62,17 +62,18 @@ jobs:
   verify:
     name: Verify both native Linux architectures
     needs: plan
+    if: ${{ !cancelled() }}
     permissions:
       contents: read
     uses: ./.github/workflows/ci.yaml
     with:
-      release_version: ${{ needs.plan.outputs.version }}
-      release_plan_digest: ${{ needs.plan.outputs.version != '' && needs.plan.outputs.plan_digest || '' }}
+      release_version: ${{ needs.plan.result == 'success' && needs.plan.outputs.version || '' }}
+      release_plan_digest: ${{ needs.plan.result == 'success' && needs.plan.outputs.version != '' && needs.plan.outputs.plan_digest || '' }}
 
   publish:
     name: Publish tested images and GitHub Release
     needs: [plan, verify]
-    if: ${{ needs.plan.outputs.publish == 'true' }}
+    if: ${{ needs.plan.result == 'success' && needs.plan.outputs.publish == 'true' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     environment: release
