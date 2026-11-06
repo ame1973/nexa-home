@@ -503,7 +503,12 @@ function publishingTools(input, options = {}) {
   };
   const index = {
     schemaVersion: 2,
-    annotations,
+    mediaType: options.dockerIndex
+      ? "application/vnd.docker.distribution.manifest.list.v2+json"
+      : "application/vnd.oci.image.index.v1+json",
+    annotations: options.dockerIndex
+      ? undefined
+      : { ...annotations, ...options.indexAnnotations },
     manifests: ["amd64", "arm64"].map((platform) => ({
       digest: nativeDigests[platform],
       platform: { os: "linux", architecture: platform },
@@ -1092,6 +1097,41 @@ test("tampered, incomplete, linked or foreign artifacts fail before any publishi
     assert.equal(tools.calls.length, 0);
   }
 });
+
+test("Docker manifest lists cannot bypass OCI annotation validation or expose a release", () => {
+  const input = publisherFixture();
+  const tools = publishingTools(input, { dockerIndex: true });
+  assert.throws(() => publish(input, tools), /must be an OCI index/);
+  assert.equal(releaseEdits(tools.calls).length, 0);
+  assert.equal(latestCreates(tools.calls).length, 0);
+  assert.equal(
+    tools.calls.some((call) => call[0] === "gh" && call[2] === "upload"),
+    false,
+  );
+});
+
+for (const field of ["version", "revision", "source"])
+  for (const missing of [true, false])
+    test(`a ${missing ? "missing" : "foreign"} OCI index ${field} annotation blocks publication`, () => {
+      const input = publisherFixture();
+      const tools = publishingTools(input, {
+        indexAnnotations: {
+          [`org.opencontainers.image.${field}`]: missing
+            ? undefined
+            : "foreign",
+        },
+      });
+      assert.throws(
+        () => publish(input, tools),
+        new RegExp(`index ${field} annotation must match`),
+      );
+      assert.equal(releaseEdits(tools.calls).length, 0);
+      assert.equal(latestCreates(tools.calls).length, 0);
+      assert.equal(
+        tools.calls.some((call) => call[0] === "gh" && call[2] === "upload"),
+        false,
+      );
+    });
 
 test("API, registry and index failures leave the GitHub release unpublished", () => {
   for (const options of [

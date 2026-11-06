@@ -232,6 +232,39 @@ test("manual prerelease/backport tags receive generated notes without consuming 
   assert.match(plan.notes, /Bug Fixes/);
 });
 
+test("a newer explicit tag recovers a publisher code fix without moving an unfinished initial release", async () => {
+  const input = fixture({ released: false });
+  const originalSource = input.commit("feat: initialize a synthetic product");
+  const original = await input.plan();
+  input.git(["tag", "-a", "v1.0.0", "-m", tagPlanMessage(original)]);
+  const originalObject = input.git(["rev-parse", "v1.0.0"]);
+  input.releases.push({
+    tag_name: "v1.0.0",
+    draft: true,
+    target_commitish: originalSource,
+  });
+  const fixedSource = input.commit(
+    "fix(release): preserve synthetic OCI metadata",
+  );
+  await assert.rejects(
+    input.plan(),
+    /unfinished version belongs to another commit/,
+  );
+  input.git(["tag", "-a", "v1.0.1", "-m", "Synthetic corrected release"]);
+  const manual = await input.plan({ tag: "v1.0.1" });
+  assert.equal(manual.version, "1.0.1");
+  assert.equal(manual.mode, "tag");
+  assert.equal(manual.type, "manual");
+  assert.equal(manual.revision, fixedSource);
+  assert.equal(manual.base, null);
+  assert.equal(input.git(["rev-parse", "v1.0.0"]), originalObject);
+  input.releases.push({ tag_name: "v1.0.1", draft: false, prerelease: false });
+  input.commit("fix: follow the successful synthetic release");
+  const next = await input.plan();
+  assert.equal(next.version, "1.0.2");
+  assert.equal(next.base.tag, "v1.0.1");
+});
+
 test("rerunning a published release is a no-op and a foreign version cannot be reused", async () => {
   const input = fixture();
   const source = input.commit("feat: add a synthetic released feature");

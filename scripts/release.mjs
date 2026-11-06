@@ -1014,16 +1014,24 @@ export function publishRelease({
     "The published index must reference the exact pushed and verified architecture digests",
   );
   assert.equal(
+    index.mediaType,
+    "application/vnd.oci.image.index.v1+json",
+    "The published image must be an OCI index to preserve release annotations",
+  );
+  assert.equal(
     index.annotations?.["org.opencontainers.image.version"],
     metadata.version,
+    "The published index version annotation must match the verified release",
   );
   assert.equal(
     index.annotations?.["org.opencontainers.image.revision"],
     metadata.revision,
+    "The published index revision annotation must match the verified source",
   );
   assert.equal(
     index.annotations?.["org.opencontainers.image.source"],
     metadata.source,
+    "The published index source annotation must match the verified repository",
   );
   const assets = [];
   for (const arch of architectures) {

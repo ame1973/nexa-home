@@ -140,6 +140,7 @@ jobs:
           platforms: ${{ env.NEXA_TEST_PLATFORM }}
           tags: ${{ env.NEXA_TEST_IMAGE }}
           load: true
+          outputs: type=docker,oci-mediatypes=true
           push: false
           provenance: false
           build-args: |

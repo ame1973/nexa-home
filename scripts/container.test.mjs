@@ -637,3 +637,189 @@ test(
     }
   },
 );
+
+test(
+  `real ${platform} registry roundtrip preserves release index annotations and immutable digests`,
+  { timeout: 120_000 },
+  async (t) => {
+    const selected = JSON.parse(
+      docker(["image", "inspect", "--platform", platform, image]).stdout,
+    )[0];
+    const annotations = Object.fromEntries(
+      ["version", "revision", "source"].map((key) => {
+        const name = `org.opencontainers.image.${key}`;
+        const value = selected.Config.Labels?.[name];
+        assert.equal(typeof value, "string", name);
+        return [name, value];
+      }),
+    );
+    const directory = await mkdtemp(join(tmpdir(), "nexa-registry-"));
+    let registry = "";
+    let staging = "";
+    t.after(async () => {
+      try {
+        if (staging) docker(["image", "rm", staging], { allowFailure: true });
+      } finally {
+        if (registry) docker(["rm", "--force", registry]);
+        await rm(directory, { recursive: true, force: true });
+      }
+    });
+    // Both the daemon push and the socket-free Buildx client use the daemon's
+    // loopback namespace, including when the daemon runs in Docker Desktop's VM.
+    const buildx = (args) =>
+      docker([
+        "run",
+        "--rm",
+        "--network",
+        "host",
+        "--user",
+        `${process.getuid()}:${process.getgid()}`,
+        "--read-only",
+        "--cap-drop=ALL",
+        "--security-opt=no-new-privileges:true",
+        "--env",
+        "HOME=/tmp",
+        "--tmpfs",
+        "/tmp:rw,size=16m,noexec,nosuid,nodev",
+        "--mount",
+        `type=bind,src=${directory},dst=/output`,
+        "--entrypoint",
+        "/buildx",
+        "docker/buildx-bin:0.38.2@sha256:1fb51a05e9455e21396698b774446ff80d80fd53f17079d82aaee9c195f962f9",
+        ...args.map((value) =>
+          value.startsWith(`${directory}/`)
+            ? `/output/${value.slice(directory.length + 1)}`
+            : value,
+        ),
+      ]);
+    registry = docker([
+      "create",
+      "--network",
+      "host",
+      "--user",
+      "10001:10001",
+      "--read-only",
+      "--cap-drop=ALL",
+      "--security-opt=no-new-privileges:true",
+      "--tmpfs",
+      "/var/lib/registry:rw,size=256m,noexec,nosuid,nodev,mode=0700,uid=10001,gid=10001",
+      "--env",
+      "REGISTRY_HTTP_ADDR=127.0.0.1:0",
+      "registry:3.0.0@sha256:6c5666b861f3505b116bb9aa9b25175e71210414bd010d92035ff64018f9457e",
+    ]).stdout.trim();
+    assert.match(registry, /^[0-9a-f]{64}$/);
+    docker(["start", registry]);
+    let address = "";
+    for (let attempt = 0; attempt < 50; attempt++) {
+      const logs = docker(["logs", registry]);
+      address =
+        `${logs.stdout}\n${logs.stderr}`.match(
+          /listening on (127\.0\.0\.1:\d+)/,
+        )?.[1] || "";
+      if (address) break;
+      await delay(100);
+    }
+    assert.match(
+      address,
+      /^127\.0\.0\.1:\d+$/,
+      "The registry must listen only on an assigned loopback port",
+    );
+    const repository = `${address}/nexa-${randomUUID()}`;
+    staging = `${repository}:runtime`;
+    docker(["image", "tag", image, staging]);
+    const archive = join(directory, "image.tar");
+    docker([
+      "image",
+      "save",
+      "--platform",
+      platform,
+      "--output",
+      archive,
+      staging,
+    ]);
+    docker(["image", "rm", staging]);
+    docker(["image", "load", "--input", archive]);
+    docker(["image", "push", staging]);
+    const references = JSON.parse(
+      docker([
+        "image",
+        "inspect",
+        "--platform",
+        platform,
+        "--format",
+        "{{json .RepoDigests}}",
+        staging,
+      ]).stdout,
+    ).filter((reference) => reference.startsWith(`${repository}@`));
+    assert.equal(references.length, 1);
+    const runtime = JSON.parse(
+      buildx(["imagetools", "inspect", "--raw", references[0]]).stdout,
+    );
+    const expected = runtime.manifests
+      ? runtime.manifests.find(
+          (entry) =>
+            `${entry.platform?.os}/${entry.platform?.architecture}` ===
+            platform,
+        ).digest
+      : references[0].split("@")[1];
+    const published = join(directory, "published.json");
+    buildx([
+      "imagetools",
+      "create",
+      "--metadata-file",
+      published,
+      ...Object.entries(annotations).flatMap(([key, value]) => [
+        "--annotation",
+        `index:${key}=${value}`,
+      ]),
+      "--tag",
+      `${repository}:version`,
+      references[0],
+    ]);
+    const digest = JSON.parse(await readFile(published, "utf8"))[
+      "containerimage.descriptor"
+    ].digest;
+    const immutable = `${repository}@${digest}`;
+    const index = JSON.parse(
+      buildx(["imagetools", "inspect", "--raw", immutable]).stdout,
+    );
+    assert.deepEqual(
+      index.annotations,
+      annotations,
+      "OCI release annotations must survive actual save/load/push and index creation",
+    );
+    assert.equal(index.mediaType, "application/vnd.oci.image.index.v1+json");
+    const runtimeEntries = index.manifests.filter(
+      (entry) => entry.platform?.os !== "unknown",
+    );
+    assert.equal(runtimeEntries.length, 1);
+    assert.equal(
+      `${runtimeEntries[0].platform.os}/${runtimeEntries[0].platform.architecture}`,
+      platform,
+    );
+    assert.equal(
+      runtimeEntries[0].digest,
+      expected,
+      "Index creation must not change the tested runtime manifest",
+    );
+    const promoted = join(directory, "latest.json");
+    buildx([
+      "imagetools",
+      "create",
+      "--metadata-file",
+      promoted,
+      "--tag",
+      `${repository}:latest`,
+      immutable,
+    ]);
+    assert.equal(
+      JSON.parse(await readFile(promoted, "utf8"))["containerimage.descriptor"]
+        .digest,
+      digest,
+      "Latest promotion must copy the exact annotated version index",
+    );
+    t.diagnostic(
+      "Only a loopback, credential-free registry was written; version annotations, runtime digest and exact latest promotion passed.",
+    );
+  },
+);

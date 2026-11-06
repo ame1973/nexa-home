@@ -105,6 +105,12 @@ test("both build and publish use one pinned, platform-capable official Docker to
       actionAt(toolchain.runs.steps, "docker/setup-buildx-action")
     ];
   assert.equal(buildx.with.version, "v0.38.2");
+  assert.ok(
+    readFileSync("scripts/container.test.mjs", "utf8").includes(
+      `docker/buildx-bin:${buildx.with.version.slice(1)}@sha256:`,
+    ),
+    "The socket-free registry test must use the same pinned Buildx version",
+  );
   assert.equal(
     buildx.with.driver,
     "docker",
@@ -348,6 +354,11 @@ test("artifact export follows every gate on both branch and tag releases and ret
   assert.equal(list[build].with.platforms, "${{ env.NEXA_TEST_PLATFORM }}");
   assert.equal(list[build].with.tags, "${{ env.NEXA_TEST_IMAGE }}");
   assert.equal(list[build].with.load, true);
+  assert.equal(
+    list[build].with.outputs,
+    "type=docker,oci-mediatypes=true",
+    "OCI manifests must survive load/save/push so release index annotations are retained",
+  );
   assert.equal(
     list[build].with.push,
     false,
