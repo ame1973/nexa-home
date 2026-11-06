@@ -1,23 +1,50 @@
+<!-- Logo slot: add the supplied logo above the title. -->
+
+<div align="center">
+
 # Nexa Home
+
+**One home for your self-hosted services.**
+
+A clean, personal launcher for your NAS, homelab, and everyday links.<br>
+One Go process, local SQLite, and no separate database service.
 
 **English** | [繁體中文](readme.zh-Hant.md)
 
-A self-hosted launcher for the services you use every day. Nexa Home pairs a restrained Future Glass interface with a single Go process, a local SQLite database, and locally stored icons.
+[Features](#features) · [Quick start](#quick-start) · [Documentation](#documentation) · [Releases](https://github.com/ame1973/nexa-home/releases)
 
-- One administrator, protected first-run setup, and public or private homepage access.
-- Services, favorites, categories, tags, keyboard ordering, and desktop drag-and-drop ordering.
-- Search entirely in the browser; service URLs are never probed by the server.
-- Dark, light, and system themes; optional glass effects; twelve interface languages including Traditional/Simplified Chinese and Arabic RTL.
-- Built-in Lucide icons and validated PNG, WebP, or inert SVG uploads. Cached favicons are uploaded, never fetched remotely.
-- Portable JSON export and a validated, explicitly confirmed replacement restore.
+</div>
+
+<!-- Preview slot: add the supplied desktop screenshot here. -->
+
+## Features
+
+| Make it yours              | What Nexa Home provides                                                                                             |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| **Organize your services** | Favorites, categories, tags, keyboard ordering, and desktop drag-and-drop ordering.                                 |
+| **Find a link quickly**    | Search names, descriptions, categories, and tags entirely in the browser. The server never probes service URLs.     |
+| **Choose your look**       | A restrained Future Glass interface with dark, light, and system themes, plus optional glass effects.               |
+| **Use your language**      | Twelve interface languages, including Traditional/Simplified Chinese and Arabic right-to-left layouts.              |
+| **Control access**         | One administrator, protected first-run setup, and a public or private homepage.                                     |
+| **Pick your icons**        | Built-in Lucide icons and validated PNG, WebP, or inert SVG uploads. Favicons are uploaded, never fetched remotely. |
+| **Keep a portable copy**   | JSON export with local icons, validated restore previews, and explicit confirmation before replacement.             |
+
+<details>
+<summary>Scope and limitations</summary>
 
 LAN and WAN links can be saved alongside the required primary URL. The launcher opens the primary URL; automatic network switching, health polling, PWA/offline mode, multiple users, and NAS/Docker control are not included.
 
-## Docker deployment
+</details>
 
-### Quick start with a published image
+## Quick start
 
-Download [compose.yaml](compose.yaml) and [.env.example](.env.example) into an empty directory. This standalone Compose file pulls the published Linux amd64/arm64 image from GHCR; it needs no source checkout, Dockerfile, Node or Go.
+You only need **Docker with Compose**. The published image supports **Linux amd64 and arm64**; no Git checkout, Node, Go, or local build is required.
+
+### 1. Get the deployment files
+
+Download [compose.yaml](compose.yaml) and [.env.example](.env.example) from the same reviewed repository revision into an empty directory. This standalone Compose file pulls `ghcr.io/ame1973/nexa-home:latest`.
+
+### 2. Start Nexa Home
 
 ```sh
 cp .env.example .env
@@ -25,13 +52,103 @@ docker compose up --detach --wait
 docker compose exec -T nexa-home /nexa-home healthcheck
 ```
 
-Open **http://127.0.0.1:8080/setup**. Read the one-time token **locally** with `docker compose logs nexa-home`; never share startup logs. The copied preset explicitly allows HTTP cookies only for isolated loopback access. Remote access requires an HTTPS reverse proxy, your exact `NEXA_PUBLIC_ORIGIN` and `NEXA_ALLOW_HTTP_COOKIE=false`; do not expose the HTTP preset to the Internet.
+### 3. Create your administrator
 
-`latest` follows successful stable releases, and `up` pulls the selected image. Pin `NEXA_IMAGE` in `.env` to an existing version such as `ghcr.io/ame1973/nexa-home:1.0.1`, or an immutable index digest, for controlled upgrades. Back up before upgrading. The named volume persists data; do not use `docker compose down --volumes` for normal updates. See the deployment guide below before switching an existing installation.
+Open **http://127.0.0.1:8080/setup** on the same host. Read the one-time token **locally** with `docker compose logs nexa-home`, paste it into the masked setup field, and create your account. There is no default username or password. The token expires after 30 minutes; never share startup logs or tokens.
 
-### Build the image locally
+> [!WARNING]
+> The supplied `.env.example` enables HTTP cookies **only for isolated loopback access**. A browser on another device cannot reach the server's `127.0.0.1`. For remote access, configure an HTTPS reverse proxy, your exact `NEXA_PUBLIC_ORIGIN`, and `NEXA_ALLOW_HTTP_COOKIE=false`. Never expose the HTTP preset to the Internet. See the [deployment guide](docs/deployment.md).
 
-From a trusted source checkout, copy `deploy/.env.example` to ignored `deploy/.env` and configure the exact public origin. For isolated loopback testing, use `NEXA_PUBLIC_ORIGIN=http://127.0.0.1:8080` and explicitly set `NEXA_ALLOW_HTTP_COOKIE=true`. For remote access, configure a trusted HTTPS reverse proxy and leave that flag `false`.
+**Updates and storage.** `latest` follows successful stable releases, and `up` pulls the selected image; it is not a background updater. For controlled upgrades, pin `NEXA_IMAGE` in `.env` to an existing version such as `ghcr.io/ame1973/nexa-home:1.0.1`, or an immutable index digest. The named volume persists `/data`. **Back up before upgrading, and do not use `docker compose down --volumes` for normal updates.** Read the deployment guide before switching an existing installation.
+
+## Use the launcher
+
+1. Open **Manage** and add a service with a name and primary HTTP(S) URL.
+2. Choose a built-in icon or upload a local icon. Uploaded raster dimensions must not exceed 512 × 512; each upload is limited to 1 MiB.
+3. Optionally assign a category and up to 20 tags, mark a favorite, or hide a service/category.
+4. Search names, descriptions, categories, or tags from the homepage. Press `/` or <kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>K</kbd> to focus search; <kbd>Esc</kbd> clears it.
+5. In Manage, choose manual order with no text/tag/visibility filter to reorder. Explicit up/down controls support keyboard and mobile use. Editing a service also supports moving it to an empty category.
+
+Public mode exposes only visible services in visible categories, plus the categories/tags actually needed by those services. Private mode requires authentication before service data or private icons are returned. Password changes revoke every session, including the current session. Settings use revision checks: a conflicting draft stays intact until you explicitly reload it.
+
+<!-- Gallery slot: add the supplied mobile and management screenshots here. -->
+
+## Interface languages
+
+Switch immediately with the globe button in the header. Language and theme preferences stay in your browser; product manuals are available in **English and Traditional Chinese**.
+
+繁體中文 · 简体中文 · English · 日本語 · 한국어 · Español · Français · Deutsch · Português (Brasil) · Русский · العربية · हिन्दी
+
+<details>
+<summary>Locale codes, automatic detection, and right-to-left behavior</summary>
+
+Each language option uses its native name:
+
+| Language           | Locale    |
+| ------------------ | --------- |
+| 繁體中文           | `zh-Hant` |
+| 简体中文           | `zh-Hans` |
+| English            | `en`      |
+| 日本語             | `ja`      |
+| 한국어             | `ko`      |
+| Español            | `es`      |
+| Français           | `fr`      |
+| Deutsch            | `de`      |
+| Português (Brasil) | `pt-BR`   |
+| Русский            | `ru`      |
+| العربية            | `ar`      |
+| हिन्दी             | `hi`      |
+
+A saved browser preference takes priority. Otherwise the first supported browser language is selected; unmatched preferences fall back to Traditional Chinese. Explicit Chinese scripts take precedence over region: `zh-Hant` stays Traditional and `zh-Hans` stays Simplified. Taiwan, Hong Kong and Macao default to Traditional Chinese; generic Chinese, mainland China, Singapore and Malaysia default to Simplified Chinese. Portuguese preferences use the Brazilian Portuguese translation.
+
+Arabic switches layout and keyboard direction to right-to-left, including navigation, dialogs, menus and controls. URLs and hexadecimal colors remain left-to-right; user-entered names and descriptions are not translated. Switching back restores left-to-right layout. Language and theme preferences are not shared site settings and do not enter portable backups.
+
+The interface uses system fonts on the **browser's device** and does not download web fonts. Minimal Linux clients need fonts covering the scripts they display, including CJK, Arabic and Devanagari. Missing glyphs or square boxes require a suitable client-side system font, not a change to the server or scratch container.
+
+</details>
+
+## Backup and restore
+
+Use **Manage → Backup → Export backup**. Leave **Include icon files** enabled for a fully restorable copy. Backups contain private names and URLs; protect them and keep a separate copy outside the application data directory. Credentials, sessions, rate-limit state, and audit history are not exported.
+
+<details>
+<summary>Restore steps, size limits, and what is preserved</summary>
+
+1. Select a UTF-8 Nexa Home JSON backup, at most 16 MiB.
+2. Validate it and review the entity counts and settings-change warning.
+3. Explicitly acknowledge replacement, then choose **Replace configuration**.
+
+Restore replaces services, categories, tags, appearance, and icons, but preserves the current administrator, sessions, and audit history. A preview belongs to the current session, expires after five minutes, and is single-use even when a commit attempt fails. Validate again before retrying. Validation rejects unknown/duplicate JSON fields, invalid references or IDs, unsafe content, unsupported versions, and oversized graphs before replacement.
+
+All accepted configuration must fit a **16 MiB full export, including exact base64 icon expansion**. Writes that would exceed this portable budget fail atomically with `409 LIMIT_EXCEEDED`. Other bounds are 5000 services, categories, and tags each; 1024 icons; and nonnegative signed-32-bit positions. An export without icons is not restorable if it still references those missing icons.
+
+</details>
+
+> [!IMPORTANT]
+> Do not copy a live SQLite/WAL database as a backup. Prefer the portable export, or stop the process before copying the complete data directory. See [backup, upgrade, and recovery](docs/backup-and-recovery.md) for full-volume backups and credential recovery.
+
+## Documentation
+
+| Guide                                              | What you will find                                                                        |
+| -------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| [Deployment](docs/deployment.md)                   | Docker, HTTPS reverse proxies, storage, and troubleshooting.                              |
+| [Backup and recovery](docs/backup-and-recovery.md) | Portable exports, full backups, upgrades, rollback, and credential recovery.              |
+| [Security](SECURITY.md)                            | Access boundaries, session handling, dependency checks, and the reviewed advisory policy. |
+| [Releases](docs/releases.md)                       | Automatic versions, release notes, GHCR images, and release operation.                    |
+| [Changelog](CHANGELOG.md)                          | Project changes and the [1.0.0 release notes](docs/release-notes-1.0.0.md).               |
+| [HTTP API](api/openapi.yaml)                       | The OpenAPI contract used to generate the JSON and TypeScript definitions.                |
+
+> [!NOTE]
+> Raw image scans retain an unused OpenPGP module advisory. Its reviewed path/version-specific exception expires on **2027-02-01** and is valid only while no direct or transitive runtime dependency uses OpenPGP. Other findings remain fatal. See the [security notice](SECURITY.md) for the exact policy.
+
+## Self-hosting reference
+
+<details>
+<summary>Local Docker builds, standalone binaries, configuration, storage, and maintenance</summary>
+
+### Docker deployment
+
+To build the image locally, start from a trusted source checkout. Copy `deploy/.env.example` to ignored `deploy/.env` and configure the exact public origin. For isolated loopback testing, use `NEXA_PUBLIC_ORIGIN=http://127.0.0.1:8080` and explicitly set `NEXA_ALLOW_HTTP_COOKIE=true`. For remote access, configure a trusted HTTPS reverse proxy and leave that flag `false`.
 
 ```sh
 cp deploy/.env.example deploy/.env
@@ -42,17 +159,9 @@ docker compose --env-file deploy/.env -f deploy/compose.yaml exec -T nexa-home /
 
 The default binding is **127.0.0.1:8080**, not every NAS interface. The named volume persists `/data`; keep the same project name across ordinary upgrades. The image runs as UID/GID `10001:10001` with a read-only root, dropped capabilities, no-new-privileges and no shell or Node. Node/Go are build stages only. Linux amd64 and arm64 use the same Dockerfile, with pinned builder versions/digests.
 
-Read the one-time token locally with `docker compose --env-file deploy/.env -f deploy/compose.yaml logs nexa-home`, then open `/setup` at the configured origin. **Do not publish startup logs or tokens.** A remote browser cannot reach the NAS's loopback address; configure the proxy or an explicitly isolated LAN binding before using another device.
+Read the one-time token locally with `docker compose --env-file deploy/.env -f deploy/compose.yaml logs nexa-home`, then open `/setup` at the configured origin. **Do not publish startup logs or tokens.** A remote browser cannot reach the NAS's loopback address; configure the proxy or an explicitly isolated LAN binding before using another device. These local build commands do not publish an image or run hosted CI.
 
-- [Deployment, HTTPS proxy, storage and troubleshooting](docs/deployment.md)
-- [Backup, upgrade, rollback and credential recovery](docs/backup-and-recovery.md)
-- [Security boundaries and reviewed dependency policy](SECURITY.md)
-- [Automatic versions, release notes and GHCR publishing](docs/releases.md)
-- [Changelog](CHANGELOG.md) and [1.0.0 release notes](docs/release-notes-1.0.0.md)
-
-No registry publication or hosted CI run is implied by these local build instructions. Raw image scans retain an unused OpenPGP module advisory. Its reviewed path/version-specific exception expires on 2027-02-01 and is valid only while no direct or transitive runtime dependency uses OpenPGP; see the security notice. Other findings remain fatal.
-
-## Build from source
+### Build from source
 
 Build on Linux with Node.js 24.14.1 or newer in the Node 24 line, npm, and the Go toolchain declared in `go.mod` (Go 1.27.3). Node is a build/test dependency only; the resulting executable embeds the frontend and does not need Node at runtime.
 
@@ -75,7 +184,7 @@ VERSION=$(node scripts/release.mjs version) &&
     -o bin/nexa-home-linux-arm64 ./cmd/nexa-home
 ```
 
-## Run locally
+### Run locally
 
 For an isolated loopback installation:
 
@@ -95,7 +204,7 @@ The setup token is printed only to local startup output, including when the conf
 
 Stop the process with SIGTERM or Ctrl+C. It drains HTTP work, closes pending imports and storage, then releases exclusive ownership of its data directory.
 
-## Configuration
+### Configuration
 
 | Variable                   | Default        | Meaning                                                                                 |
 | -------------------------- | -------------- | --------------------------------------------------------------------------------------- |
@@ -109,7 +218,7 @@ Stop the process with SIGTERM or Ctrl+C. It drains HTTP work, closes pending imp
 
 Use the public origin without an application path or query. Proxy deployments must publish the application at the origin root. Forwarded host/protocol headers do not change the application's trusted origin. Client IP forwarding is honored only through the configured trusted proxy suffix; trusting every address is rejected. There is no permissive CORS configuration.
 
-## Data ownership
+### Data ownership
 
 The process user must own the data directory. Use private permissions: `0700` for directories and `0600` for database/lock files. Existing group/other-accessible paths, symlinks for application data paths, and multiply linked lock files are rejected rather than silently changing permissions.
 
@@ -123,58 +232,7 @@ Only one application or offline maintenance command may own a data directory. Do
 
 Changing a service's category preserves the service and updates both complete ordering scopes, including hidden services. Deleting a category keeps its services and moves them to Uncategorized; individually visible services can therefore become public. Referenced icons cannot be deleted.
 
-## Use the launcher
-
-1. Open Manage and add a service with a name and primary HTTP(S) URL.
-2. Choose a built-in icon or upload a local icon. Uploaded raster dimensions must not exceed 512 × 512; each upload is limited to 1 MiB.
-3. Optionally assign a category and up to 20 tags, mark a favorite, or hide a service/category.
-4. Use the homepage search to find names, descriptions, categories, or tags. `/` and Ctrl/Cmd+K focus search; Escape clears it.
-5. In Manage, choose manual order with no text/tag/visibility filter to reorder. Explicit up/down controls support keyboard and mobile use. Editing a service also supports moving it to an empty category.
-
-Public mode exposes only visible services in visible categories, plus the categories/tags actually needed by those services. Private mode requires authentication before service data or private icons are returned. Password changes revoke every session, including the current session. Settings use revision checks: a conflicting draft stays intact until you explicitly reload it.
-
-## Interface languages
-
-Use the globe button in the header to switch immediately. Each option uses its native name:
-
-| Language | Locale |
-| -------- | ------ |
-| 繁體中文 | `zh-Hant` |
-| 简体中文 | `zh-Hans` |
-| English | `en` |
-| 日本語 | `ja` |
-| 한국어 | `ko` |
-| Español | `es` |
-| Français | `fr` |
-| Deutsch | `de` |
-| Português (Brasil) | `pt-BR` |
-| Русский | `ru` |
-| العربية | `ar` |
-| हिन्दी | `hi` |
-
-A saved browser preference takes priority. Otherwise the first supported browser language is selected; unmatched preferences fall back to Traditional Chinese. Explicit Chinese scripts take precedence over region: `zh-Hant` stays Traditional and `zh-Hans` stays Simplified. Taiwan, Hong Kong and Macao default to Traditional Chinese; generic Chinese, mainland China, Singapore and Malaysia default to Simplified Chinese. Portuguese preferences use the Brazilian Portuguese translation.
-
-Arabic switches layout and keyboard direction to right-to-left, including navigation, dialogs, menus and controls. URLs and hexadecimal colors remain left-to-right; user-entered names and descriptions are not translated. Switching back restores left-to-right layout. Language and theme preferences remain local to the browser, are not shared site settings and do not enter portable backups. Product manuals remain available in English and Traditional Chinese.
-
-The interface uses system fonts on the **browser's device** and does not download web fonts. Minimal Linux clients need fonts covering the scripts they display, including CJK, Arabic and Devanagari. Missing glyphs or square boxes require a suitable client-side system font, not a change to the server or scratch container.
-
-## Backup and restore
-
-Use **Manage → Backup → Export backup**. Leave **Include icon files** enabled for a fully restorable copy. Backups contain private names and URLs; protect them and keep a separate copy outside the application data directory. Credentials, sessions, rate-limit state, and audit history are not exported.
-
-To restore:
-
-1. Select a UTF-8 Nexa Home JSON backup, at most 16 MiB.
-2. Validate it and review the entity counts and settings-change warning.
-3. Explicitly acknowledge replacement, then choose Replace configuration.
-
-Restore replaces services, categories, tags, appearance, and icons, but preserves the current administrator, sessions, and audit history. A preview belongs to the current session, expires after five minutes, and is single-use even when a commit attempt fails. Validate again before retrying. Validation rejects unknown/duplicate JSON fields, invalid references or IDs, unsafe content, unsupported versions, and oversized graphs before replacement.
-
-All accepted configuration must fit a **16 MiB full export, including exact base64 icon expansion**. Writes that would exceed this portable budget fail atomically with `409 LIMIT_EXCEEDED`. Other bounds are 5000 services, categories, and tags each; 1024 icons; and nonnegative signed-32-bit positions. An export without icons is not restorable if it still references those missing icons.
-
-Do not copy a live SQLite/WAL database as a backup. Prefer the portable export, or stop the process before an infrastructure-level copy that preserves the complete data directory.
-
-## Health and maintenance
+### Health and maintenance
 
 ```sh
 NEXA_LISTEN=127.0.0.1:8080 ./bin/nexa-home healthcheck
@@ -190,7 +248,12 @@ NEXA_DATA_DIR="$PWD/data" ./bin/nexa-home doctor
 
 Doctor checks the known schema, SQLite integrity, foreign keys, stored icon hashes/metadata, and image validity. It does not create an administrator, initialize a nonexistent database, or collect orphan files.
 
+</details>
+
 ## Development and verification
+
+<details>
+<summary>Build and test commands, browser checks, and release tooling</summary>
 
 ```sh
 npm run check:generated
@@ -223,6 +286,8 @@ After building the Docker image, `npm run test:container` exercises real Compose
 The HTTP contract is in [api/openapi.yaml](api/openapi.yaml); generated JSON and TypeScript remain checked for drift. Do not modify generated artifacts by hand.
 
 Use `npm run dev:web` for the Vite development server. Its `/api` and `/assets` proxy points to `127.0.0.1:8080`; for this isolated development configuration set the Go process's public origin to the Vite origin and explicitly allow HTTP cookies. Production serving does not use Vite or its development server.
+
+</details>
 
 ## License
 
