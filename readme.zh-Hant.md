@@ -200,7 +200,7 @@ npm run test:e2e
 
 瀏覽器測試會啟動實際建置的 Go 執行檔，每個測試使用新的私有目錄，涵蓋真實設定／登入、CRUD、完整排序範圍、備份／還原、CSP、工作階段撤銷、響應式觸控目標、真正的 axe 對比檢查，以及 1000 筆服務的輸入至繪製時間量測。為避免憑證進入產物，已停用 trace、影片及自動失敗截圖；明確產生的截圖只使用合成資料及空白憑證欄位。
 
-本機容器測試、映像掃描與發行匯出工具，需要支援依平台操作映像的 Docker CLI 與 daemon：`image inspect --platform` 需要 API **1.49+**，`image save --platform` 需要 API **1.48+**。CI 透過由 Docker 維護且以 SHA 固定的 Actions 安裝 Docker **29.5.3** 與 Buildx **0.38.2**，不依賴 runner 預裝版本。這是開發／發行工具的需求，不是執行預建置映像的額外需求。
+本機容器測試、映像掃描與發行匯出工具，需要支援依平台操作映像的 Docker CLI 與 daemon：`image inspect --platform` 需要 API **1.49+**，`image save --platform` 需要 API **1.48+**。CI 透過由 Docker 維護且以 SHA 固定的 Actions 安裝 Docker **29.5.3** 與 Buildx **0.38.2**，不依賴 runner 預裝版本。發布格式測試需要 containerd 映像儲存及 `--output type=docker,oci-mediatypes=true`，確保 OCI manifest 在儲存／載入／推送後仍被保留；也會使用暫存、無憑證的回送登錄檔，驗證發行註記、執行期 digest 及 `latest` 精確更新，不會對外發布或將 daemon socket 掛載給輔助容器。原生建置命令請見部署文件。這些是開發／發行工具的需求，不是執行預建置映像的額外需求。
 
 建置 Docker 映像後，`npm run test:container` 會驗證真實 Compose 部署、全新資料卷的冷備份復原，以及含 Secure Cookie 與精確 Origin 檢查的 HTTPS。測試需要 Docker／Compose、tar 與 OpenSSL，只會建立自己的隔離資源，且不會安裝主機 CA 或特權模擬器。`npm run scan:image` 使用固定版本的 Trivy 掃描已儲存的映像，不會暴露 Docker daemon socket。未處理的發現會以非零狀態回報並保持可見；經審查的抑制項目會在報告中保留理由與來源，報告僅存於本機且已被 Git 忽略。Verify 工作流程執行原生 amd64／arm64 驗證，不取得登錄檔憑證。Release 工作流程依 `master` 的 Conventional Commits 自動規劃版本與 release notes，並保留明確 tag 的相容路徑。只有兩個架構工作都通過後，才建立自動 tag、將確切已驗證映像發布至 GHCR，並提供版本化執行檔與校驗檔。預覽 dispatch 絕不發布，規劃失敗仍會執行原始碼驗證；詳見[發行設定與操作](docs/zh-Hant/releases.md)。兩個流程都不會將應用程式部署至遠端伺服器。
 

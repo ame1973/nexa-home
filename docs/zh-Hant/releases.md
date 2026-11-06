@@ -73,7 +73,7 @@ GitHub Releases 是自動產生的逐版歷程。儲存庫的 `CHANGELOG.md` 與
 
 驗證與發布共用同一份 [Docker 工具鏈](../../.github/actions/docker-toolchain/action.yaml)。由 Docker 維護且以 SHA 固定的 `docker/setup-docker-action` 與 `docker/setup-buildx-action`，安裝 Docker **29.5.3**（用戶端與 daemon）及 Buildx **0.38.2**，明確選取新安裝的 daemon，並啟用 containerd 映像儲存。`docker` builder driver 使用該 daemon；原生工作不需要模擬器或額外的特權 builder 容器。提早執行的版本／API 檢查會拒絕不支援的用戶端或 daemon，而不是移除映像檢查／匯出的平台選擇。
 
-`docker/build-push-action` 使用 checkout 的路徑 context（`.`）建置，因此經驗證的暫存版本同步會納入建置，不會被預設 Git context 忽略。設定為 `load: true` 與 `push: false`，先完成部署驗收及掃描，才允許發布。Docker build record 上傳與 build summary 已停用，只保留明確宣告的計畫及架構產物。
+`docker/build-push-action` 使用 checkout 的路徑 context（`.`）建置，因此經驗證的暫存版本同步會納入建置，不會被預設 Git context 忽略。設定為 `load: true`、`outputs: type=docker,oci-mediatypes=true` 與 `push: false`，透過 containerd 映像儲存，在檢查、儲存／載入及推送期間保留 OCI manifest。若未明確指定 OCI media type，Buildx 可能將 Docker 格式來源組成 Docker manifest list，並悄悄省略要求的索引註記。發布工作要求 OCI index 及完整的版本／revision／source 註記，不會略過這些檢查。對外發布前，先完成部署驗收、無憑證的回送登錄檔往返驗證及掃描。登錄檔測試會檢查註記保留、執行期 digest 不變及 `latest` 精確更新，不會將 daemon socket 暴露給輔助容器。Docker build record 上傳與 build summary 已停用，只保留明確宣告的計畫及架構產物。
 
 有版本的計畫才匯出兩種已驗證架構的產物；不發行的驗證不會匯出。同一次 run 的計畫／產物七天後到期。上傳僅包含明確宣告的公開建置檔，不包含應用程式資料、憑證、啟動日誌、瀏覽器 trace 或本機過程報告。重跑只取代同一次 run 自己的同名產物；下載不會選取其他 run。
 
@@ -172,6 +172,19 @@ gh workflow run release.yaml --ref "v$VERSION" -f mode=resume
 
 在分支上使用 `resume` 會被拒絕；預設的 `preview` 絕不發布。即使透過 tag dispatch，自動 tag 的計畫收據仍會保留原始變更等級、基準、notes 與雜湊。產物到期後，必須重新完整驗證，不能略過閘門。手動 tag 只能接續相同計畫的草稿。已發布 Release 在規劃時會視為無需動作，不能覆寫。
 
-若未完成版本屬於較早 SHA，之後的 `master` commit 不能接管該版本或移動其 tag。先接續原始來源，再由後續規劃涵蓋新增變更。已發布基準變動、tag 被移動、收據遭修改或草稿不屬於本流程時，都會停止發布。應檢查並處理確切狀態，不可自動刪除／取代 tag。
+若未完成版本屬於較早 SHA，之後的 `master` commit 不能接管該版本或移動其 tag。若是暫時性的服務／存取失敗，先接續原始來源，再由後續規劃涵蓋新增變更。已發布基準變動、tag 被移動、收據遭修改或草稿不屬於本流程時，都會停止發布。應檢查並處理確切狀態，不可自動刪除／取代 tag。
+
+若既有 tag 指向的來源具有 **workflow／發布程式的程式碼缺陷**，重跑舊 SHA 或對該 tag 執行 dispatch，仍會執行舊程式碼。應先將經審查的修正合併至 `master`，再刻意從該已修正的 master commit，發布**尚未使用的較高明確版本**。例如，已有未完成的 `v1.0.0`，且 `v1.0.1` 尚未使用時，可選擇 `v1.0.1`。保留原 tag、映像狀態與草稿，不移動 tag，也不把新來源塞入舊計畫。在新的成功發行提供基準前，自動規劃可能會刻意拒絕被占用的版本；較新版本成功後，一般自動發行即可從該基準繼續。
+
+以下是**發布觸發命令**，不是測試。執行前，將 `FIXED_SOURCE` 改為 `master` 上經審查且已修正的完整 commit SHA，並確認版本尚未使用：
+
+```sh
+VERSION=1.0.1
+FIXED_SOURCE=replace-with-full-reviewed-master-commit
+git tag -a "v$VERSION" -m "Nexa Home $VERSION" "$FIXED_SOURCE"
+git push origin "v$VERSION"
+```
+
+新 tag 仍會執行全部原生驗證及發布閘門，不會略過檢查或覆寫未完成的發行。
 
 GHCR 與 GitHub Releases 不是原子交易。失敗／取消時，可能在 GitHub Release 公開前留下附註 tag、暫存／版本／latest 映像狀態，或流程自己的未發布草稿。不會自動刪除登錄檔版本或已發布 Release。請在儲存庫／套件設定修正權限與可見性，不要把長期憑證寫入原始碼。請勿為了通過發行閘門而停用 TLS 或放寬安全例外。環境審核、tag／分支保護及存取控制，仍由維運者負責。

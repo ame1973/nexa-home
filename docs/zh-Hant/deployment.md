@@ -113,22 +113,24 @@ services:
 ## 驗證與疑難排解
 
 ```sh
-# Build only the host's native architecture; works with classic image storage.
-docker buildx build --load --file deploy/Dockerfile --tag nexa-home:1.0.0 .
+# Build only the host's native architecture for the publication-format tests.
+docker buildx build --load --output type=docker,oci-mediatypes=true \
+  --provenance=false --file deploy/Dockerfile --tag nexa-home:1.0.0 .
 npm run test:container
 npm run scan:image
 ```
 
-容器測試需要 Node 24、鎖定的 npm 相依套件、Docker／Compose、tar 與 OpenSSL。測試只建立隔離且名稱唯一的本機專案，在記憶體內使用啟動憑證，並移除自己的資源；涵蓋真實設定／登入、圖示／目錄、可攜式還原、替換容器、停機封存後復原至全新儲存空間、權限、健康檢查、工作階段與離線 doctor。HTTPS 驗證使用私人測試 CA，不會停用 TLS 驗證。
+容器測試需要 Node 24、鎖定的 npm 相依套件、Docker／Compose、tar 與 OpenSSL。測試只建立隔離且名稱唯一的本機專案，在記憶體內使用啟動憑證，並移除自己的資源；涵蓋真實設定／登入、圖示／目錄、可攜式還原、替換容器、停機封存後復原至全新儲存空間、權限、健康檢查、工作階段與離線 doctor。HTTPS 驗證使用私人測試 CA，不會停用 TLS 驗證。第二個測試使用固定版本的官方 registry／Buildx 映像，在 daemon 的回送網路中，驗證實際映像儲存／載入／推送、OCI 發行註記及 `latest` 精確更新。它只會寫入暫存的本機登錄檔，不需要登錄檔憑證，也不會將 daemon socket 掛載給輔助容器。
 
 若要建立本機雙架構索引，但不發布映像：
 
 ```sh
 docker buildx build --platform linux/amd64,linux/arm64 --load \
+  --output type=docker,oci-mediatypes=true --provenance=false \
   --file deploy/Dockerfile --tag nexa-home:1.0.0 .
 ```
 
-多平台 `--load` 需要 Docker 的 containerd 映像儲存。使用傳統儲存方式時，請一次建置／載入單一平台，或匯出本機 OCI 封存檔。只有交叉編譯不等於執行期驗收：請在支援 ARM64 的引擎執行 `NEXA_TEST_PLATFORM=linux/arm64 npm run test:container`。可選的 `NEXA_TEST_QEMU=/absolute/path/to/qemu-aarch64` 測試設定，會以唯讀方式掛載使用者模式直譯器，並將它加到測試進入點／健康檢查之前；不會啟用特權模式或註冊主機 binfmt。直譯器不會隨映像提供。CI 定義原生 amd64 與 arm64 工作，但存在工作流程檔案不代表已在託管環境實際執行。
+發布格式的往返驗證，需要 Docker 的 containerd 映像儲存來保留 OCI media type；CI 會自動啟用。傳統儲存方式仍可用於一般的單平台執行期建置，但不適用於此 OCI 發布格式閘門。多平台 `--load` 同樣需要 containerd 儲存。只有交叉編譯不等於執行期驗收：請在支援 ARM64 的引擎執行 `NEXA_TEST_PLATFORM=linux/arm64 npm run test:container`。可選的 `NEXA_TEST_QEMU=/absolute/path/to/qemu-aarch64` 測試設定，會以唯讀方式掛載使用者模式直譯器，並將它加到測試進入點／健康檢查之前；不會啟用特權模式或註冊主機 binfmt。直譯器不會隨映像提供。CI 定義原生 amd64 與 arm64 工作，但存在工作流程檔案不代表已在託管環境實際執行。
 
 常見問題：
 

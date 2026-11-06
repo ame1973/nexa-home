@@ -73,7 +73,7 @@ Native `ubuntu-24.04` amd64 and `ubuntu-24.04-arm` arm64 jobs run:
 
 Verification and publishing use one [shared Docker toolchain](../.github/actions/docker-toolchain/action.yaml). SHA-pinned, Docker-maintained `docker/setup-docker-action` and `docker/setup-buildx-action` install Docker **29.5.3** (client and daemon) and Buildx **0.38.2**, explicitly select the installed daemon and enable the containerd image store. The `docker` builder driver uses that daemon; native jobs need no emulator or separate privileged builder container. An early version/API check rejects an unsupported client or daemon instead of removing platform selection from image inspection/export.
 
-`docker/build-push-action` builds with the checkout's path context (`.`), so validated temporary version stamps are included rather than ignored by the default Git context. It uses `load: true` and `push: false`: deployment acceptance and scanning run before any publication. Docker build-record uploads and build summaries are disabled; only the declared plan and architecture artifacts are retained.
+`docker/build-push-action` builds with the checkout's path context (`.`), so validated temporary version stamps are included rather than ignored by the default Git context. It uses `load: true`, `outputs: type=docker,oci-mediatypes=true` and `push: false`: the containerd image store retains OCI manifests through inspection, save/load and push. Without explicit OCI media types, Buildx can combine Docker-format sources into a Docker manifest list and silently omit the requested index annotations. The publisher requires an OCI index and all version/revision/source annotations; these checks are never skipped. Deployment acceptance, a credential-free loopback-registry roundtrip and scanning run before external publication. The registry test checks annotation retention, unchanged runtime digests and exact `latest` promotion without exposing the daemon socket to a helper. Docker build-record uploads and build summaries are disabled; only the declared plan and architecture artifacts are retained.
 
 A versioned plan exports both verified architecture artifacts; no-release verification does not. The same-run plan/artifacts expire after seven days. Uploads contain declared public build files, never application data, credentials, startup logs, browser traces or local process reports. Reruns replace only their own same-run named artifacts; downloads never select a different run.
 
@@ -172,6 +172,19 @@ gh workflow run release.yaml --ref "v$VERSION" -f mode=resume
 
 `resume` on a branch is rejected; default `preview` never publishes. An automatic tag's plan receipt preserves the original type, baseline, notes and digest even when dispatching through a tag. Expired artifacts require complete verification again, not a skipped gate. A manual tag can resume only its same-plan draft. A published Release is a no-op during planning and cannot be overwritten.
 
-If an unfinished version belongs to an earlier SHA, a later `master` commit cannot take it over or move its tag. Resume the original source first; later planning can then include subsequent changes. A changed published baseline, moved tag, altered receipt or foreign draft stops publication. Inspect and resolve the exact state rather than deleting/replacing tags automatically.
+If an unfinished version belongs to an earlier SHA, a later `master` commit cannot take it over or move its tag. For a transient service/access failure, resume the original source first; later planning can then include subsequent changes. A changed published baseline, moved tag, altered receipt or foreign draft stops publication. Inspect and resolve the exact state rather than deleting/replacing tags automatically.
+
+If the existing tag points to a **workflow/publisher code defect**, rerunning its old SHA or dispatching that tag still executes the old code. Merge the reviewed fix into `master`, then deliberately publish an **unused higher explicit version** from that fixed master commit. For example, after an unfinished `v1.0.0`, use `v1.0.1` if it is available. Keep the old tag, image state and draft untouched; do not move the tag or transplant the new source into its plan. Automatic planning may intentionally refuse the occupied version until a new successful release supplies the baseline. After the newer release succeeds, ordinary automatic releases can continue from it.
+
+The following is a **publication trigger**, not a test. Replace `FIXED_SOURCE` with the full reviewed fixed commit on `master`, and confirm the version is unused before running:
+
+```sh
+VERSION=1.0.1
+FIXED_SOURCE=replace-with-full-reviewed-master-commit
+git tag -a "v$VERSION" -m "Nexa Home $VERSION" "$FIXED_SOURCE"
+git push origin "v$VERSION"
+```
+
+All native verification and publishing gates still run for that new tag; this is not a bypass or an overwrite of the unfinished release.
 
 GHCR and GitHub Releases are not atomic. Failure/cancellation can leave an annotated tag, staging/version/latest image state or an unpublished pipeline-owned draft before the GitHub Release becomes public. No registry version or published Release is automatically deleted. Fix access/visibility in repository/package settings, not with source-embedded long-lived credentials. Never disable TLS or broaden a security exception to pass release gates. Environment reviewers, tag/branch protections and access controls remain operator responsibilities.

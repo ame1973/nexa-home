@@ -113,22 +113,24 @@ See the root [readme](../readme.md) for source build, environment variables and 
 ## Verification and troubleshooting
 
 ```sh
-# Build only the host's native architecture; works with classic image storage.
-docker buildx build --load --file deploy/Dockerfile --tag nexa-home:1.0.0 .
+# Build only the host's native architecture for the publication-format tests.
+docker buildx build --load --output type=docker,oci-mediatypes=true \
+  --provenance=false --file deploy/Dockerfile --tag nexa-home:1.0.0 .
 npm run test:container
 npm run scan:image
 ```
 
-Container tests require Node 24, locked npm dependencies, Docker/Compose, tar and OpenSSL. They create only isolated, uniquely named local projects, consume startup credentials in memory, and remove their own resources. They test real setup/login, icons/catalog, portable restore, replacement containers, stopped archive recovery to fresh storage, permissions, health, sessions and offline doctor. HTTPS validation uses a private test CA, not disabled TLS verification.
+Container tests require Node 24, locked npm dependencies, Docker/Compose, tar and OpenSSL. They create only isolated, uniquely named local projects, consume startup credentials in memory, and remove their own resources. They test real setup/login, icons/catalog, portable restore, replacement containers, stopped archive recovery to fresh storage, permissions, health, sessions and offline doctor. HTTPS validation uses a private test CA, not disabled TLS verification. A second test uses pinned official registry/Buildx images on the daemon's loopback network to exercise actual image save/load/push, OCI release annotations and exact `latest` promotion. It writes only to a temporary local registry, needs no registry credentials and mounts no daemon socket into a helper.
 
 To build a local dual-architecture index without publishing:
 
 ```sh
 docker buildx build --platform linux/amd64,linux/arm64 --load \
+  --output type=docker,oci-mediatypes=true --provenance=false \
   --file deploy/Dockerfile --tag nexa-home:1.0.0 .
 ```
 
-Multi-platform `--load` requires Docker's containerd image store. With classic storage, build/load a single platform at a time or export a local OCI archive. Cross-compilation alone is not runtime acceptance: run `NEXA_TEST_PLATFORM=linux/arm64 npm run test:container` on an ARM64-capable engine. The optional `NEXA_TEST_QEMU=/absolute/path/to/qemu-aarch64` test setting mounts a user-mode interpreter read-only and prefixes the test entrypoint/healthcheck; it never enables privileged mode or registers host binfmt. The interpreter is not shipped in the image. CI defines native amd64 and arm64 jobs; merely having a workflow file does not mean a hosted run occurred.
+The publication-format roundtrip requires Docker's containerd image store to retain OCI media types; CI enables it automatically. Classic storage remains usable for ordinary single-platform runtime builds, but not this OCI publication-format gate. Multi-platform `--load` also requires containerd storage. Cross-compilation alone is not runtime acceptance: run `NEXA_TEST_PLATFORM=linux/arm64 npm run test:container` on an ARM64-capable engine. The optional `NEXA_TEST_QEMU=/absolute/path/to/qemu-aarch64` test setting mounts a user-mode interpreter read-only and prefixes the test entrypoint/healthcheck; it never enables privileged mode or registers host binfmt. The interpreter is not shipped in the image. CI defines native amd64 and arm64 jobs; merely having a workflow file does not mean a hosted run occurred.
 
 Common failures:
 
