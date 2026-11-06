@@ -297,7 +297,43 @@ test(
         method: "PUT",
         data: { ...serviceInput, description: "Edited in the real container" },
       });
+      const currentSettings = await api("/admin/settings");
+      const { revision, updatedAt: _updatedAt, ...fields } = currentSettings;
+      const customTheme = {
+        schemaVersion: 1,
+        name: "Container Tide",
+        variants: {
+          light: {
+            background: "#f0f7f8",
+            surface: "#ffffff",
+            accent: "#006c73",
+          },
+          dark: {
+            background: "#0c1b22",
+            surface: "#132d38",
+            accent: "#6bd3cc",
+          },
+        },
+        radius: 12,
+        shadow: "none",
+      };
+      const customCSS =
+        "@layer custom { .service-tile { border-style: dashed !important; } }";
+      await api("/admin/settings", {
+        method: "PUT",
+        data: {
+          ...fields,
+          expectedRevision: revision,
+          themePreset: "custom",
+          customTheme,
+          customCSS,
+        },
+      });
       const exported = await api("/admin/backup/export?includeAssets=true");
+      assert.equal(exported.version, 2);
+      assert.equal(exported.settings.themePreset, "custom");
+      assert.deepEqual(exported.settings.customTheme, customTheme);
+      assert.equal(exported.settings.customCSS, customCSS);
       assert.equal(exported.services.length, 1);
       assert.equal(exported.assets.length, 1);
       assert.ok(
@@ -377,6 +413,13 @@ test(
         "Edited in the real container",
       );
       assert.deepEqual(persisted.assets, exported.assets);
+      for (const key of ["themePreset", "customTheme", "customCSS"]) {
+        assert.deepEqual(
+          persisted.settings[key],
+          exported.settings[key],
+          `Replacement preserves ${key}`,
+        );
+      }
       assert.equal((await fetch(`${url}${asset.url}`)).status, 200);
       stop();
       const archived = spawnSync(
