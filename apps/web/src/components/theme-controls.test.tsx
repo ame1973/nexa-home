@@ -150,6 +150,11 @@ it("previews a custom stylesheet explicitly and Escape restores appearance witho
 });
 
 it("clones immutable presets, edits both palettes/radius/shadow, and updates a saved library entry explicitly", async () => {
+  vi.spyOn(crypto, "randomUUID").mockImplementation(() => {
+    throw new Error(
+      "Secure-context-only API unavailable on an HTTP LAN origin",
+    );
+  });
   const { user } = renderThemes();
   const dialog = await openThemes(user);
   await user.click(dialog.getByRole("button", { name: "Customize a copy" }));

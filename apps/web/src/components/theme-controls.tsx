@@ -14,6 +14,7 @@ import type { MessageKey } from "@/locales/en";
 import {
   appearanceChoice,
   downloadText,
+  newThemeLibraryId,
   readThemeFile,
   type Appearance,
   type BuiltinPreset,
@@ -148,7 +149,7 @@ export function ThemeControls({
       return;
     }
     const entry = {
-      id: existing?.id ?? crypto.randomUUID(),
+      id: existing?.id ?? newThemeLibraryId(),
       theme: { ...custom, name: custom.name.trim() },
     };
     const library = existing

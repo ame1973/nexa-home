@@ -6,6 +6,7 @@ import { PreferencesProvider, usePreferences } from "@/app/preferences";
 import { settings } from "@/test/fixtures";
 import {
   appearanceFields,
+  newThemeLibraryId,
   readThemeFile,
   readThemeLibrary,
   type Appearance,
@@ -49,6 +50,22 @@ const personal = (
 const wrapper = ({ children }: { children: React.ReactNode }) => (
   <PreferencesProvider appearance={settings}>{children}</PreferencesProvider>
 );
+
+it("generates canonical UUIDv4 library IDs using HTTP-compatible cryptographic random bytes", () => {
+  const secureOnly = vi.spyOn(crypto, "randomUUID");
+  const random = vi
+    .spyOn(crypto, "getRandomValues")
+    .mockImplementation((array) => {
+      if (!array) throw new Error("Missing random buffer");
+      new Uint8Array(array.buffer, array.byteOffset, array.byteLength).fill(
+        255,
+      );
+      return array;
+    });
+  expect(newThemeLibraryId()).toBe("ffffffff-ffff-4fff-bfff-ffffffffffff");
+  expect(random).toHaveBeenCalledTimes(1);
+  expect(secureOnly).not.toHaveBeenCalled();
+});
 
 describe("shared pre-paint theme engine", () => {
   it("normalizes malformed cached fields before exposing them to the React editor", () => {

@@ -96,8 +96,13 @@ test("custom themes use real token/CSS editing, Escape recovery, a browser libra
   app,
 }, testInfo) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
+  // Match HTTP LAN browsers without the secure-context-only randomUUID method.
+  await page.addInitScript(() => {
+    Object.defineProperty(crypto, "randomUUID", { value: undefined });
+  });
   await seed(page, app);
   await page.goto(app.url);
+  expect(await page.evaluate(() => typeof crypto.randomUUID)).toBe("undefined");
   await page.getByRole("button", { name: "Theme styles", exact: true }).click();
   let dialog = page.getByRole("dialog", { name: "Your appearance" });
   await dialog.getByRole("button", { name: "Tide", exact: true }).click();
