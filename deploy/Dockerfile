@@ -6,7 +6,8 @@ FROM --platform=$BUILDPLATFORM node:24.14.1-alpine@sha256:8510330d3eb72c804231a8
 WORKDIR /src
 COPY package.json package-lock.json ./
 COPY apps/web/package.json apps/web/package.json
-RUN --mount=type=cache,target=/root/.npm npm ci --ignore-scripts --no-audit --no-fund
+# Match the standalone-plugin peer policy in the source checkout's .npmrc.
+RUN --mount=type=cache,target=/root/.npm npm ci --ignore-scripts --legacy-peer-deps --no-audit --no-fund
 COPY apps/web/ apps/web/
 COPY api/icons.json api/icons.json
 COPY scripts/sonner-csp.mjs scripts/sonner-csp.mjs
