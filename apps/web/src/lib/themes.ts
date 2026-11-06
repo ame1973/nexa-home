@@ -94,8 +94,13 @@ export function downloadText(content: string, filename: string, type: string) {
   const link = document.createElement("a");
   link.href = url;
   link.download = filename;
-  link.click();
-  setTimeout(() => URL.revokeObjectURL(url), 0);
+  try {
+    document.body.append(link);
+    link.click();
+  } finally {
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 0);
+  }
 }
 export async function readThemeFile(
   file: File,

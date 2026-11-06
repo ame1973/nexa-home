@@ -1,6 +1,8 @@
+import { themeHi } from "./theme-messages";
 import type { MessageKey } from "./en";
 
 export const hi: Record<MessageKey, string> = {
+  ...themeHi,
   subtitleHint: "अधिकतम 160 अक्षर।",
   accentHint:
     "पाठ और नियंत्रणों को पढ़ने योग्य कंट्रास्ट के लिए समायोजित किया जाता है।",

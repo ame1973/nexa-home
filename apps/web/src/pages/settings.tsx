@@ -2,7 +2,9 @@ import { useRef, useState, type FormEvent, type ReactNode } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { useI18n } from "@/app/preferences";
+import { useI18n, usePreferences } from "@/app/preferences";
+import { ThemeControls } from "@/components/theme-controls";
+import { appearanceChoice } from "@/lib/themes";
 import {
   api,
   ApiError,
@@ -87,6 +89,7 @@ export function SecurityPage() {
 }
 function AppearanceForm({ settings }: { settings: Settings }) {
   const { t } = useI18n();
+  const { setPreview } = usePreferences();
   const form = useRef<HTMLFormElement>(null);
   const draft = useDraft(settingsInput(settings));
   const value = draft.value;
@@ -96,10 +99,14 @@ function AppearanceForm({ settings }: { settings: Settings }) {
   const titleValid = validText(value.siteTitle, 1, 80);
   const subtitleValid = validText(value.siteSubtitle, 0, 160);
   const colorValid = isColor(value.accent);
+  const appearanceValid = window.NexaTheme.validPersonal(
+    appearanceChoice(value),
+  );
   const mutation = useMutation({
     mutationFn: api.saveSettings,
     onSuccess: async (saved) => {
       queryClient.setQueryData(["admin", "settings"], saved);
+      setPreview(null);
       draft.reset();
       await invalidateConfiguration();
       toast.success(t("appearanceSaved"));
@@ -129,7 +136,7 @@ function AppearanceForm({ settings }: { settings: Settings }) {
     event.preventDefault();
     if (mutation.isPending) return;
     setTouched({ siteTitle: true, siteSubtitle: true, accent: true });
-    if (!titleValid || !subtitleValid || !colorValid) {
+    if (!titleValid || !subtitleValid || !colorValid || !appearanceValid) {
       requestAnimationFrame(() => {
         if (form.current) focusInvalid(form.current);
       });
@@ -208,31 +215,33 @@ function AppearanceForm({ settings }: { settings: Settings }) {
                 ))}
               </SelectContent>
             </Select>
-            <div className="flex items-end gap-3">
-              <div className="min-w-0 flex-1">
-                <Field
-                  name="accent"
-                  label={t("accent")}
-                  hint={t("accentHint")}
-                  error={invalid("accent", colorValid, "invalidColor")}
-                >
-                  <Input
-                    dir="ltr"
-                    value={value.accent}
-                    onBlur={() => touch("accent")}
-                    onChange={(event) => update("accent", event.target.value)}
-                    spellCheck={false}
-                  />
-                </Field>
+            {(value.themePreset === "future-glass" || !colorValid) && (
+              <div className="flex items-end gap-3">
+                <div className="min-w-0 flex-1">
+                  <Field
+                    name="accent"
+                    label={t("accent")}
+                    hint={t("accentHint")}
+                    error={invalid("accent", colorValid, "invalidColor")}
+                  >
+                    <Input
+                      dir="ltr"
+                      value={value.accent}
+                      onBlur={() => touch("accent")}
+                      onChange={(event) => update("accent", event.target.value)}
+                      spellCheck={false}
+                    />
+                  </Field>
+                </div>
+                <input
+                  type="color"
+                  aria-label={t("pickColor")}
+                  className="h-11 w-11 cursor-pointer rounded-lg border bg-transparent p-1"
+                  value={colorValid ? value.accent : settings.accent}
+                  onChange={(event) => update("accent", event.target.value)}
+                />
               </div>
-              <input
-                type="color"
-                aria-label={t("pickColor")}
-                className="h-11 w-11 cursor-pointer rounded-lg border bg-transparent p-1"
-                value={colorValid ? value.accent : settings.accent}
-                onChange={(event) => update("accent", event.target.value)}
-              />
-            </div>
+            )}
             <Select
               value={value.cardDensity}
               onValueChange={(next) => {
@@ -261,6 +270,15 @@ function AppearanceForm({ settings }: { settings: Settings }) {
               <p className="field-hint mt-2">{t("glassHint")}</p>
             </div>
           </section>
+          <p className="field-hint">{t("siteAppearanceHint")}</p>
+          <ThemeControls
+            value={appearanceChoice(value)}
+            appearance={value}
+            onChange={(next) => {
+              draft.update({ ...value, ...next });
+              mutation.reset();
+            }}
+          />
         </fieldset>
         <div className="form-actions">
           {draft.dirty && <span className="muted">{t("unsaved")}</span>}
@@ -269,6 +287,7 @@ function AppearanceForm({ settings }: { settings: Settings }) {
             variant="outline"
             disabled={!draft.dirty || mutation.isPending}
             onClick={() => {
+              setPreview(null);
               draft.reset();
               mutation.reset();
               setTouched({});
@@ -283,6 +302,7 @@ function AppearanceForm({ settings }: { settings: Settings }) {
               !titleValid ||
               !subtitleValid ||
               !colorValid ||
+              !appearanceValid ||
               mutation.isPending
             }
           >
@@ -302,6 +322,7 @@ function AppearanceForm({ settings }: { settings: Settings }) {
             queryFn: api.settings,
             staleTime: 0,
           });
+          setPreview(null);
           draft.reset();
           mutation.reset();
           setTouched({});

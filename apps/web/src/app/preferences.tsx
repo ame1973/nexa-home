@@ -122,7 +122,11 @@ export function PreferencesProvider({
   useEffect(() => {
     if (!preview) return;
     const cancel = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setPreview(null);
+      if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopPropagation();
+        setPreview(null);
+      }
     };
     window.addEventListener("keydown", cancel, true);
     return () => window.removeEventListener("keydown", cancel, true);

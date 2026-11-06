@@ -1,6 +1,8 @@
+import { themeDe } from "./theme-messages";
 import type { MessageKey } from "./en";
 
 export const de: Record<MessageKey, string> = {
+  ...themeDe,
   subtitleHint: "Bis zu 160 Zeichen.",
   accentHint:
     "Text und Bedienelemente werden für einen barrierefreien Kontrast angepasst.",

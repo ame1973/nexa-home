@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { Service, ServiceInput, Settings, SettingsInput } from './api/client';
 import type { MessageKey } from '@/locales/en';
+import { appearanceChoice } from './themes';
 
 export type FieldErrors = Record<string, MessageKey>;
 export const isColor = (value: string) => /^#[0-9a-f]{6}$/i.test(value);
@@ -38,7 +39,7 @@ export function serviceInput(service?: Service): ServiceInput {
   };
 }
 export function settingsInput(settings: Settings): SettingsInput {
-  return { siteTitle: settings.siteTitle, siteSubtitle: settings.siteSubtitle, accessMode: settings.accessMode, theme: settings.theme, accent: settings.accent, cardDensity: settings.cardDensity, glassEnabled: settings.glassEnabled, expectedRevision: settings.revision };
+  return { siteTitle: settings.siteTitle, siteSubtitle: settings.siteSubtitle, accessMode: settings.accessMode, theme: settings.theme, accent: settings.accent, cardDensity: settings.cardDensity, glassEnabled: settings.glassEnabled, ...appearanceChoice(settings), expectedRevision: settings.revision };
 }
 export function serviceErrors(value: ServiceInput): FieldErrors {
   const errors: FieldErrors = {};

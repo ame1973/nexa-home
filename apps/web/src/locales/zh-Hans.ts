@@ -1,6 +1,8 @@
+import { themeZhHans } from "./theme-messages";
 import type { MessageKey } from "./en";
 
 export const zhHans: Record<MessageKey, string> = {
+  ...themeZhHans,
   subtitleHint: "最多 160 个字符。",
   accentHint: "文字和控件会自动调整，以保持易读的对比度。",
   reloadSettingsHint: "放弃尚未保存的共享设置，并加载最新版本。",

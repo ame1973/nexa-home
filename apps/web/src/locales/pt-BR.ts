@@ -1,6 +1,8 @@
+import { themePtBR } from "./theme-messages";
 import type { MessageKey } from "./en";
 
 export const ptBR: Record<MessageKey, string> = {
+  ...themePtBR,
   subtitleHint: "Até 160 caracteres.",
   accentHint:
     "O texto e os controles são ajustados para manter um contraste acessível.",

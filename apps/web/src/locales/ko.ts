@@ -1,6 +1,8 @@
+import { themeKo } from "./theme-messages";
 import type { MessageKey } from "./en";
 
 export const ko: Record<MessageKey, string> = {
+  ...themeKo,
   subtitleHint: "최대 160자입니다.",
   accentHint: "텍스트와 컨트롤은 읽기 쉬운 대비를 유지하도록 조정됩니다.",
   reloadSettingsHint:

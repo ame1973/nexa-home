@@ -1,6 +1,8 @@
+import { themeRu } from "./theme-messages";
 import type { MessageKey } from "./en";
 
 export const ru: Record<MessageKey, string> = {
+  ...themeRu,
   subtitleHint: "До 160 символов.",
   accentHint:
     "Текст и элементы управления подстраиваются для доступного контраста.",

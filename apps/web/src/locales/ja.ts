@@ -1,6 +1,8 @@
+import { themeJa } from "./theme-messages";
 import type { MessageKey } from "./en";
 
 export const ja: Record<MessageKey, string> = {
+  ...themeJa,
   subtitleHint: "160 文字以内。",
   accentHint: "読みやすいコントラストになるよう文字と操作部品を調整します。",
   reloadSettingsHint:

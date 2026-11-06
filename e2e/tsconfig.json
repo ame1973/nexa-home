@@ -17,5 +17,5 @@
     "resolveJsonModule": true,
     "types": ["node"]
   },
-  "include": ["./**/*.ts", "../playwright.config.ts"]
+  "include": ["./**/*.ts", "../playwright.config.ts", "../apps/web/src/env.d.ts"]
 }

@@ -1,7 +1,9 @@
+import { themeAr } from "./theme-messages";
 import type { MessageKey } from "./en";
 
 // Isolate LTR ranges and technical literals so RTL never reverses their meaning.
 export const ar: Record<MessageKey, string> = {
+  ...themeAr,
   subtitleHint: "بحد أقصى 160 حرفًا.",
   accentHint: "يُضبط النص وعناصر التحكم للحفاظ على تباين يسهل قراءته.",
   reloadSettingsHint:

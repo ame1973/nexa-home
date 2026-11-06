@@ -37,6 +37,10 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { ConfirmDialog, ErrorState, Pending } from "@/components/common";
+import {
+  PersonalThemes,
+  SafeAppearanceNotice,
+} from "@/components/theme-controls";
 
 const AppData = createContext<{
   setup: UseQueryResult<Awaited<ReturnType<typeof api.setupStatus>>, Error>;
@@ -75,6 +79,7 @@ export function RootLayout() {
         <TooltipProvider delayDuration={300}>
           <div className="app-background">
             <Chrome />
+            <SafeAppearanceNotice />
             {setup.isPending ? (
               <main id="main" className="page">
                 <Pending />
@@ -201,6 +206,7 @@ function Chrome() {
                 </DropdownMenuRadioGroup>
               </DropdownMenuContent>
             </DropdownMenu>
+            <PersonalThemes />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button

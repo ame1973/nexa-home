@@ -85,6 +85,49 @@ for (const [browserLocale, locale] of browserLocales) {
       ).toBeVisible();
       await layoutAndTargets(page);
       await accessibility(page);
+      const themeButton = page.getByRole("button", {
+        name: messages.themeStyles,
+        exact: true,
+      });
+      await themeButton.click();
+      const themeDialog = page.getByRole("dialog", {
+        name: messages.personalAppearance,
+        exact: true,
+      });
+      await themeDialog
+        .getByRole("button", { name: messages.themeTide, exact: true })
+        .click();
+      await themeDialog
+        .getByRole("button", { name: messages.customizeTheme, exact: true })
+        .click();
+      await themeDialog
+        .getByRole("textbox", { name: messages.name, exact: true })
+        .fill(`Theme ${locale}`);
+      await expect(
+        themeDialog.getByRole("combobox", {
+          name: messages.themeRadius,
+          exact: true,
+        }),
+      ).toHaveAttribute("dir", "ltr");
+      await themeDialog
+        .locator("summary")
+        .filter({ hasText: messages.advancedCSS })
+        .click();
+      const cssEditor = themeDialog.getByRole("textbox", {
+        name: messages.advancedCSS,
+        exact: true,
+      });
+      await expect(cssEditor).toHaveAttribute("dir", "ltr");
+      await cssEditor.fill("/* Browser-local presentation only. */");
+      await layoutAndTargets(page);
+      await accessibility(page);
+      await page.screenshot({
+        path: testInfo.outputPath(`themes-${locale}-390.png`),
+        fullPage: true,
+      });
+      await page.keyboard.press("Escape");
+      await expect(themeDialog).toHaveCount(0);
+      await expect(themeButton).toBeFocused();
       await page.screenshot({
         path: testInfo.outputPath(`home-${locale}-390.png`),
         fullPage: true,

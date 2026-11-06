@@ -1,4 +1,7 @@
+import { themeEn } from "./theme-messages";
+
 export const en = {
+  ...themeEn,
   subtitleHint: "Up to 160 characters.",
   accentHint: "Text and controls are adjusted for accessible contrast.",
   reloadSettingsHint:
