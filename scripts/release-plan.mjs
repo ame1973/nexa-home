@@ -13,8 +13,10 @@ import conventionalCommits from "conventional-changelog-conventionalcommits";
 import {
   command,
   compareVersions,
+  nextVersion,
   parseVersion,
   planDigest,
+  recoverTagPlan,
   releaseHistory,
   releaseMetadata,
   validatePlan,
@@ -32,18 +34,6 @@ function tagVersion(tag) {
   } catch {
     return null;
   }
-}
-
-export function nextVersion(previous, type) {
-  assert.ok(["major", "minor", "patch"].includes(type));
-  if (!previous) return "1.0.0";
-  const parsed = parseVersion(previous);
-  assert.equal(parsed.prerelease, "", "Automatic releases use stable versions");
-  const parts = parsed.parts.map(BigInt);
-  const index = ["major", "minor", "patch"].indexOf(type);
-  parts[index]++;
-  for (let position = index + 1; position < 3; position++) parts[position] = 0n;
-  return parseVersion(parts.join(".")).version;
 }
 
 export function publishedBase({
@@ -110,6 +100,27 @@ export function releaseCommits({ base, revision, root = ".", run = command }) {
   return commits;
 }
 
+function localTagPlan({ tag, repository, revision, root, run }) {
+  const ref = `refs/tags/${tag}`;
+  const target = run("git", ["rev-parse", "--verify", `${ref}^{commit}`], {
+    cwd: root,
+  });
+  assert.equal(
+    target,
+    revision,
+    "An unfinished version belongs to another commit; resume its original tagged source",
+  );
+  if (run("git", ["cat-file", "-t", ref], { cwd: root }) !== "tag") return null;
+  const message = run("git", ["for-each-ref", "--format=%(contents)", ref], {
+    cwd: root,
+  });
+  return recoverTagPlan(message, {
+    repository,
+    revision,
+    version: tag.slice(1),
+  });
+}
+
 export async function createPlan({
   repository,
   revision,
@@ -121,6 +132,15 @@ export async function createPlan({
   releaseMetadata({ repository, revision, tag: tag || "v1.0.0" });
   const mode = tag ? "tag" : "auto";
   const selected = tag ? tagVersion(tag).version : undefined;
+  if (tag) {
+    const stored = localTagPlan({ tag, repository, revision, root, run });
+    if (stored)
+      return releases.some(
+        (release) => release.tag_name === tag && !release.draft,
+      )
+        ? validatePlan({ ...stored, version: null, type: "none", notes: "" })
+        : stored;
+  }
   const base = publishedBase({
     releases,
     revision,
@@ -158,6 +178,24 @@ export async function createPlan({
     );
   }
   const planned = existing ? null : version;
+  if (
+    !tag &&
+    planned &&
+    run("git", ["tag", "--list", `v${planned}`], { cwd: root })
+  ) {
+    const stored = localTagPlan({
+      tag: `v${planned}`,
+      repository,
+      revision,
+      root,
+      run,
+    });
+    assert.ok(
+      stored,
+      "Automatic publication cannot take over a manually managed tag",
+    );
+    return stored;
+  }
   const notes = planned
     ? await generateNotes(
         {

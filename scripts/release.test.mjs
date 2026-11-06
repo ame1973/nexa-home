@@ -18,6 +18,8 @@ import {
   compareVersions,
   packageRelease,
   parseVersion,
+  metadataForPlan,
+  tagPlanMessage,
   publishRelease,
   releaseMetadata,
   shouldPromoteLatest,
@@ -285,6 +287,35 @@ test("packages the exact exported executable, licenses and image without arbitra
   assert.throws(() => packageRelease({ ...input, arch, run }), /EEXIST/);
 });
 
+test("exported image manifests bind both architectures to the reviewed release plan", () => {
+  const input = fixture();
+  input.metadata = metadataForPlan({
+    schema: 1,
+    repository: input.metadata.repository,
+    revision,
+    mode: "auto",
+    base: null,
+    date: "2026-02-03",
+    version: "1.0.0",
+    type: "initial",
+    notes: "## Synthetic notes\n",
+  });
+  const adapter = tools(input.metadata);
+  const result = packageRelease({ ...input, arch, run: adapter.run });
+  assert.equal(
+    verifyArtifact(result.output, arch, input.metadata).planDigest,
+    input.metadata.planDigest,
+  );
+  assert.throws(
+    () =>
+      verifyArtifact(result.output, arch, {
+        ...input.metadata,
+        planDigest: "e".repeat(64),
+      }),
+    /release plan mismatch/,
+  );
+});
+
 test("refuses mismatched image labels before creating an export or container", () => {
   for (const labels of [
     { "org.opencontainers.image.version": "9.0.0" },
@@ -404,9 +435,42 @@ function publisherFixture(version = "1.0.0") {
   return input;
 }
 
+function plannedFixture(options = {}) {
+  const input = publisherFixture(options.version || "1.0.0");
+  input.plan = {
+    schema: 1,
+    repository: input.metadata.repository,
+    revision,
+    mode: "auto",
+    base: null,
+    date: "2026-02-03",
+    version: input.metadata.version,
+    type: "initial",
+    notes: "## Synthetic notes\n\n### Features\n\n* Synthetic behavior (#12)\n",
+    ...options,
+  };
+  input.metadata = metadataForPlan(input.plan);
+  for (const platform of ["amd64", "arm64"]) {
+    const file = join(
+      input.directory,
+      `release-linux-${platform}`,
+      "metadata.json",
+    );
+    const record = JSON.parse(readFileSync(file, "utf8"));
+    record.planDigest = input.metadata.planDigest;
+    writeFileSync(file, JSON.stringify(record));
+  }
+  return input;
+}
+
 function publishingTools(input, options = {}) {
   const calls = [];
+  const requests = [];
   let tagChecks = 0;
+  let historyReads = 0;
+  let created = false;
+  let storedMessage =
+    options.tagMessage ?? (input.plan ? tagPlanMessage(input.plan) : "");
   const nativeDigests = {
     amd64: `sha256:${"1".repeat(64)}`,
     arm64: `sha256:${"2".repeat(64)}`,
@@ -430,29 +494,98 @@ function publishingTools(input, options = {}) {
   };
   if (options.wrongIndex)
     index.manifests[1].digest = `sha256:${"e".repeat(64)}`;
-  const run = (name, args) => {
+  const run = (name, args, callOptions = {}) => {
     calls.push([name, ...args]);
+    requests.push({ name, args, options: callOptions });
     if (name === "gh") {
       if (args[0] === "api") {
         if (options.apiFailure) throw new Error("Synthetic API failure");
-        if (args.at(-1).includes("/git/ref/tags/")) {
+        const endpoint = args.find((value) => value.startsWith("repos/"));
+        if (endpoint.includes("/git/matching-refs/tags/"))
+          return JSON.stringify(
+            options.existingTag || input.plan?.mode === "tag"
+              ? [
+                  {
+                    ref: `refs/tags/${input.metadata.tag}`,
+                    object: {
+                      type:
+                        options.lightweightAuto || input.plan.mode === "tag"
+                          ? "commit"
+                          : "tag",
+                      sha:
+                        options.lightweightAuto || input.plan.mode === "tag"
+                          ? revision
+                          : "d".repeat(40),
+                    },
+                  },
+                ]
+              : [],
+          );
+        if (args.includes("POST") && endpoint.endsWith("/git/tags")) {
+          const value = JSON.parse(callOptions.input);
+          assert.equal(value.object, revision);
+          assert.equal(value.type, "commit");
+          storedMessage = value.message;
+          return JSON.stringify({ sha: "d".repeat(40) });
+        }
+        if (args.includes("POST") && endpoint.endsWith("/git/refs")) {
+          const value = JSON.parse(callOptions.input);
+          assert.equal(value.ref, `refs/tags/${input.metadata.tag}`);
+          created = true;
+          return JSON.stringify({
+            ref: value.ref,
+            object: { type: "tag", sha: value.sha },
+          });
+        }
+        if (endpoint.includes("/git/ref/tags/")) {
+          if (input.plan?.base && endpoint.endsWith(input.plan.base.tag))
+            return JSON.stringify({
+              object: {
+                type: "commit",
+                sha: options.movedBase
+                  ? "f".repeat(40)
+                  : input.plan.base.revision,
+              },
+            });
           tagChecks++;
           const sha =
             options.movedTag || (options.moveDuringPublish && tagChecks > 1)
               ? "e".repeat(40)
               : revision;
+          const annotated =
+            options.annotated ||
+            (input.plan?.mode === "auto" && !options.lightweightAuto);
           return JSON.stringify({
-            object: options.annotated
-              ? { type: "tag", sha: "d".repeat(40) }
+            object: annotated
+              ? {
+                  type: "tag",
+                  sha:
+                    options.replaceTagObject && tagChecks > 1
+                      ? "f".repeat(40)
+                      : "d".repeat(40),
+                }
               : { type: "commit", sha },
           });
         }
-        if (args.at(-1).includes("/git/tags/"))
-          return JSON.stringify({ object: { type: "commit", sha: revision } });
-        return JSON.stringify([options.releases || []]);
+        if (endpoint.includes("/git/tags/"))
+          return JSON.stringify({
+            message: storedMessage,
+            object: {
+              type: "commit",
+              sha: options.movedTag ? "e".repeat(40) : revision,
+            },
+          });
+        historyReads++;
+        return JSON.stringify([
+          historyReads > 1 && options.changedHistory
+            ? options.changedHistory
+            : options.releases || [],
+        ]);
       }
       assert.equal(args[0], "release");
       assert.ok(["create", "upload", "edit"].includes(args[1]));
+      if (input.plan?.mode === "auto" && !options.existingTag)
+        assert.ok(created, "Only a validated new tag can be released");
       return "";
     }
     assert.equal(
@@ -536,12 +669,13 @@ function publishingTools(input, options = {}) {
         : { schemaVersion: 2, config: { digest: imageId }, layers: [] },
     );
   };
-  return { run, calls, nativeDigests, indexDigest };
+  return { run, calls, requests, nativeDigests, indexDigest };
 }
 
 const publish = (input, tools) =>
   publishRelease({
     metadata: input.metadata,
+    plan: input.plan,
     directory: input.directory,
     runId: "123",
     attempt: "1",
@@ -558,6 +692,166 @@ const latestCreates = (calls) =>
       call[1] === "buildx" &&
       call.includes("ghcr.io/owner/nexa-home:latest"),
   );
+
+test("planned publication creates an annotated exact-source tag and uses deterministic notes, never GitHub-generated notes", () => {
+  const input = plannedFixture();
+  const tools = publishingTools(input);
+  const result = publish(input, tools);
+  const posts = tools.requests.filter(
+    (request) => request.name === "gh" && request.args.includes("POST"),
+  );
+  assert.equal(posts.length, 2);
+  const tag = JSON.parse(posts[0].options.input);
+  assert.equal(tag.object, revision);
+  assert.equal(tag.message, tagPlanMessage(input.plan));
+  assert.deepEqual(JSON.parse(posts[1].options.input), {
+    ref: "refs/tags/v1.0.0",
+    sha: "d".repeat(40),
+  });
+  const create = tools.calls.find(
+    (call) => call[0] === "gh" && call[1] === "release" && call[2] === "create",
+  );
+  assert.ok(create.includes("--notes-file"));
+  assert.equal(create.includes("--generate-notes"), false);
+  const notes = readFileSync(join(input.directory, "release-notes.md"), "utf8");
+  assert.ok(notes.includes(input.plan.notes.trim()));
+  assert.ok(notes.includes(input.metadata.planDigest));
+  assert.ok(notes.includes(result.reference));
+  assert.ok(releaseEdits(tools.calls)[0].includes("--notes-file"));
+  assert.equal(tools.calls.at(-1)[2], "edit");
+});
+
+test("a planned artifact cannot be published with missing, altered or mismatched plan identity", () => {
+  for (const change of ["missing-plan", "notes", "artifact", "metadata"]) {
+    const input = plannedFixture();
+    if (change === "missing-plan") input.plan = undefined;
+    if (change === "notes") input.plan.notes += "Changed notes";
+    if (change === "metadata") input.metadata.planDigest = "f".repeat(64);
+    if (change === "artifact") {
+      const file = join(
+        input.directory,
+        "release-linux-arm64",
+        "metadata.json",
+      );
+      const record = JSON.parse(readFileSync(file, "utf8"));
+      record.planDigest = "f".repeat(64);
+      writeFileSync(file, JSON.stringify(record));
+    }
+    const tools = publishingTools(input);
+    assert.throws(() => publish(input, tools), change);
+    assert.equal(tools.calls.length, 0);
+  }
+});
+
+test("release baseline changes fail before tag writes or final latest/publication", () => {
+  for (const options of [
+    { releases: [{ tag_name: "v0.9.0", draft: false, prerelease: false }] },
+    {
+      changedHistory: [{ tag_name: "v0.9.0", draft: false, prerelease: false }],
+    },
+  ]) {
+    const input = plannedFixture();
+    const tools = publishingTools(input, options);
+    assert.throws(() => publish(input, tools), /baseline changed/);
+    assert.equal(releaseEdits(tools.calls).length, 0);
+    assert.equal(latestCreates(tools.calls).length, 0);
+    if (options.releases)
+      assert.equal(
+        tools.calls.some((call) => call.includes("POST")),
+        false,
+      );
+  }
+  const input = plannedFixture({
+    version: "1.5.0",
+    type: "minor",
+    base: { tag: "v1.4.2", revision: "e".repeat(40) },
+  });
+  for (const options of [
+    {},
+    { releases: [{ tag_name: "v1.4.2", draft: false }], movedBase: true },
+  ]) {
+    const tools = publishingTools(input, options);
+    assert.throws(() => publish(input, tools));
+    assert.equal(
+      tools.calls.some((call) => call.includes("POST")),
+      false,
+    );
+  }
+});
+
+test("only the same plan's pending annotated tag and unpublished draft can be resumed", () => {
+  const input = plannedFixture();
+  const draft = {
+    tag_name: input.metadata.tag,
+    draft: true,
+    target_commitish: revision,
+    body: `<!-- nexa-release:${revision} -->\n<!-- nexa-plan:${input.metadata.planDigest} -->`,
+  };
+  const tools = publishingTools(input, {
+    existingTag: true,
+    releases: [draft],
+  });
+  publish(input, tools);
+  assert.equal(
+    tools.calls.some((call) => call.includes("POST")),
+    false,
+  );
+  assert.equal(
+    tools.calls.some(
+      (call) =>
+        call[0] === "gh" && call[1] === "release" && call[2] === "create",
+    ),
+    false,
+  );
+  assert.equal(releaseEdits(tools.calls).length, 1);
+  for (const options of [
+    { existingTag: true, tagMessage: "Manually managed release" },
+    { existingTag: true, lightweightAuto: true },
+    {
+      existingTag: true,
+      tagMessage: tagPlanMessage({
+        ...input.plan,
+        notes: "Different synthetic notes",
+      }),
+    },
+    {
+      existingTag: true,
+      releases: [{ ...draft, body: `<!-- nexa-release:${revision} -->` }],
+    },
+    { existingTag: true, releases: [{ ...draft, draft: false }] },
+  ]) {
+    const other = plannedFixture();
+    const tools = publishingTools(other, options);
+    assert.throws(() => publish(other, tools));
+    assert.equal(
+      tools.calls.some((call) => call[0] === "docker"),
+      false,
+    );
+  }
+});
+
+test("manual prereleases retain their existing tag and receive deterministic notes", () => {
+  const input = plannedFixture({
+    mode: "tag",
+    type: "manual",
+    version: "1.0.1-rc.1",
+  });
+  const tools = publishingTools(input);
+  assert.equal(publish(input, tools).latest, false);
+  assert.equal(
+    tools.calls.some((call) => call.includes("POST")),
+    false,
+  );
+  assert.ok(releaseEdits(tools.calls)[0].includes("--prerelease=true"));
+});
+
+test("changing an annotated tag object after verification blocks publication even if its commit is unchanged", () => {
+  const input = plannedFixture();
+  const tools = publishingTools(input, { replaceTagObject: true });
+  assert.throws(() => publish(input, tools), /tag object changed/);
+  assert.equal(releaseEdits(tools.calls).length, 0);
+  assert.equal(latestCreates(tools.calls).length, 0);
+});
 
 test("latest promotion ignores drafts and prereleases but never rolls back a newer stable version", () => {
   assert.equal(shouldPromoteLatest("1.0.0", []), true);

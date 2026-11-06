@@ -14,17 +14,16 @@ import { after, test } from "node:test";
 import {
   buildVersion,
   command,
+  nextVersion,
   planDigest,
   readPlan,
   sourceVersion,
   stampVersion,
+  tagPlanMessage,
+  recoverTagPlan,
   validatePlan,
 } from "./release.mjs";
-import {
-  createPlan,
-  nextVersion,
-  validatePullRequest,
-} from "./release-plan.mjs";
+import { createPlan, validatePullRequest } from "./release-plan.mjs";
 
 const directories = [];
 after(() => {
@@ -224,6 +223,7 @@ test("published tags must exist in full fetched history; missing history fails c
 test("manual prerelease/backport tags receive generated notes without consuming a new automatic version", async () => {
   const input = fixture();
   input.commit("fix: change synthetic behavior");
+  input.git(["tag", "v1.4.3-rc.1"]);
   const plan = await input.plan({ tag: "v1.4.3-rc.1" });
   assert.equal(plan.version, "1.4.3-rc.1");
   assert.equal(plan.type, "manual");
@@ -242,6 +242,45 @@ test("rerunning a published release is a no-op and a foreign version cannot be r
   input.commit("feat: make a different synthetic feature");
   await assert.rejects(input.plan(), /another commit/);
   assert.notEqual(input.git(["rev-parse", "HEAD"]), source);
+});
+
+test("an interrupted automatic release resumes the exact plan from its annotated tag, including tag dispatch", async () => {
+  const input = fixture();
+  input.commit("feat: add synthetic resumable behavior");
+  const original = await input.plan();
+  input.git([
+    "tag",
+    "-a",
+    `v${original.version}`,
+    "-m",
+    tagPlanMessage(original),
+  ]);
+  assert.deepEqual(await input.plan(), original);
+  assert.deepEqual(await input.plan({ tag: `v${original.version}` }), original);
+  assert.deepEqual(
+    recoverTagPlan(tagPlanMessage(original), original),
+    original,
+  );
+  assert.throws(
+    () =>
+      recoverTagPlan(
+        tagPlanMessage(original).replace("synthetic resumable", "tampered"),
+      ),
+    /digest mismatch/,
+  );
+  input.commit("feat: add later synthetic behavior");
+  await assert.rejects(
+    input.plan(),
+    /unfinished version belongs to another commit/,
+  );
+});
+
+test("automatic planning never adopts an existing manually managed version tag", async () => {
+  const input = fixture();
+  input.commit("feat: add synthetic behavior");
+  input.git(["tag", "v1.5.0"]);
+  await assert.rejects(input.plan(), /manually managed tag/);
+  assert.equal((await input.plan({ tag: "v1.5.0" })).mode, "tag");
 });
 
 test("version arithmetic is validated, resets smaller components and preserves large integers", () => {
@@ -344,6 +383,93 @@ test("plan identity includes notes, baseline, source, date and mode; malformed/l
   symlinkSync(join(input.root, "package.json"), file);
   assert.throws(() => readPlan(file), /bounded regular file/);
 });
+
+for (const [event, refType, dispatch, publish] of [
+  ["push", "branch", "", true],
+  ["workflow_dispatch", "branch", "preview", false],
+  ["push", "tag", "", true],
+  ["workflow_dispatch", "tag", "preview", false],
+  ["workflow_dispatch", "tag", "resume", true],
+])
+  test(`planner CLI ${event}/${refType}/${dispatch || "automatic"} binds its plan and publication intent`, () => {
+    const input = fixture();
+    const revision = input.commit("feat: add a synthetic CLI feature (#17)");
+    if (refType === "tag")
+      input.git(["tag", "-a", "v1.5.0", "-m", "Manual synthetic release"]);
+    const bin = join(input.root, "cli-tools");
+    mkdirSync(bin);
+    const history = join(bin, "history.json");
+    writeFileSync(history, JSON.stringify(input.releases));
+    writeFileSync(
+      join(bin, "gh"),
+      `#!${process.execPath}\nconst fs=require('node:fs');const args=process.argv.slice(2);if(args[0]!=='api'||!args.includes('--paginate')||!args.at(-1).endsWith('/releases?per_page=100'))process.exit(9);process.stdout.write(JSON.stringify([JSON.parse(fs.readFileSync(process.env.NEXA_FIXTURE_HISTORY,'utf8'))]));\n`,
+      { mode: 0o555 },
+    );
+    const output = join(input.root, "workflow-output");
+    const env = {
+      ...process.env,
+      PATH: `${bin}:${process.env.PATH}`,
+      NEXA_FIXTURE_HISTORY: history,
+      GITHUB_ACTIONS: "true",
+      GITHUB_EVENT_NAME: event,
+      GITHUB_REF_TYPE: refType,
+      GITHUB_REF_NAME: refType === "tag" ? "v1.5.0" : "master",
+      GITHUB_SHA: revision,
+      GITHUB_REPOSITORY: repository,
+      GITHUB_OUTPUT: output,
+      GITHUB_STEP_SUMMARY: join(input.root, "step-summary"),
+      NEXA_RELEASE_MODE: dispatch,
+      GH_TOKEN: "synthetic-not-a-live-token",
+      NEXA_RELEASE_PLAN_DIGEST: "",
+      NEXA_BUILD_VERSION: "",
+    };
+    const result = spawnSync(
+      process.execPath,
+      [resolve("scripts/release-plan.mjs"), "plan"],
+      { cwd: input.root, encoding: "utf8", env },
+    );
+    assert.equal(result.status, 0, result.stderr);
+    const values = Object.fromEntries(
+      readFileSync(output, "utf8")
+        .trim()
+        .split("\n")
+        .map((line) => line.split("=")),
+    );
+    const plan = readPlan(join(input.root, "release-plan/plan.json"), {
+      repository,
+      revision,
+      digest: values.plan_digest,
+    });
+    assert.equal(values.version, "1.5.0");
+    assert.equal(values.publish, String(publish));
+    assert.equal(values.has_release, "true");
+    const metadata = spawnSync(
+      process.execPath,
+      [resolve("scripts/release.mjs"), "metadata"],
+      {
+        cwd: input.root,
+        encoding: "utf8",
+        env: { ...env, NEXA_RELEASE_PLAN_DIGEST: values.plan_digest },
+      },
+    );
+    assert.equal(metadata.status, 0, metadata.stderr);
+    const stamped = spawnSync(
+      process.execPath,
+      [resolve("scripts/release.mjs"), "stamp"],
+      {
+        cwd: input.root,
+        encoding: "utf8",
+        env: { ...env, NEXA_BUILD_VERSION: plan.version },
+      },
+    );
+    assert.equal(stamped.status, 0);
+    assert.equal(sourceVersion(input.root), "1.5.0");
+    assert.equal(
+      input.git(["rev-parse", "HEAD"]),
+      revision,
+      "Build stamping never commits a new source revision",
+    );
+  });
 
 test("planner CLI rejects PR publication and unexpected arguments before network access", () => {
   const script = resolve("scripts/release-plan.mjs");

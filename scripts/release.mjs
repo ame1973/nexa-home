@@ -66,6 +66,18 @@ export function compareVersions(left, right) {
   return 0;
 }
 
+export function nextVersion(previous, type) {
+  assert.ok(["major", "minor", "patch"].includes(type));
+  if (!previous) return "1.0.0";
+  const parsed = parseVersion(previous);
+  assert.equal(parsed.prerelease, "", "Automatic releases use stable versions");
+  const parts = parsed.parts.map(BigInt);
+  const index = ["major", "minor", "patch"].indexOf(type);
+  parts[index]++;
+  for (let position = index + 1; position < 3; position++) parts[position] = 0n;
+  return parseVersion(parts.join(".")).version;
+}
+
 export function sourceVersion(root = ".") {
   const json = (name) => JSON.parse(readFileSync(join(root, name), "utf8"));
   const version = parseVersion(json("package.json").version).version;
@@ -246,8 +258,11 @@ export function validatePlan(value) {
         assert.equal(type, "initial");
         assert.equal(version, "1.0.0");
       } else {
-        assert.ok(["major", "minor", "patch"].includes(type));
-        assert.ok(compareVersions(version, previous.tag.slice(1)) > 0);
+        assert.equal(
+          version,
+          nextVersion(previous.tag.slice(1), type),
+          "Release type and version mismatch",
+        );
       }
     }
   }
@@ -467,6 +482,7 @@ export function packageRelease({
       {
         version: metadata.version,
         revision: metadata.revision,
+        ...(metadata.planDigest ? { planDigest: metadata.planDigest } : {}),
         arch,
         imageId,
         files,
@@ -503,13 +519,23 @@ export function verifyArtifact(directory, arch, metadata) {
   const record = JSON.parse(
     readFileSync(join(directory, "metadata.json"), "utf8"),
   );
-  assert.deepEqual(Object.keys(record).sort(), [
-    "arch",
-    "files",
-    "imageId",
-    "revision",
-    "version",
-  ]);
+  assert.deepEqual(
+    Object.keys(record).sort(),
+    [
+      "arch",
+      "files",
+      "imageId",
+      "revision",
+      "version",
+      ...(metadata.planDigest ? ["planDigest"] : []),
+    ].sort(),
+  );
+  if (metadata.planDigest)
+    assert.equal(
+      record.planDigest,
+      metadata.planDigest,
+      "Artifact release plan mismatch",
+    );
   assert.equal(record.version, metadata.version);
   assert.equal(record.revision, metadata.revision);
   assert.equal(record.arch, arch);
@@ -606,13 +632,19 @@ export function verifyRelease(directory, metadata) {
   );
 }
 
-function requireCurrentTag(metadata, run) {
+function requireCurrentTag(metadata, run, objectSha) {
   let target = JSON.parse(
     run("gh", [
       "api",
       `repos/${metadata.repository}/git/ref/tags/${encodeURIComponent(metadata.tag)}`,
     ]),
   ).object;
+  if (objectSha)
+    assert.equal(
+      target?.sha,
+      objectSha,
+      "The release tag object changed after verification",
+    );
   for (let depth = 0; target?.type === "tag" && depth < 8; depth++) {
     assert.match(target.sha, /^[0-9a-f]{40}$/);
     assert.equal(target.sha.length, 40);
@@ -632,9 +664,190 @@ function requireCurrentTag(metadata, run) {
   );
 }
 
+export function tagPlanMessage(plan) {
+  const value = validatePlan(plan);
+  assert.ok(value.version, "A tag needs a release version");
+  return `Nexa Home ${value.version}\n\nnexa-release-plan:${planDigest(value)}\n${JSON.stringify(value)}\n`;
+}
+
+export function recoverTagPlan(message, expected = {}) {
+  if (!message.includes("\nnexa-release-plan:")) return null;
+  assert.ok(
+    Buffer.byteLength(message) <= 128 * 1024,
+    "Oversized tag plan receipt",
+  );
+  const match =
+    /^Nexa Home ([^\n]+)\n\nnexa-release-plan:([0-9a-f]{64})\n([\s\S]+)$/.exec(
+      message,
+    );
+  assert.ok(match, "Malformed tag plan receipt");
+  const plan = validatePlan(JSON.parse(match[3]));
+  assert.equal(plan.version, match[1], "Tag receipt version mismatch");
+  assert.equal(planDigest(plan), match[2], "Tag receipt digest mismatch");
+  for (const key of ["repository", "revision", "version"])
+    if (expected[key] !== undefined)
+      assert.equal(plan[key], expected[key], `Tag receipt ${key} mismatch`);
+  return plan;
+}
+
+export function metadataForPlan(plan) {
+  const value = validatePlan(plan);
+  assert.ok(value.version, "The plan contains no new release");
+  return {
+    ...releaseMetadata({
+      tag: `v${value.version}`,
+      repository: value.repository,
+      revision: value.revision,
+    }),
+    planDigest: planDigest(value),
+  };
+}
+
+function requirePlanBaseline(plan, releases, run) {
+  if (plan.base) {
+    assert.ok(
+      releases.some(
+        (release) =>
+          release.tag_name === plan.base.tag &&
+          !release.draft &&
+          !release.prerelease,
+      ),
+      "The published release baseline disappeared",
+    );
+    requireCurrentTag(
+      {
+        repository: plan.repository,
+        tag: plan.base.tag,
+        revision: plan.base.revision,
+      },
+      run,
+    );
+  }
+  if (plan.mode === "auto") {
+    const unchanged = releases.every((release) => {
+      if (
+        release.draft ||
+        release.prerelease ||
+        !release.tag_name?.startsWith("v")
+      )
+        return true;
+      let parsed;
+      try {
+        parsed = parseVersion(release.tag_name.slice(1));
+      } catch {
+        return true;
+      }
+      return (
+        parsed.prerelease ||
+        (plan.base &&
+          compareVersions(parsed.version, plan.base.tag.slice(1)) <= 0)
+      );
+    });
+    assert.ok(
+      unchanged,
+      "Release baseline changed; rerun full planning and verification",
+    );
+  }
+}
+
+function ensurePlanTag(plan, metadata, run) {
+  const matches = JSON.parse(
+    run("gh", [
+      "api",
+      `repos/${metadata.repository}/git/matching-refs/tags/${encodeURIComponent(metadata.tag)}`,
+    ]),
+  );
+  assert.ok(Array.isArray(matches), "Expected matching tag refs");
+  const current = matches.filter(
+    (entry) => entry.ref === `refs/tags/${metadata.tag}`,
+  );
+  assert.ok(current.length <= 1, "Ambiguous release tag");
+  if (current.length) {
+    const object = current[0].object;
+    assert.ok(
+      object?.sha?.length === 40 && /^[0-9a-f]+$/.test(object.sha),
+      "Invalid tag object",
+    );
+    if (plan.mode === "auto") {
+      assert.equal(
+        object.type,
+        "tag",
+        "Only this pipeline's annotated automatic tag may be resumed",
+      );
+      const tag = JSON.parse(
+        run("gh", [
+          "api",
+          `repos/${metadata.repository}/git/tags/${object.sha}`,
+        ]),
+      );
+      const recovered = recoverTagPlan(tag.message || "", plan);
+      assert.ok(
+        recovered && planDigest(recovered) === planDigest(plan),
+        "The existing tag belongs to another release plan",
+      );
+      assert.equal(tag.object?.type, "commit");
+      assert.equal(tag.object.sha, metadata.revision);
+    }
+    return object.sha;
+  }
+  assert.equal(
+    plan.mode,
+    "auto",
+    "Manual publication requires an existing version tag",
+  );
+  const created = JSON.parse(
+    run(
+      "gh",
+      [
+        "api",
+        "--method",
+        "POST",
+        `repos/${metadata.repository}/git/tags`,
+        "--input",
+        "-",
+      ],
+      {
+        input: JSON.stringify({
+          tag: metadata.tag,
+          message: tagPlanMessage(plan),
+          object: metadata.revision,
+          type: "commit",
+        }),
+      },
+    ),
+  );
+  assert.ok(
+    created.sha?.length === 40 && /^[0-9a-f]+$/.test(created.sha),
+    "Invalid created tag object",
+  );
+  const ref = JSON.parse(
+    run(
+      "gh",
+      [
+        "api",
+        "--method",
+        "POST",
+        `repos/${metadata.repository}/git/refs`,
+        "--input",
+        "-",
+      ],
+      {
+        input: JSON.stringify({
+          ref: `refs/tags/${metadata.tag}`,
+          sha: created.sha,
+        }),
+      },
+    ),
+  );
+  assert.equal(ref.ref, `refs/tags/${metadata.tag}`);
+  assert.equal(ref.object?.sha, created.sha);
+  return created.sha;
+}
+
 export function publishRelease({
   metadata,
   directory = "release-artifacts",
+  plan,
   runId,
   attempt,
   run = command,
@@ -647,21 +860,21 @@ export function publishRelease({
         /^[1-9]\d*$/.test(value),
       "Invalid workflow run identity",
     );
+  assert.equal(
+    Boolean(plan),
+    Boolean(metadata.planDigest),
+    "Publication needs its exact release plan identity",
+  );
+  if (plan) {
+    plan = validatePlan(plan);
+    assert.deepEqual(
+      metadata,
+      metadataForPlan(plan),
+      "Publication metadata must match the exact release plan",
+    );
+  }
   const records = verifyRelease(directory, metadata);
-  requireCurrentTag(metadata, run);
-  const pages = JSON.parse(
-    run("gh", [
-      "api",
-      "--paginate",
-      "--slurp",
-      `repos/${metadata.repository}/releases?per_page=100`,
-    ]),
-  );
-  assert.ok(
-    Array.isArray(pages) && pages.every(Array.isArray),
-    "Expected paginated GitHub releases",
-  );
-  const releases = pages.flat();
+  const releases = releaseHistory(metadata.repository, run);
   const existing = releases.find(
     (release) => release.tag_name === metadata.tag,
   );
@@ -682,7 +895,20 @@ export function publishRelease({
       "Only this pipeline's own draft may be resumed",
     );
   }
+  if (plan && existing)
+    assert.ok(
+      existing.body?.includes(`<!-- nexa-plan:${metadata.planDigest} -->`),
+      "The existing draft belongs to another release plan",
+    );
+  if (plan) requirePlanBaseline(plan, releases, run);
+  const tagObject = plan ? ensurePlanTag(plan, metadata, run) : undefined;
+  requireCurrentTag(metadata, run, tagObject);
   const latest = shouldPromoteLatest(metadata.version, releases);
+  const notesFile = join(directory, "release-notes.md");
+  const body = plan
+    ? `${marker}\n<!-- nexa-plan:${metadata.planDigest} -->\n\n${plan.notes.trim()}\n\nImage: ${metadata.image}:${metadata.version}\n\nArchives include the executable, LICENSE and third-party notices.\n`
+    : "";
+  if (plan) writeFileSync(notesFile, body);
   if (!existing) {
     run("gh", [
       "release",
@@ -697,9 +923,13 @@ export function publishRelease({
       "--latest=false",
       "--title",
       `Nexa Home ${metadata.version}`,
-      "--generate-notes",
-      "--notes",
-      `${marker}\n\nImage: ${metadata.image}:${metadata.version}\n\nArchives include the executable, LICENSE and third-party notices.`,
+      ...(plan
+        ? ["--notes-file", notesFile]
+        : [
+            "--generate-notes",
+            "--notes",
+            `${marker}\n\nImage: ${metadata.image}:${metadata.version}\n\nArchives include the executable, LICENSE and third-party notices.`,
+          ]),
       ...(metadata.prerelease ? ["--prerelease"] : []),
     ]);
   }
@@ -830,7 +1060,9 @@ export function publishRelease({
     ],
     { timeout: 300_000 },
   );
-  requireCurrentTag(metadata, run);
+  requireCurrentTag(metadata, run, tagObject);
+  if (plan)
+    requirePlanBaseline(plan, releaseHistory(metadata.repository, run), run);
   if (latest) {
     const promoted = join(directory, "latest-image.json");
     run(
@@ -854,12 +1086,14 @@ export function publishRelease({
       "Latest must be an exact copy of the verified version index",
     );
   }
+  if (plan) writeFileSync(notesFile, `${body}\nImage digest: ${immutable}\n`);
   run("gh", [
     "release",
     "edit",
     metadata.tag,
     "--repo",
     metadata.repository,
+    ...(plan ? ["--notes-file", notesFile] : []),
     "--draft=false",
     `--prerelease=${metadata.prerelease}`,
     `--latest=${latest}`,
@@ -884,13 +1118,39 @@ export function workflowRevision() {
   return revision;
 }
 
+function workflowPlan() {
+  const plan = readPlan("release-plan/plan.json", {
+    repository: process.env.GITHUB_REPOSITORY,
+    revision: workflowRevision(),
+    digest: process.env.NEXA_RELEASE_PLAN_DIGEST,
+  });
+  if (process.env.GITHUB_REF_TYPE === "tag")
+    assert.equal(
+      `v${plan.version}`,
+      process.env.GITHUB_REF_NAME,
+      "The plan must match the selected version tag",
+    );
+  else {
+    assert.equal(process.env.GITHUB_REF_TYPE, "branch");
+    assert.equal(
+      process.env.GITHUB_REF_NAME,
+      "master",
+      "Only master may publish an automatic release",
+    );
+    assert.equal(plan.mode, "auto");
+  }
+  return plan;
+}
+
 function metadataFromEnvironment() {
+  sourceVersion();
+  if (process.env.NEXA_RELEASE_PLAN_DIGEST)
+    return metadataForPlan(workflowPlan());
   assert.equal(
     process.env.GITHUB_REF_TYPE,
     "tag",
-    "Publishing requires an explicit version tag",
+    "Publishing requires a verified release plan or explicit version tag",
   );
-  sourceVersion();
   return releaseMetadata({
     tag: process.env.GITHUB_REF_NAME,
     repository: process.env.GITHUB_REPOSITORY,
@@ -921,8 +1181,24 @@ function main() {
     );
     assert.ok(
       ["push", "workflow_dispatch"].includes(process.env.GITHUB_EVENT_NAME),
-      "Only a tag push or explicit tag dispatch may publish",
+      "Only a tag push, master push or explicit release dispatch may publish",
     );
+    assert.ok(
+      process.env.NEXA_RELEASE_PLAN_DIGEST,
+      "A verified release plan is required",
+    );
+    if (process.env.GITHUB_EVENT_NAME === "workflow_dispatch") {
+      assert.equal(
+        process.env.NEXA_RELEASE_MODE,
+        "resume",
+        "Preview mode cannot publish",
+      );
+      assert.equal(
+        process.env.GITHUB_REF_TYPE,
+        "tag",
+        "Resume must select the exact existing version tag",
+      );
+    }
     assert.ok(process.env.GH_TOKEN, "A job-scoped GitHub token is required");
   }
   const metadata = metadataFromEnvironment();
@@ -948,6 +1224,7 @@ function main() {
   } else if (operation === "publish") {
     const result = publishRelease({
       metadata,
+      plan: workflowPlan(),
       runId: process.env.GITHUB_RUN_ID,
       attempt: process.env.GITHUB_RUN_ATTEMPT,
     });
