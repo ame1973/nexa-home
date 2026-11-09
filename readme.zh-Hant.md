@@ -54,7 +54,7 @@ docker compose exec -T nexa-home /nexa-home healthcheck
 
 ### 3. 建立管理員
 
-在同一主機開啟 **http://127.0.0.1:8080/setup**。透過 `docker compose logs nexa-home` 在**本機**讀取一次性權杖，將它貼入遮蔽顯示的設定欄位，再建立帳戶。系統沒有預設使用者名稱或密碼。權杖有效期為 30 分鐘；請勿分享啟動日誌或權杖。
+在同一主機開啟 **http://127.0.0.1:8080/setup** 。透過 `docker compose logs nexa-home` 在**本機**讀取一次性權杖，將它貼入遮蔽顯示的設定欄位，再建立帳戶。系統沒有預設使用者名稱或密碼。權杖有效期為 30 分鐘；請勿分享啟動日誌或權杖。
 
 > [!WARNING]
 > 提供的 `.env.example` 僅針對**隔離的回送位址存取**啟用 HTTP Cookie。其他裝置的瀏覽器無法連到伺服器的 `127.0.0.1`。遠端存取必須設定 HTTPS 反向代理、精確的 `NEXA_PUBLIC_ORIGIN` 及 `NEXA_ALLOW_HTTP_COOKIE=false`。不可將 HTTP 預設設定暴露至網際網路；詳見[部署指南](docs/zh-Hant/deployment.md)。
@@ -200,7 +200,7 @@ NEXA_ALLOW_HTTP_COOKIE=true \
 ./bin/nexa-home
 ```
 
-開啟 `http://127.0.0.1:8080/setup`。啟動日誌包含有效期為 30 分鐘的一次性設定權杖。將它貼入遮蔽顯示的設定欄位，選擇使用者名稱，並建立 12–128 個字元的專用密碼。設定流程不會建立預設帳戶或密碼。初始化後即可登入管理服務。
+開啟 `http://127.0.0.1:8080/setup` 。啟動日誌包含有效期為 30 分鐘的一次性設定權杖。將它貼入遮蔽顯示的設定欄位，選擇使用者名稱，並建立 12–128 個字元的專用密碼。設定流程不會建立預設帳戶或密碼。初始化後即可登入管理服務。
 
 **HTTP 工作階段 Cookie 僅是隔離可信任 LAN 或回送測試的明確例外。請勿將此設定暴露至網際網路。** 遠端存取應在反向代理使用 HTTPS，設定精確的公開 Origin，並維持 `NEXA_ALLOW_HTTP_COOKIE=false`。Nexa Home 本身在代理後方以 HTTP 接聽。
 
