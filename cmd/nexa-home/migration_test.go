@@ -59,7 +59,7 @@ func TestDoctorNeverMigratesLegacyData(t *testing.T) {
 	if err != nil || !bytes.Equal(before, after) {
 		t.Fatal("doctor migrated or changed the legacy database", err)
 	}
-	if _, err := os.Stat(filepath.Join(directory, "nexa.pre-migration-v1-to-v2.db")); !os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(directory, "nexa.pre-migration-v1-to-v3.db")); !os.IsNotExist(err) {
 		t.Fatal("doctor unexpectedly took an upgrade snapshot", err)
 	}
 	if !strings.Contains(output.String(), "are valid") || strings.Contains(output.String(), "setupToken") {
@@ -128,7 +128,7 @@ func TestThemeUpgradePreservesRealSessionCSRFAndPrivateCatalog(t *testing.T) {
 	}
 	client.CloseIdleConnections()
 	stop()
-	snapshotURI := url.URL{Scheme: "file", Path: filepath.Join(directory, "nexa.pre-migration-v1-to-v2.db"), RawQuery: "mode=ro"}
+	snapshotURI := url.URL{Scheme: "file", Path: filepath.Join(directory, "nexa.pre-migration-v1-to-v3.db"), RawQuery: "mode=ro"}
 	snapshot, err := sql.Open("sqlite", snapshotURI.String())
 	if err != nil {
 		t.Fatal(err)

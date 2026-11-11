@@ -16,7 +16,7 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-const Version = 2
+const Version = 3
 
 func Open(ctx context.Context, directory string) (*sql.DB, error) {
 	return open(ctx, directory, false)
@@ -96,7 +96,7 @@ func migrate(ctx context.Context, database *sql.DB) error {
 	if err != nil {
 		return err
 	}
-	for _, name := range []string{"001_init.sql", "002_themes.sql"}[version:] {
+	for _, name := range []string{"001_init.sql", "002_themes.sql", "003_service_health.sql"}[version:] {
 		schema, err := migrations.Files.ReadFile(name)
 		if err != nil {
 			return err

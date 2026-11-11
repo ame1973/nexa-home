@@ -20,7 +20,7 @@ func TestMigrationSnapshotIncludesCommittedWALAndRemainsImmutable(t *testing.T) 
 		t.Fatal(err)
 	}
 	database.Close()
-	path := filepath.Join(directory, "nexa.pre-migration-v1-to-v2.db")
+	path := filepath.Join(directory, "nexa.pre-migration-v1-to-v3.db")
 	info, err := os.Stat(path)
 	if err != nil || !info.Mode().IsRegular() || info.Mode().Perm() != 0o600 {
 		t.Fatal("recovery snapshot must be a private regular file", err)
@@ -73,7 +73,7 @@ func TestExistingMigrationSnapshotFailsClosedWithoutOverwrite(t *testing.T) {
 	for _, linked := range []bool{false, true} {
 		t.Run(map[bool]string{false: "regular", true: "symlink"}[linked], func(t *testing.T) {
 			directory, legacy := legacyThemeDatabase(t)
-			path := filepath.Join(directory, "nexa.pre-migration-v1-to-v2.db")
+			path := filepath.Join(directory, "nexa.pre-migration-v1-to-v3.db")
 			original := []byte("Existing private recovery point")
 			if linked {
 				target := filepath.Join(directory, "preserved.db")
@@ -125,7 +125,7 @@ func TestReadOnlyOpenNeverMigratesInitializesOrWrites(t *testing.T) {
 	if err != nil || !bytes.Equal(before, after) {
 		t.Fatal("read-only check changed the database bytes", err)
 	}
-	if _, err := os.Stat(filepath.Join(directory, "nexa.pre-migration-v1-to-v2.db")); !os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(directory, "nexa.pre-migration-v1-to-v3.db")); !os.IsNotExist(err) {
 		t.Fatal("read-only check triggered an upgrade snapshot", err)
 	}
 	missing := filepath.Join(t.TempDir(), "not-created")
