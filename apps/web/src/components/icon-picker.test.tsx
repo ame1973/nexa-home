@@ -75,6 +75,42 @@ it("clears the selected file across tabs and rejects oversized icons before uplo
   ).toBeVisible();
   expect(uploads).toBe(0);
 });
+it.each([
+  ["Upload", "photo.jpg", "image/jpeg", "asset"],
+  ["Favicon", "photo.JPEG", "", "favicon"],
+] as const)("uploads %s JPEG files", async (tab, name, type, iconKind) => {
+  const id = fixtureId(703);
+  const uploadedNames: string[] = [];
+  server.use(
+    http.post(apiURL("/admin/assets"), async ({ request }) => {
+      const file = (await request.formData()).get("file");
+      if (file && typeof file !== "string") uploadedNames.push(file.name);
+      return HttpResponse.json(
+        { id, mimeType: "image/png", byteSize: 80, url: `/assets/${id}` },
+        { status: 201 },
+      );
+    }),
+  );
+  const { user, onChange } = renderPicker();
+  await user.click(screen.getByRole("button", { name: "Choose icon" }));
+  await user.click(screen.getByRole("tab", { name: tab }));
+  const input = screen.getByLabelText("Icon file");
+  expect(input).toHaveAttribute(
+    "accept",
+    expect.stringContaining("image/jpeg"),
+  );
+  await user.upload(input, new File(["test image"], name, { type }));
+  await user.click(screen.getByRole("button", { name: "Upload" }));
+  await waitFor(() => expect(uploadedNames).toEqual([name]));
+  await waitFor(() =>
+    expect(onChange).toHaveBeenCalledWith({
+      iconKind,
+      iconValue: name,
+      iconAssetId: id,
+    }),
+  );
+});
+
 it("uploads cached favicons as files, prevents tab changes while pending and never fetches a remote URL", async () => {
   let release!: () => void;
   let entered!: () => void;

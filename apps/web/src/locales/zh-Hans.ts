@@ -230,7 +230,7 @@ export const zhHans: Record<MessageKey, string> = {
   favicon: "Favicon",
   searchIcons: "搜索图标名称…",
   uploadHint:
-    "PNG、WebP 或安全的 SVG，上限 1 MiB。点阵图尺寸不得超过 512 × 512。",
+    "PNG、JPG/JPEG、WebP 或安全的 SVG，上限 1 MiB。点阵图尺寸不得超过 512 × 512。",
   faviconHint: "请上传已缓存的网站图标文件。Nexa Home 不会远程获取图标。",
   iconFile: "图标文件",
   uploading: "正在上传…",

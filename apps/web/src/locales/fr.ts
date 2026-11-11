@@ -261,7 +261,7 @@ export const fr: Record<MessageKey, string> = {
   favicon: "Favicon",
   searchIcons: "Rechercher un nom d’icône…",
   uploadHint:
-    "PNG, WebP ou SVG sûr, jusqu’à 1 MiB. Les dimensions des images matricielles ne doivent pas dépasser 512 × 512.",
+    "PNG, JPG/JPEG, WebP ou SVG sûr, jusqu’à 1 MiB. Les dimensions des images matricielles ne doivent pas dépasser 512 × 512.",
   faviconHint:
     "Importez un fichier favicon déjà enregistré. Nexa Home ne récupère jamais d’icônes distantes.",
   iconFile: "Fichier d’icône",

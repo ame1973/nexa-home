@@ -251,7 +251,7 @@ export const en = {
   favicon: "Favicon",
   searchIcons: "Search icon names…",
   uploadHint:
-    "PNG, WebP or safe SVG, up to 1 MiB. Raster dimensions must be at most 512 × 512.",
+    "PNG, JPG/JPEG, WebP or safe SVG, up to 1 MiB. Raster dimensions must be at most 512 × 512.",
   faviconHint:
     "Upload a cached favicon file. Nexa Home never fetches a remote icon.",
   iconFile: "Icon file",

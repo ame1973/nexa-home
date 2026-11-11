@@ -260,7 +260,7 @@ export const ptBR: Record<MessageKey, string> = {
   favicon: "Favicon",
   searchIcons: "Buscar nomes de ícones…",
   uploadHint:
-    "PNG, WebP ou SVG seguro, até 1 MiB. As dimensões das imagens raster não podem ultrapassar 512 × 512.",
+    "PNG, JPG/JPEG, WebP ou SVG seguro, até 1 MiB. As dimensões das imagens raster não podem ultrapassar 512 × 512.",
   faviconHint:
     "Envie um arquivo favicon salvo. O Nexa Home nunca busca ícones remotos.",
   iconFile: "Arquivo de ícone",

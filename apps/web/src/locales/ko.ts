@@ -250,7 +250,7 @@ export const ko: Record<MessageKey, string> = {
   favicon: "파비콘",
   searchIcons: "아이콘 이름 검색…",
   uploadHint:
-    "PNG, WebP 또는 안전한 SVG, 최대 1 MiB. 이미지 크기는 512 × 512 이하여야 합니다.",
+    "PNG, JPG/JPEG, WebP 또는 안전한 SVG, 최대 1 MiB. 이미지 크기는 512 × 512 이하여야 합니다.",
   faviconHint:
     "저장해 둔 파비콘 파일을 업로드하세요. 원격 아이콘은 가져오지 않습니다.",
   iconFile: "아이콘 파일",

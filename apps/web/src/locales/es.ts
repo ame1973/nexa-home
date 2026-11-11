@@ -261,7 +261,7 @@ export const es: Record<MessageKey, string> = {
   favicon: "Favicon",
   searchIcons: "Buscar nombres de iconos…",
   uploadHint:
-    "PNG, WebP o SVG seguro, hasta 1 MiB. Las dimensiones de mapa de bits no deben superar 512 × 512.",
+    "PNG, JPG/JPEG, WebP o SVG seguro, hasta 1 MiB. Las dimensiones de mapa de bits no deben superar 512 × 512.",
   faviconHint:
     "Sube un archivo favicon guardado. Nexa Home nunca descarga iconos remotos.",
   iconFile: "Archivo de icono",

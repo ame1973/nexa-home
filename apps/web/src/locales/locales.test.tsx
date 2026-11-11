@@ -62,6 +62,12 @@ describe("complete locale dictionaries", () => {
       }
     },
   );
+  it.each(Object.entries(localeRegistry))(
+    "%s advertises JPG/JPEG icon uploads",
+    (_code, definition) => {
+      expect(definition.messages.uploadHint).toContain("JPG/JPEG");
+    },
+  );
   it.each([
     null,
     undefined,

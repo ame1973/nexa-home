@@ -232,7 +232,7 @@ export const zhHant: Record<MessageKey, string> = {
   favicon: "Favicon",
   searchIcons: "搜尋圖示名稱…",
   uploadHint:
-    "支援 PNG、WebP 或安全的 SVG，上限 1 MiB；點陣圖尺寸不得超過 512 × 512。",
+    "支援 PNG、JPG/JPEG、WebP 或安全的 SVG，上限 1 MiB；點陣圖尺寸不得超過 512 × 512。",
   faviconHint: "請上傳已取得的 favicon 檔案。Nexa Home 不會遠端擷取圖示。",
   iconFile: "圖示檔案",
   uploading: "上傳中…",

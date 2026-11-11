@@ -233,6 +233,136 @@ test("uploaded cached icons remain local and icon dialog restores focus without 
   await expect(icon).toBeVisible();
 });
 
+test("JPEG icons keep their EXIF orientation through upload and backup restore", async ({
+  page,
+  app,
+}) => {
+  await loginUI(page, app);
+  const jpeg = Buffer.from(
+    await page.evaluate(() => {
+      const canvas = document.createElement("canvas");
+      canvas.width = 40;
+      canvas.height = 20;
+      const context = canvas.getContext("2d");
+      if (!context) throw new Error("Canvas is unavailable");
+      context.fillStyle = "#ff0000";
+      context.fillRect(0, 0, 20, 20);
+      context.fillStyle = "#0000ff";
+      context.fillRect(20, 0, 20, 20);
+      return canvas.toDataURL("image/jpeg", 0.95).split(",")[1]!;
+    }),
+    "base64",
+  );
+  const orientation = Buffer.from(
+    "ffe1002245786966000049492a0008000000010012010300010000000600000000000000",
+    "hex",
+  );
+  const photo = Buffer.concat([
+    jpeg.subarray(0, 2),
+    orientation,
+    jpeg.subarray(2),
+  ]);
+  await page.goto(`${app.url}/admin/services/new`);
+  await page.getByRole("button", { name: "Choose icon", exact: true }).click();
+  await page.getByRole("tab", { name: "Upload", exact: true }).click();
+  const file = page.getByLabel("Icon file", { exact: true });
+  await expect(file).toHaveAttribute("accept", /image\/jpeg/);
+  await file.setInputFiles({
+    name: "photo.jpg",
+    mimeType: "image/jpeg",
+    buffer: photo,
+  });
+  const uploaded = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname === "/api/v1/admin/assets" &&
+      response.request().method() === "POST",
+  );
+  await page.getByRole("button", { name: "Upload", exact: true }).click();
+  const response = await uploaded;
+  expect(response.status()).toBe(201);
+  expect(((await response.json()) as { mimeType: string }).mimeType).toBe(
+    "image/png",
+  );
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await page
+    .getByRole("textbox", { name: "Name", exact: true })
+    .fill("JPEG icon service");
+  await page
+    .getByLabel("Primary URL", { exact: true })
+    .fill(`${app.url}/healthz`);
+  await page.getByRole("button", { name: "Save changes", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Services", exact: true }),
+  ).toBeVisible();
+
+  const exported = await page.request.get(
+    `${app.url}/api/v1/admin/backup/export`,
+  );
+  expect(exported.status()).toBe(200);
+  const backupFile = (await exported.json()) as {
+    assets: { mimeType: string; base64: string }[];
+  };
+  expect(backupFile.assets).toHaveLength(1);
+  expect(backupFile.assets[0]!.mimeType).toBe("image/png");
+  expect(
+    Buffer.from(backupFile.assets[0]!.base64, "base64").subarray(0, 8),
+  ).toEqual(Buffer.from("89504e470d0a1a0a", "hex"));
+  await page.goto(`${app.url}/admin/backup`);
+  await page.getByLabel("Backup JSON file", { exact: true }).setInputFiles({
+    name: "backup.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(JSON.stringify(backupFile)),
+  });
+  await page
+    .getByRole("button", { name: "Validate backup", exact: true })
+    .click();
+  const dialog = page.getByRole("alertdialog");
+  await dialog
+    .getByLabel("I understand this replaces the current configuration.", {
+      exact: true,
+    })
+    .check();
+  await dialog
+    .getByRole("button", { name: "Replace configuration", exact: true })
+    .click();
+  await expect(dialog).toHaveCount(0);
+  await expect(page.getByRole("status")).toContainText(
+    "Configuration restored.",
+  );
+  await page.goto(app.url);
+  const icon = page
+    .getByRole("link", { name: /JPEG icon service/ })
+    .locator("img");
+  await expect(icon).toBeVisible();
+  await expect
+    .poll(() =>
+      icon.evaluate((element) => {
+        const image = element as HTMLImageElement;
+        return [image.naturalWidth, image.naturalHeight];
+      }),
+    )
+    .toEqual([20, 40]);
+  const colors = await icon.evaluate((element) => {
+    const image = element as HTMLImageElement;
+    const canvas = document.createElement("canvas");
+    canvas.width = image.naturalWidth;
+    canvas.height = image.naturalHeight;
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error("Canvas is unavailable");
+    context.drawImage(image, 0, 0);
+    const top = context.getImageData(10, 5, 1, 1).data;
+    const bottom = context.getImageData(10, 35, 1, 1).data;
+    return {
+      topRed: top[0]!,
+      topBlue: top[2]!,
+      bottomRed: bottom[0]!,
+      bottomBlue: bottom[2]!,
+    };
+  });
+  expect(colors.topRed).toBeGreaterThan(colors.topBlue);
+  expect(colors.bottomBlue).toBeGreaterThan(colors.bottomRed);
+});
+
 test("private mode hides data from a separate visitor and logout clears the authenticated page", async ({
   page,
   app,

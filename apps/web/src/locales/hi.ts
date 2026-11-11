@@ -257,7 +257,7 @@ export const hi: Record<MessageKey, string> = {
   favicon: "फ़ेविकॉन",
   searchIcons: "आइकन के नाम खोजें…",
   uploadHint:
-    "PNG, WebP या सुरक्षित SVG, अधिकतम 1 MiB। रास्टर चित्र अधिकतम 512 × 512 होने चाहिए।",
+    "PNG, JPG/JPEG, WebP या सुरक्षित SVG, अधिकतम 1 MiB। रास्टर चित्र अधिकतम 512 × 512 होने चाहिए।",
   faviconHint:
     "पहले से सहेजी फ़ेविकॉन फ़ाइल अपलोड करें। Nexa Home कभी दूरस्थ आइकन नहीं लाता।",
   iconFile: "आइकन फ़ाइल",

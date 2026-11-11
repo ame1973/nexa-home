@@ -75,7 +75,7 @@ export function IconPicker({
       <Field name="iconFile" label={t("iconFile")} hint={t("uploadHint")}>
         <Input
           type="file"
-          accept="image/png,image/webp,image/svg+xml,.svg"
+          accept="image/png,image/jpeg,image/webp,image/svg+xml,.jpg,.jpeg,.svg"
           disabled={upload.isPending}
           onChange={(event) => {
             setFile(event.target.files?.[0] ?? null);

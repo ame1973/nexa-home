@@ -19,16 +19,16 @@ One Go process, local SQLite, and no separate database service.
 
 ## Features
 
-| Make it yours              | What Nexa Home provides                                                                                             |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| **Organize your services** | Favorites, categories, tags, keyboard ordering, and desktop drag-and-drop ordering.                                 |
-| **Find a link quickly**    | Search names, descriptions, categories, and tags entirely in the browser without fetching saved service links.      |
-| **Monitor availability**   | Optionally check a separately configured HTTP(S) endpoint and show its latest status on the homepage.               |
-| **Choose your look**       | Five light/dark presets, custom token themes, optional glass effects, and advanced CSS with safe recovery.          |
-| **Use your language**      | Twelve interface languages, including Traditional/Simplified Chinese and Arabic right-to-left layouts.              |
-| **Control access**         | One administrator, protected first-run setup, and a public or private homepage.                                     |
-| **Pick your icons**        | Built-in Lucide icons and validated PNG, WebP, or inert SVG uploads. Favicons are uploaded, never fetched remotely. |
-| **Keep a portable copy**   | JSON export with local icons, validated restore previews, and explicit confirmation before replacement.             |
+| Make it yours              | What Nexa Home provides                                                                                                       |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| **Organize your services** | Favorites, categories, tags, keyboard ordering, and desktop drag-and-drop ordering.                                           |
+| **Find a link quickly**    | Search names, descriptions, categories, and tags entirely in the browser without fetching saved service links.                |
+| **Monitor availability**   | Optionally check a separately configured HTTP(S) endpoint and show its latest status on the homepage.                         |
+| **Choose your look**       | Five light/dark presets, custom token themes, optional glass effects, and advanced CSS with safe recovery.                    |
+| **Use your language**      | Twelve interface languages, including Traditional/Simplified Chinese and Arabic right-to-left layouts.                        |
+| **Control access**         | One administrator, protected first-run setup, and a public or private homepage.                                               |
+| **Pick your icons**        | Built-in Lucide icons and validated PNG, JPG/JPEG, WebP, or inert SVG uploads. Favicons are uploaded, never fetched remotely. |
+| **Keep a portable copy**   | JSON export with local icons, validated restore previews, and explicit confirmation before replacement.                       |
 
 <details>
 <summary>Scope and limitations</summary>
@@ -65,7 +65,7 @@ Open **http://127.0.0.1:8080/setup** on the same host. Read the one-time token *
 ## Use the launcher
 
 1. Open **Manage** and add a service with a name and primary HTTP(S) URL.
-2. Choose a built-in icon or upload a local icon. Uploaded raster dimensions must not exceed 512 × 512; each upload is limited to 1 MiB.
+2. Choose a built-in icon or upload a local icon. Uploaded raster dimensions must not exceed 512 × 512; each upload is limited to 1 MiB. JPG/JPEG uploads apply EXIF orientation and are stored and backed up as PNG without metadata. JPEG support requires a build containing this feature; older images still reject these uploads.
 3. Optionally assign a category and up to 20 tags, mark a favorite, or hide a service/category.
 4. Search names, descriptions, categories, or tags from the homepage. Press `/` or <kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>K</kbd> to focus search; <kbd>Esc</kbd> clears it.
 5. In Manage, choose manual order with no text/tag/visibility filter to reorder. Explicit up/down controls support keyboard and mobile use. Editing a service also supports moving it to an empty category.

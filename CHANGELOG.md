@@ -8,6 +8,7 @@ Notable user-visible changes are recorded here. Versions follow Semantic Version
 
 ### Added
 
+- JPG/JPEG icon uploads are validated, oriented using EXIF and stored as metadata-free PNG; portable backups keep the normalized PNG.
 - Opt-in service health checks with a separate trusted HTTP(S) endpoint, configurable interval and latest homepage status. Backup version 3 retains the configuration; versions 1 and 2 remain importable.
 - Simplified Chinese, Japanese, Korean, Spanish, French, German, Brazilian Portuguese, Russian, Arabic and Hindi interfaces, alongside Traditional Chinese and English.
 - Browser-language detection with Chinese script/region handling, persistent per-browser language selection and native language names in the menu.

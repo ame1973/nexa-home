@@ -257,7 +257,7 @@ export const ja: Record<MessageKey, string> = {
   favicon: "Favicon",
   searchIcons: "アイコン名を検索…",
   uploadHint:
-    "PNG、WebP、安全な SVG、上限 1 MiB。画像の寸法は 512 × 512 以下にしてください。",
+    "PNG、JPG/JPEG、WebP、安全な SVG、上限 1 MiB。画像の寸法は 512 × 512 以下にしてください。",
   faviconHint:
     "保存済みの favicon ファイルをアップロードします。リモートのアイコンは取得しません。",
   iconFile: "アイコンファイル",
