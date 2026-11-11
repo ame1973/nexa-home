@@ -73,6 +73,25 @@ test("service health checks repeat, update the homepage, and resume after a trus
     await page.goto(app.url);
     let tile = page.getByRole("link", { name: /Monitored NAS/ });
     await expect(tile.locator(".health-status")).toHaveText(/Available/);
+    for (const name of ["Graphite", "Tide", "Forest", "Dune", "Future Glass"]) {
+      await page
+        .getByRole("button", { name: "Theme styles", exact: true })
+        .click();
+      const appearance = page.getByRole("dialog", { name: "Your appearance" });
+      await appearance.getByRole("button", { name, exact: true }).click();
+      await appearance
+        .getByRole("button", { name: "Use in this browser", exact: true })
+        .click();
+      const status = tile.locator(".health-status");
+      await expect(status).toHaveText(/Available/);
+      const copy = await tile.locator(".tile-copy").boundingBox();
+      const badge = await status.boundingBox();
+      expect(copy).not.toBeNull();
+      expect(badge).not.toBeNull();
+      expect(badge!.y).toBeGreaterThanOrEqual(copy!.y + copy!.height - 1);
+      await layoutAndTargets(page);
+      await accessibility(page);
+    }
     await layoutAndTargets(page);
     await accessibility(page);
     await page.screenshot({

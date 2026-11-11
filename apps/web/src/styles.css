@@ -219,7 +219,7 @@ mark { background: color-mix(in srgb, var(--accent) 20%, transparent); color: in
 [data-sonner-toast][data-styled="true"] button[data-close-button] { width: 44px; height: 44px; }
 .error-state { overflow-wrap: anywhere; }
 
-/* Presets show the same launcher in two palettes, not five parallel layouts. */
+/* Theme selector and miniature previews. */
 .theme-controls { min-width: 0; }
 .theme-controls .actions > .group\/button, .theme-dialog .form-actions > .group\/button { white-space: normal; height: auto; max-width: 100%; padding-block: 10px; }
 [data-slot="dialog-content"].theme-dialog { width: min(960px, calc(100vw - 32px)); max-width: none; padding: 24px; }
@@ -288,8 +288,9 @@ mark { background: color-mix(in srgb, var(--accent) 20%, transparent); color: in
   .theme-presets { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .theme-color-fields, .theme-samples { grid-template-columns: minmax(0, 1fr); }
   [data-slot="dialog-content"].theme-dialog { padding: 20px 16px; }
-  .header-inner { padding: 10px 16px; gap: 8px; }
-  .header-actions { gap: 2px; flex-wrap: nowrap; }
+  .header-inner { padding: 10px 16px; gap: 8px; flex-wrap: wrap; }
+  .header-inner > div:first-child { min-width: min(8.5em, 100%); }
+  .header-actions { gap: 2px; flex-wrap: nowrap; margin-inline-start: auto; }
   .brand { font-size: 1rem; gap: 8px; }
   .brand-name { max-width: 15ch; }
   .header-label, .shortcut { display: none; }

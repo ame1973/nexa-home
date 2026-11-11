@@ -91,6 +91,174 @@ for (const [preset, name] of presets)
     });
   }
 
+test("preset layouts and interaction feedback differ without changing service order", async ({
+  page,
+  app,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await seed(page, app);
+  await page.goto(app.url);
+  const search = page.getByRole("searchbox", { name: "Search", exact: true });
+  await expect(search).toBeVisible();
+  const links = page.locator(".home-collections .service-link");
+  const destinations = () =>
+    links.evaluateAll((elements) =>
+      elements.map((element) => element.getAttribute("href")),
+    );
+  const original = await destinations();
+  const layouts = new Set<string>();
+
+  for (const [preset, name] of presets) {
+    await page
+      .getByRole("button", { name: "Theme styles", exact: true })
+      .click();
+    const dialog = page.getByRole("dialog", { name: "Your appearance" });
+    await dialog.getByRole("button", { name, exact: true }).click();
+    await dialog
+      .getByRole("button", { name: "Use in this browser", exact: true })
+      .click();
+    await expect(page.locator("html")).toHaveAttribute(
+      "data-theme-preset",
+      preset,
+    );
+    expect(await destinations()).toEqual(original);
+    layouts.add(
+      await page.evaluate(() => {
+        const collections =
+          document.querySelector<HTMLElement>(".home-collections")!;
+        const section = collections.querySelector<HTMLElement>(".collection")!;
+        const tile = section.querySelector<HTMLElement>(".service-tile")!;
+        const top = tile.querySelector<HTMLElement>(".tile-top")!;
+        const hero = document.querySelector<HTMLElement>(".hero")!;
+        return JSON.stringify({
+          columns:
+            getComputedStyle(collections).gridTemplateColumns.split(" ").length,
+          section: getComputedStyle(section).display,
+          tile: getComputedStyle(tile).display,
+          topDirection: getComputedStyle(top).flexDirection,
+          heroAlignment: getComputedStyle(hero).textAlign,
+        });
+      }),
+    );
+
+    await search.fill("家庭");
+    await expect(page.locator(".search-summary")).toHaveText("1 results");
+    await expect(links).toHaveCount(1);
+    await search.press("Escape");
+    await expect(page.locator(".search-summary")).toHaveText("6 services");
+    expect(await destinations()).toEqual(original);
+
+    const first = links.first();
+    await page.mouse.move(0, 0);
+    await search.focus();
+    const effect = () =>
+      first.evaluate((element, preset) => {
+        const tile = element.querySelector<HTMLElement>(".service-tile")!;
+        return preset === "graphite"
+          ? getComputedStyle(tile, "::before").transform
+          : getComputedStyle(tile.querySelector<HTMLElement>(".service-icon")!)
+              .transform;
+      }, preset);
+    const resting = await effect();
+    await first.hover();
+    await expect.poll(effect).not.toBe(resting);
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    expect(
+      await first.evaluate((element, preset) => {
+        const tile = element.querySelector<HTMLElement>(".service-tile")!;
+        return preset === "graphite"
+          ? getComputedStyle(tile, "::before").transitionDuration
+          : getComputedStyle(tile.querySelector<HTMLElement>(".service-icon")!)
+              .transitionDuration;
+      }, preset),
+    ).toBe("0s");
+    if (preset !== "graphite") expect(await effect()).toBe("none");
+    await page.emulateMedia({ reducedMotion: "no-preference" });
+    await search.focus();
+    await page.keyboard.press("Tab");
+    await expect(first).toBeFocused();
+  }
+  expect(layouts.size).toBe(presets.length);
+});
+
+test("all presets support RTL, large text and landscape on the built application", async ({
+  page,
+  app,
+}, testInfo) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await seed(page, app);
+  await page.goto(app.url);
+  for (const [index, [preset]] of presets.entries()) {
+    await page.evaluate(
+      ({ preset, mode }) => {
+        localStorage.setItem("nexa.locale", "ar");
+        localStorage.setItem("nexa.theme", mode);
+        localStorage.setItem(
+          "nexa.personalAppearance",
+          JSON.stringify({
+            themePreset: preset,
+            customTheme: null,
+            customCSS: "",
+          }),
+        );
+      },
+      { preset, mode: index % 2 ? "light" : "dark" },
+    );
+    await page.setViewportSize({ width: 320, height: 700 });
+    await page.goto(app.url);
+    await expect(page.locator("html")).toHaveAttribute(
+      "data-theme-preset",
+      preset,
+    );
+    await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
+    await expect(page.getByRole("searchbox")).toBeVisible();
+    await layoutAndTargets(page);
+    await accessibility(page);
+
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.evaluate(() => {
+      document.documentElement.style.fontSize = "200%";
+    });
+    await layoutAndTargets(page);
+    await accessibility(page);
+    const largeText = await page.evaluate(() => {
+      const grid = document.querySelector<HTMLElement>(
+        ".home-collections .service-grid",
+      )!;
+      const text = document.querySelectorAll<HTMLElement>(
+        ".brand-name, .home-page .service-tile h3, .home-page .service-tile p",
+      );
+      return {
+        columns: getComputedStyle(grid).gridTemplateColumns.split(" ").length,
+        clipped: Array.from(text)
+          .filter(
+            (element) =>
+              element.scrollWidth > element.clientWidth + 1 ||
+              element.scrollHeight > element.clientHeight + 1,
+          )
+          .map((element) => element.textContent),
+      };
+    });
+    expect(largeText).toEqual({ columns: 1, clipped: [] });
+    await page.screenshot({
+      path: testInfo.outputPath(`${preset}-rtl-large.png`),
+      fullPage: true,
+    });
+
+    await page.evaluate(() => {
+      document.documentElement.style.fontSize = "";
+    });
+    await page.setViewportSize({ width: 844, height: 390 });
+    await layoutAndTargets(page);
+    await accessibility(page);
+    await page.screenshot({
+      path: testInfo.outputPath(`${preset}-rtl-landscape.png`),
+      fullPage: true,
+    });
+  }
+});
+
 test("custom themes use real token/CSS editing, Escape recovery, a browser library and separate downloads", async ({
   page,
   app,

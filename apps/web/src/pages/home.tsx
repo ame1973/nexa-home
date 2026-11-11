@@ -138,53 +138,59 @@ export function HomePage() {
     </div>
   );
   return (
-    <main id="main" className="page">
+    <main id="main" className="page home-page">
       <section className="hero">
-        <h1>{t(greeting)}</h1>
-        <p dir="auto">{data.settings.siteSubtitle}</p>
-        <div className="search-box glass">
-          <Search size={21} aria-hidden="true" />
-          <input
-            ref={input}
-            type="search"
-            dir="auto"
-            aria-label={t("search")}
-            value={query}
-            placeholder={t("searchPlaceholder")}
-            onChange={(event) => setQuery(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Escape") {
-                event.preventDefault();
-                setQuery("");
-              }
-            }}
-          />
-          {query ? (
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label={t("clear")}
-              onClick={() => {
-                setQuery("");
-                input.current?.focus();
-              }}
-            >
-              <X size={18} />
-            </Button>
-          ) : (
-            <kbd className="shortcut" dir="ltr">Ctrl K /</kbd>
-          )}
+        <div className="hero-copy">
+          <h1>{t(greeting)}</h1>
+          <p dir="auto">{data.settings.siteSubtitle}</p>
         </div>
-        <p
-          role="status"
-          aria-live="polite"
-          aria-atomic="true"
-          className="mt-4 text-sm"
-        >
-          {active
-            ? t("searchResults", { count: results.length })
-            : t("totalServices", { count: data.services.length })}
-        </p>
+        <div className="hero-search">
+          <div className="search-box glass">
+            <Search size={21} aria-hidden="true" />
+            <input
+              ref={input}
+              type="search"
+              dir="auto"
+              aria-label={t("search")}
+              value={query}
+              placeholder={t("searchPlaceholder")}
+              onChange={(event) => setQuery(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Escape") {
+                  event.preventDefault();
+                  setQuery("");
+                }
+              }}
+            />
+            {query ? (
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label={t("clear")}
+                onClick={() => {
+                  setQuery("");
+                  input.current?.focus();
+                }}
+              >
+                <X size={18} />
+              </Button>
+            ) : (
+              <kbd className="shortcut" dir="ltr">
+                Ctrl K /
+              </kbd>
+            )}
+          </div>
+          <p
+            role="status"
+            aria-live="polite"
+            aria-atomic="true"
+            className="search-summary"
+          >
+            {active
+              ? t("searchResults", { count: results.length })
+              : t("totalServices", { count: data.services.length })}
+          </p>
+        </div>
       </section>
       {data.services.length === 0 ? (
         <EmptyState title={t("emptyHome")} description={t("emptyHomeHint")}>
@@ -192,53 +198,55 @@ export function HomePage() {
             <Link to="/admin">{t("addService")}</Link>
           </Button>
         </EmptyState>
-      ) : active ? (
-        results.length ? (
-          <section
-            className="collection"
-            aria-label={t("searchResults", { count: results.length })}
-          >
-            <h2 className="sr-only">{t("search")}</h2>
-            {grid(results)}
-          </section>
-        ) : (
-          <EmptyState title={t("noResults")} description={t("noResultsHint")}>
-            <Button variant="outline" onClick={() => setQuery("")}>
-              {t("clear")}
-            </Button>
-          </EmptyState>
-        )
+      ) : active && results.length === 0 ? (
+        <EmptyState title={t("noResults")} description={t("noResultsHint")}>
+          <Button variant="outline" onClick={() => setQuery("")}>
+            {t("clear")}
+          </Button>
+        </EmptyState>
       ) : (
-        <>
-          {favorites.length > 0 && (
-            <section className="collection">
-              <div className="collection-heading">
-                <h2>
-                  <Star size={18} aria-hidden="true" />
-                  {t("favorites")}
-                </h2>
-                <span className="collection-count">{favorites.length}</span>
-              </div>
-              {grid(favorites)}
+        <div className="home-collections">
+          {active ? (
+            <section
+              className="collection collection-results"
+              aria-label={t("searchResults", { count: results.length })}
+            >
+              <h2 className="sr-only">{t("search")}</h2>
+              {grid(results)}
             </section>
+          ) : (
+            <>
+              {favorites.length > 0 && (
+                <section className="collection">
+                  <div className="collection-heading">
+                    <h2>
+                      <Star size={18} aria-hidden="true" />
+                      {t("favorites")}
+                    </h2>
+                    <span className="collection-count">{favorites.length}</span>
+                  </div>
+                  {grid(favorites)}
+                </section>
+              )}
+              {groups
+                .filter((group) => group.services.length > 0)
+                .map((group) => (
+                  <section className="collection" key={group.id}>
+                    <div className="collection-heading">
+                      <h2>
+                        <Icon name={group.icon} size={18} />
+                        <bdi>{group.name}</bdi>
+                      </h2>
+                      <span className="collection-count">
+                        {group.services.length}
+                      </span>
+                    </div>
+                    {grid(group.services)}
+                  </section>
+                ))}
+            </>
           )}
-          {groups
-            .filter((group) => group.services.length > 0)
-            .map((group) => (
-              <section className="collection" key={group.id}>
-                <div className="collection-heading">
-                  <h2>
-                    <Icon name={group.icon} size={18} />
-                    <bdi>{group.name}</bdi>
-                  </h2>
-                  <span className="collection-count">
-                    {group.services.length}
-                  </span>
-                </div>
-                {grid(group.services)}
-              </section>
-            ))}
-        </>
+        </div>
       )}
     </main>
   );

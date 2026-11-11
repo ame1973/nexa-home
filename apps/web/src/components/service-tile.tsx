@@ -24,12 +24,12 @@ export function ServiceTile({ service, query = '', preview = false, health }: { 
   const content = <Card className="service-tile">
     <div className="tile-top">
       <ServiceIcon service={service} />
-      <span className="flex items-center gap-2 text-muted-foreground">
+      <span className="tile-markers flex items-center gap-2 text-muted-foreground">
         {service.isFavorite && <><Star size={16} aria-hidden="true" /><span className="sr-only">{t('favorite')}</span></>}
         {service.openMode === 'new_tab' && <ExternalLink size={15} aria-hidden="true" />}
       </span>
     </div>
-    <div className="min-w-0">
+    <div className="tile-copy min-w-0">
       <h3 dir="auto" title={service.name}><Highlight value={service.name || t('previewName')} query={query} /></h3>
       <p dir="auto" className="mt-1.5" id={described}><Highlight value={service.description || (preview ? t('previewDescription') : '')} query={query} /></p>
     </div>

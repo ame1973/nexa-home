@@ -5,6 +5,7 @@ import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import { queryClient } from "./lib/api/client";
 import { routes } from "./app/routes";
 import "./styles.css";
+import "./home.css";
 
 const router = createBrowserRouter(routes);
 createRoot(document.getElementById("root")!).render(
