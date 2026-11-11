@@ -74,7 +74,7 @@ test(
     let tlsAgent;
     const override = join(directory, "override.yaml");
     const entrypoint = qemu ? ["/nexa-qemu", "/nexa-home"] : ["/nexa-home"];
-    const service = {
+    const composeService = {
       platform,
       pull_policy: "never",
       ...(qemu
@@ -101,7 +101,7 @@ test(
     // are also valid YAML and safely quote the optional emulator path.
     const configuration = () =>
       "services:\n  nexa-home:\n    build: !reset null\n" +
-      Object.entries(service)
+      Object.entries(composeService)
         .map(([key, value]) => `    ${key}: ${JSON.stringify(value)}\n`)
         .join("");
     await writeFile(override, configuration());
@@ -530,8 +530,8 @@ test(
       compose(["rm", "--force", "nexa-home"]);
       // Both volumes stay declared in this unique project's configuration, so
       // Compose alone owns cleanup; no inspected or query-selected volume is deleted.
-      service.volumes = [
-        ...(service.volumes || []),
+      composeService.volumes = [
+        ...(composeService.volumes || []),
         {
           type: "volume",
           source: "recovered_data",
@@ -550,6 +550,15 @@ test(
         "nexa-home",
       ]).stdout.trim();
       assert.ok(container, "Recovery creates a separate stopped container");
+      const recoveryMount = JSON.parse(
+        docker(["inspect", container]).stdout,
+      )[0].Mounts.find((mount) => mount.Destination === "/data");
+      assert.equal(recoveryMount?.Type, "volume");
+      assert.equal(
+        recoveryMount?.Name,
+        `${project}_recovered_data`,
+        "Cold restore uses the new recovery volume, not the original data volume",
+      );
       const copied = spawnSync(
         "docker",
         ["cp", "--archive", "-", `${container}:/data`],
@@ -718,7 +727,7 @@ test(
         status: 201,
       });
       await waitForHealth(tlsHealth.id, "down");
-      service.volumes.push({
+      composeService.volumes.push({
         type: "bind",
         source: join(tlsDirectory, "fullchain.pem"),
         target: "/etc/ssl/certs/nexa-test-root.crt",
@@ -730,6 +739,13 @@ test(
       );
       stop();
       start();
+      const rootMount = JSON.parse(
+        docker(["inspect", container]).stdout,
+      )[0].Mounts.find(
+        (mount) => mount.Destination === "/etc/ssl/certs/nexa-test-root.crt",
+      );
+      assert.equal(rootMount?.Type, "bind", "The test CA is mounted");
+      assert.equal(rootMount?.RW, false, "The test CA mount is read-only");
       docker(["exec", proxy, "nginx", "-s", "reload"]);
       url = secureOrigin;
       assert.equal((await api("/auth/me")).username, credentials.username);
