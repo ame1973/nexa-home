@@ -129,7 +129,7 @@ func (s *Server) uploadAsset(w http.ResponseWriter, r *http.Request, _ auth.Sess
 		}
 		return invalid("file", "Only the file field is accepted")
 	}
-	image, err := assets.Validate(data)
+	image, err := assets.ValidateUpload(data)
 	if err != nil {
 		return err
 	}

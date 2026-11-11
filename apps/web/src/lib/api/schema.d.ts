@@ -3038,7 +3038,10 @@ export interface operations {
         requestBody: {
             content: {
                 "multipart/form-data": {
-                    /** Format: binary */
+                    /**
+                     * Format: binary
+                     * @description PNG, JPEG, WebP or sanitized SVG, up to 1 MiB and 512 × 512 for raster images. JPEG uploads apply EXIF orientation and are stored as PNG without EXIF metadata.
+                     */
                     file: Blob;
                 };
             };

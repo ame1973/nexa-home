@@ -3,6 +3,7 @@ package assets
 import (
 	"bytes"
 	"encoding/base64"
+	"encoding/binary"
 	"errors"
 	"image"
 	"image/color"
@@ -212,15 +213,23 @@ func FuzzImageValidation(f *testing.F) {
 	f.Add([]byte(safeSVG))
 	f.Add([]byte(`<svg onload="alert(1)"/>`))
 	f.Add([]byte("not an image"))
+	jpeg := jpegBytes(f, 3, 2)
+	f.Add(jpeg)
+	f.Add(withEXIFOrientation(jpeg, binary.LittleEndian, 6))
 	f.Fuzz(func(t *testing.T, data []byte) {
 		if len(data) > MaxBytes+1 {
 			return
 		}
-		value, err := Validate(data)
-		if err == nil {
-			second, err := Validate(value.Data)
-			if err != nil || value.SHA256 != second.SHA256 {
-				t.Fatal("validated image not stable", err)
+		if orientation := jpegOrientation(data); orientation < 1 || orientation > 8 {
+			t.Fatal("invalid JPEG orientation", orientation)
+		}
+		for _, validate := range []func([]byte) (Image, error){Validate, ValidateUpload} {
+			value, err := validate(data)
+			if err == nil {
+				second, err := Validate(value.Data)
+				if err != nil || value.SHA256 != second.SHA256 {
+					t.Fatal("validated image not stable", err)
+				}
 			}
 		}
 	})

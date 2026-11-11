@@ -2,9 +2,11 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"encoding/base64"
 	"image"
 	"image/color"
+	"image/jpeg"
 	"image/png"
 	"io/fs"
 	"mime/multipart"
@@ -160,6 +162,58 @@ func TestAssetSVGAndWebP(t *testing.T) {
 	w = h.request("GET", asset.URL, nil, 200)
 	if !bytes.Equal(w.Body.Bytes(), webp) {
 		t.Fatal("WebP changed unexpectedly")
+	}
+}
+
+func TestJPEGUploadBackupRestoreAndStrictMIME(t *testing.T) {
+	h := adminHarness(t)
+	h.upload("corrupt.jpg", []byte("\xff\xd8\xffjpeg"), 400, false)
+	h.upload("oversized.jpeg", append([]byte("\xff\xd8\xff"), make([]byte, assets.MaxBytes)...), 413, false)
+	if len(assetFiles(t, h)) != 0 {
+		t.Fatal("rejected JPEG left an asset file")
+	}
+	picture := image.NewNRGBA(image.Rect(0, 0, 8, 4))
+	picture.Set(0, 0, color.NRGBA{R: 255, A: 255})
+	var encoded bytes.Buffer
+	if err := jpeg.Encode(&encoded, picture, nil); err != nil {
+		t.Fatal(err)
+	}
+	asset := readResponse[Asset](t, h.upload("icon.jpg", encoded.Bytes(), 201, false))
+	duplicate := readResponse[Asset](t, h.upload("ICON.JPEG", encoded.Bytes(), 201, false))
+	if asset.MIME != "image/png" || duplicate.ID != asset.ID || len(assetFiles(t, h)) != 1 {
+		t.Fatal("JPEG was not normalized and deduplicated", asset, duplicate)
+	}
+	served := h.request("GET", asset.URL, nil, 200)
+	if served.Header().Get("Content-Type") != "image/png" || served.Header().Get("X-Content-Type-Options") != "nosniff" {
+		t.Fatal("normalized image has unsafe response headers")
+	}
+	if decoded, err := png.Decode(bytes.NewReader(served.Body.Bytes())); err != nil || decoded.Bounds().Dx() != 8 || decoded.Bounds().Dy() != 4 {
+		t.Fatal("JPEG was not served as a valid PNG", err)
+	}
+	input := serviceInput("JPEG icon service")
+	input.IconKind = "asset"
+	input.IconAssetID = &asset.ID
+	service := h.service(input)
+	backup := h.export()
+	if len(backup.Assets) != 1 || backup.Assets[0].MIME != "image/png" || backup.Assets[0].Base64 != base64.StdEncoding.EncodeToString(served.Body.Bytes()) {
+		t.Fatal("backup did not preserve the normalized icon")
+	}
+	forged := cloneBackup(t, backup)
+	forged.Assets[0].Base64 = base64.StdEncoding.EncodeToString(encoded.Bytes())
+	h.request("POST", "/api/v1/admin/backup/validate", forged, 400)
+	token := h.stage(backup)
+	h.request("DELETE", "/api/v1/admin/services/"+service.ID, nil, 204)
+	h.request("DELETE", "/api/v1/admin/assets/"+asset.ID, nil, 204)
+	if len(assetFiles(t, h)) != 0 {
+		t.Fatal("deleted icon file retained")
+	}
+	h.restore(token, 200)
+	restored := h.request("GET", asset.URL, nil, 200)
+	if !bytes.Equal(restored.Body.Bytes(), served.Body.Bytes()) || h.export().Assets[0] != backup.Assets[0] {
+		t.Fatal("restored JPEG icon differs from its backup")
+	}
+	if err := CheckData(context.Background(), h.database, h.server.config.DataDir); err != nil {
+		t.Fatal("doctor rejected the restored JPEG icon", err)
 	}
 }
 

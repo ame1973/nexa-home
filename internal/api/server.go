@@ -227,7 +227,7 @@ func (s *Server) fail(w http.ResponseWriter, r *http.Request, err error) {
 	case errors.Is(err, assets.ErrTooLarge):
 		p = &problem{status: 413, code: "LIMIT_EXCEEDED", message: "Icon exceeds the 1 MiB limit"}
 	case errors.Is(err, assets.ErrInvalid):
-		p = &problem{status: 400, code: "VALIDATION_ERROR", message: "Upload a valid PNG, WebP or safe SVG icon"}
+		p = &problem{status: 400, code: "VALIDATION_ERROR", message: "Upload a valid PNG, JPEG, WebP or safe SVG icon"}
 	case errors.As(err, &bodyLimit):
 		p = &problem{status: 413, code: "LIMIT_EXCEEDED", message: "Request body exceeds the size limit"}
 	case errors.Is(err, sql.ErrNoRows):
