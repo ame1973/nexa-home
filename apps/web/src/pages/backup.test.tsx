@@ -12,7 +12,10 @@ const backup = {
   format: "nexa-home-backup",
   version: 1,
   exportedAt: stamp,
-  ...bootstrap,
+  settings: bootstrap.settings,
+  categories: bootstrap.categories,
+  services: bootstrap.services,
+  tags: bootstrap.tags,
   assets: [],
 };
 const token = "T".repeat(43);
@@ -118,6 +121,9 @@ it("shows a count/settings preview, requires explicit acknowledgement and consum
   );
   await user.click(screen.getByRole("button", { name: "Validate backup" }));
   const dialog = await screen.findByRole("alertdialog");
+  expect(dialog).toHaveTextContent(
+    "Restored health checks will contact their configured addresses. Restore only trusted backups.",
+  );
   expect(
     within(dialog).getByText("Homepage settings will change."),
   ).toBeVisible();

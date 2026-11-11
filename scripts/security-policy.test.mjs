@@ -1,7 +1,51 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import test from "node:test";
 import YAML from "yaml";
+
+test("a changed builder cannot reuse stale CA bundle provenance", (t) => {
+  const directory = mkdtempSync(join(tmpdir(), "nexa-ca-policy-"));
+  t.after(() => rmSync(directory, { recursive: true, force: true }));
+  mkdirSync(join(directory, "deploy"));
+  mkdirSync(join(directory, "licenses"));
+  const dockerfile = readFileSync("deploy/Dockerfile", "utf8");
+  const builder = dockerfile.match(/golang:[^@\s]+@sha256:[a-f0-9]{64}/);
+  assert.ok(builder);
+  const changed = builder[0].replace(/.$/, (last) =>
+    last === "0" ? "1" : "0",
+  );
+  writeFileSync(
+    join(directory, "deploy/Dockerfile"),
+    dockerfile.replace(builder[0], changed),
+  );
+  writeFileSync(
+    join(directory, "licenses/mozilla-ca-certificates.txt"),
+    readFileSync("licenses/mozilla-ca-certificates.txt"),
+  );
+  const result = spawnSync(
+    process.execPath,
+    [resolve("scripts/notices.mjs"), "--check"],
+    {
+      cwd: directory,
+      env: { ...process.env, PATH: "" },
+      encoding: "utf8",
+    },
+  );
+  assert.notEqual(result.status, 0);
+  assert.match(
+    result.stderr,
+    /Review the CA bundle provenance when the builder image changes/,
+  );
+});
 
 test("the reviewed scanner exception cannot silently broaden or outlive its review", () => {
   const policy = YAML.parse(readFileSync(".trivyignore.yaml", "utf8"));

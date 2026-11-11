@@ -13,7 +13,7 @@ COPY api/icons.json api/icons.json
 COPY scripts/sonner-csp.mjs scripts/sonner-csp.mjs
 RUN npm run build:web
 
-FROM --platform=$BUILDPLATFORM golang:1.27.3-alpine@sha256:d200d2dd76b03a99b52651fd1325aff7dcd35422c35c01bac56571b0507f3deb AS go-build
+FROM --platform=$BUILDPLATFORM golang:1.27.4-alpine@sha256:0a5f7fe796599ff487605987432e7619ae45beeb2fba4c2ce0b907879932aebf AS go-build
 WORKDIR /src
 ENV GOTOOLCHAIN=local
 COPY go.mod go.sum ./
@@ -30,7 +30,10 @@ ARG VERSION
 RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build \
     CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH \
     go build -trimpath -ldflags="-X main.version=${VERSION}" -o /out/nexa-home ./cmd/nexa-home
-RUN mkdir -p /out/data /out/tmp
+RUN mkdir -p /out/data /out/tmp /out/runtime-etc/ssl/certs \
+    && chmod 0755 /out/runtime-etc /out/runtime-etc/ssl /out/runtime-etc/ssl/certs \
+    && cp /etc/ssl/certs/ca-certificates.crt /out/runtime-etc/ssl/certs/ca-certificates.crt \
+    && chmod 0444 /out/runtime-etc/ssl/certs/ca-certificates.crt
 
 # No shell, package manager, Node, compiler, or outbound-fetch helper is shipped.
 FROM scratch
@@ -44,6 +47,8 @@ LABEL org.opencontainers.image.title="Nexa Home" \
       org.opencontainers.image.source="${SOURCE}" \
       org.opencontainers.image.licenses="MIT"
 COPY --from=go-build --chmod=0555 /out/nexa-home /nexa-home
+# Keep the directories searchable by the runtime user and the CA bundle read-only.
+COPY --from=go-build /out/runtime-etc/ /etc/
 COPY --from=go-build --chown=10001:10001 --chmod=0700 /out/data /data
 COPY --from=go-build --chmod=1777 /out/tmp /tmp
 COPY LICENSE THIRD_PARTY_NOTICES.md /usr/share/licenses/nexa-home/

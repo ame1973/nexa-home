@@ -184,7 +184,9 @@ export function BackupPage() {
             <Upload size={20} aria-hidden="true" />
             {t("restoreBackup")}
           </h2>
-          <p>{t("restoreDescription")}</p>
+          <p>
+            {t("restoreDescription")} {t("healthRestoreWarning")}
+          </p>
           <Field
             name="backupFile"
             label={t("backupFile")}
@@ -245,7 +247,7 @@ export function BackupPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>{t("restoreWarning")}</AlertDialogTitle>
             <AlertDialogDescription>
-              {t("restoreDescription")}
+              {t("restoreDescription")} {t("healthRestoreWarning")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <h3 className="font-medium">{t("restorePreview")}</h3>

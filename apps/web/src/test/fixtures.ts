@@ -101,5 +101,6 @@ export const bootstrap: Bootstrap = {
   categories,
   tags,
   services: fixtureServices(),
+  health: [],
 };
 export const csrf = "A".repeat(43);

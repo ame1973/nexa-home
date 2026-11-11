@@ -1,7 +1,9 @@
 import { themeEn } from "./theme-messages";
+import { healthEn } from "./health-messages";
 
 export const en = {
   ...themeEn,
+  ...healthEn,
   subtitleHint: "Up to 160 characters.",
   accentHint: "Text and controls are adjusted for accessible contrast.",
   reloadSettingsHint:
@@ -251,7 +253,7 @@ export const en = {
   uploadHint:
     "PNG, WebP or safe SVG, up to 1 MiB. Raster dimensions must be at most 512 × 512.",
   faviconHint:
-    "Upload a cached favicon file. Nexa Home never fetches a remote icon or probes your services.",
+    "Upload a cached favicon file. Nexa Home never fetches a remote icon.",
   iconFile: "Icon file",
   uploading: "Uploading…",
   iconUploaded: "Icon uploaded.",

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { randomUUID } from "node:crypto";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { createHash, randomUUID, X509Certificate } from "node:crypto";
+import { chmod, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { isAbsolute, join, resolve } from "node:path";
 import test from "node:test";
@@ -172,6 +172,21 @@ test(
       }
       return status === 204 ? undefined : response.json();
     }
+    async function waitForHealth(id, expected, attempts = 100) {
+      let observed;
+      for (let attempt = 0; attempt < attempts; attempt++) {
+        observed = (await api("/public/health")).find(
+          (item) => item.serviceId === id,
+        );
+        if (observed?.status === expected) return observed;
+        await delay(100);
+      }
+      assert.equal(
+        observed?.status,
+        expected,
+        "The monitored service reached its expected health status",
+      );
+    }
     function start() {
       compose([
         "up",
@@ -247,6 +262,14 @@ test(
       csrf = (await api("/auth/login", { method: "POST", data: credentials }))
         .csrfToken;
       assert.ok(cookie && csrf, "Session credentials remain in process memory");
+      docker([
+        "exec",
+        "--env",
+        "NEXA_LISTEN=nexa-home:8080",
+        container,
+        ...entrypoint,
+        "healthcheck",
+      ]);
 
       const form = new FormData();
       form.append(
@@ -287,6 +310,10 @@ test(
         isVisible: true,
         tagIds: [],
         links: [{ label: "primary", url: "https://service.example.test" }],
+        healthCheck: {
+          url: "http://nexa-home:8080/healthz",
+          intervalSeconds: 30,
+        },
       };
       const service = await api("/admin/services", {
         method: "POST",
@@ -297,6 +324,14 @@ test(
         method: "PUT",
         data: { ...serviceInput, description: "Edited in the real container" },
       });
+      await waitForHealth(service.id, "up");
+      const publicBeforeRestore = await api("/public/bootstrap");
+      assert.ok(
+        !JSON.stringify(publicBeforeRestore).includes(
+          serviceInput.healthCheck.url,
+        ),
+        "Public bootstrap excludes the health endpoint",
+      );
       const currentSettings = await api("/admin/settings");
       const { revision, updatedAt: _updatedAt, ...fields } = currentSettings;
       const customTheme = {
@@ -335,6 +370,10 @@ test(
       assert.deepEqual(exported.settings.customTheme, customTheme);
       assert.equal(exported.settings.customCSS, customCSS);
       assert.equal(exported.services.length, 1);
+      assert.deepEqual(
+        exported.services[0].healthCheck,
+        serviceInput.healthCheck,
+      );
       assert.equal(exported.assets.length, 1);
       assert.ok(
         !JSON.stringify(exported).includes(credentials.password),
@@ -388,6 +427,49 @@ test(
         !/(^|\/)(node|npm|node_modules|sh|bash)(\/|$)/m.test(listing.stdout),
         "The exported runtime has no Node or shell",
       );
+      const roots = spawnSync(
+        "tar",
+        [
+          "-xOf",
+          join(directory, "rootfs.tar"),
+          "etc/ssl/certs/ca-certificates.crt",
+        ],
+        { encoding: "utf8" },
+      );
+      assert.equal(
+        roots.status,
+        0,
+        "The runtime contains its public CA bundle",
+      );
+      const notice = await readFile(
+        "licenses/mozilla-ca-certificates.txt",
+        "utf8",
+      );
+      const expectedHash = notice.match(
+        /^Bundle SHA-256: ([a-f0-9]{64})$/m,
+      )?.[1];
+      assert.ok(expectedHash, "The reviewed CA bundle hash is documented");
+      assert.equal(
+        createHash("sha256").update(roots.stdout).digest("hex"),
+        expectedHash,
+        "The shipped CA bundle matches its reviewed provenance",
+      );
+      const certificates =
+        roots.stdout.match(
+          /-----BEGIN CERTIFICATE-----[\s\S]*?-----END CERTIFICATE-----/g,
+        ) || [];
+      assert.ok(certificates.length > 0, "The runtime CA bundle is not empty");
+      assert.ok(
+        certificates.some((pem) => {
+          const certificate = new X509Certificate(pem);
+          return (
+            certificate.ca &&
+            Date.parse(certificate.validFrom) <= Date.now() &&
+            Date.parse(certificate.validTo) > Date.now()
+          );
+        }),
+        "The runtime CA bundle contains a currently valid CA certificate",
+      );
 
       stop();
       compose(["rm", "--force", "nexa-home"]);
@@ -404,9 +486,17 @@ test(
       );
       const persisted = await api("/admin/backup/export?includeAssets=true");
       assert.deepEqual(
-        persisted.services,
+        persisted.services.map(
+          ({ healthCheck: _healthCheck, ...visible }) => visible,
+        ),
         (await api("/public/bootstrap")).services,
       );
+      assert.deepEqual(
+        persisted.services[0].healthCheck,
+        serviceInput.healthCheck,
+      );
+      // A self-check can run before the restarted listener accepts connections.
+      await waitForHealth(service.id, "up", 350);
       assert.equal(persisted.services[0].id, service.id);
       assert.equal(
         persisted.services[0].description,
@@ -494,11 +584,13 @@ test(
           persisted[key],
           `Cold restore preserves ${key}`,
         );
+      await waitForHealth(service.id, "up", 350);
       await api(`/admin/services/${service.id}`, {
         method: "DELETE",
         status: 204,
       });
       assert.equal((await api("/public/bootstrap")).services.length, 0);
+      assert.deepEqual(await api("/public/health"), []);
 
       // Exercise the shipped proxy example with a per-test trusted certificate.
       // No system CA store changes or TLS verification bypass are used.
@@ -516,7 +608,7 @@ test(
           "-subj",
           "/CN=localhost",
           "-addext",
-          "subjectAltName=DNS:localhost,IP:127.0.0.1",
+          "subjectAltName=DNS:localhost,DNS:nexa-health-target,IP:127.0.0.1",
           "-keyout",
           join(tlsDirectory, "privkey.pem"),
           "-out",
@@ -529,6 +621,7 @@ test(
         0,
         "A private test certificate can be created",
       );
+      await chmod(join(tlsDirectory, "fullchain.pem"), 0o644);
       const site = (await readFile("deploy/nginx.conf.example", "utf8"))
         .replace("listen 443 ssl;", "listen 8443 ssl;")
         .replace("server_name home.example.com;", "server_name localhost;")
@@ -536,7 +629,7 @@ test(
       const proxyConfig = join(directory, "nginx.conf");
       await writeFile(
         proxyConfig,
-        `pid /tmp/nginx.pid;\nerror_log /dev/stderr warn;\nevents { worker_connections 128; }\nhttp {\nclient_body_temp_path /tmp/client;\nproxy_temp_path /tmp/proxy;\nfastcgi_temp_path /tmp/fastcgi;\nuwsgi_temp_path /tmp/uwsgi;\nscgi_temp_path /tmp/scgi;\n${site}\n}\n`,
+        `pid /tmp/nginx.pid;\nerror_log /dev/stderr warn;\nevents { worker_connections 128; }\nhttp {\nclient_body_temp_path /tmp/client;\nproxy_temp_path /tmp/proxy;\nfastcgi_temp_path /tmp/fastcgi;\nuwsgi_temp_path /tmp/uwsgi;\nscgi_temp_path /tmp/scgi;\nserver { listen 8444 ssl; server_name nexa-health-target; ssl_certificate /etc/nginx/tls/fullchain.pem; ssl_certificate_key /etc/nginx/tls/privkey.pem; location = /ready { return 204; } }\n${site}\n}\n`,
         { mode: 0o600 },
       );
       docker([
@@ -546,6 +639,8 @@ test(
         proxy,
         "--network",
         `${project}_default`,
+        "--network-alias",
+        "nexa-health-target",
         "--user",
         `${process.getuid()}:${process.getgid()}`,
         "--read-only",
@@ -610,6 +705,35 @@ test(
       csrf = (await api("/auth/login", { method: "POST", data: credentials }))
         .csrfToken;
       assert.equal((await api("/auth/me")).username, credentials.username);
+      const tlsHealth = await api("/admin/services", {
+        method: "POST",
+        data: {
+          ...serviceInput,
+          name: "HTTPS health test",
+          healthCheck: {
+            url: "https://nexa-health-target:8444/ready",
+            intervalSeconds: 30,
+          },
+        },
+        status: 201,
+      });
+      await waitForHealth(tlsHealth.id, "down");
+      service.volumes.push({
+        type: "bind",
+        source: join(tlsDirectory, "fullchain.pem"),
+        target: "/etc/ssl/certs/nexa-test-root.crt",
+        read_only: true,
+      });
+      await writeFile(
+        override,
+        configuration() + "volumes:\n  recovered_data: {}\n",
+      );
+      stop();
+      start();
+      docker(["exec", proxy, "nginx", "-s", "reload"]);
+      url = secureOrigin;
+      assert.equal((await api("/auth/me")).username, credentials.username);
+      await waitForHealth(tlsHealth.id, "up");
       const secureTag = await api("/admin/tags", {
         method: "POST",
         data: { name: "TLS verified" },

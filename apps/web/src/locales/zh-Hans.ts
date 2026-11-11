@@ -1,8 +1,10 @@
 import { themeZhHans } from "./theme-messages";
+import { healthZhHans } from "./health-messages";
 import type { MessageKey } from "./en";
 
 export const zhHans: Record<MessageKey, string> = {
   ...themeZhHans,
+  ...healthZhHans,
   subtitleHint: "最多 160 个字符。",
   accentHint: "文字和控件会自动调整，以保持易读的对比度。",
   reloadSettingsHint: "放弃尚未保存的共享设置，并加载最新版本。",
@@ -229,8 +231,7 @@ export const zhHans: Record<MessageKey, string> = {
   searchIcons: "搜索图标名称…",
   uploadHint:
     "PNG、WebP 或安全的 SVG，上限 1 MiB。点阵图尺寸不得超过 512 × 512。",
-  faviconHint:
-    "请上传已缓存的网站图标文件。Nexa Home 不会远程获取图标或探测服务。",
+  faviconHint: "请上传已缓存的网站图标文件。Nexa Home 不会远程获取图标。",
   iconFile: "图标文件",
   uploading: "正在上传…",
   iconUploaded: "图标已上传。",

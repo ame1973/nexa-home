@@ -420,6 +420,7 @@ paths:
                 - categories
                 - services
                 - tags
+                - health
                 properties:
                   settings:
                     $ref: '#/components/schemas/Settings'
@@ -435,6 +436,10 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/Tag'
+                  health:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/HealthStatus'
         '400': *id001
         '403': *id002
         '404': *id003
@@ -453,6 +458,33 @@ paths:
                 $ref: '#/components/schemas/Error'
       security: []
       operationId: getApiV1PublicBootstrap
+  /api/v1/public/health:
+    get:
+      tags:
+      - public
+      summary: Latest check results for visible services; 401 in private mode
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/HealthStatus'
+        '400': *id001
+        '401': *id005
+        '403': *id002
+        '404': *id003
+        '429': *id004
+        '500':
+          description: Sanitized internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security: []
+      operationId: getApiV1PublicHealth
   /api/v1/admin/settings:
     get:
       tags:
@@ -1499,6 +1531,22 @@ components:
           maxLength: 80
         isVisible:
           type: boolean
+    HealthStatus:
+      type: object
+      description: Latest result only; unknown before the first check or when the result is stale.
+      additionalProperties: false
+      required: [serviceId, status, checkedAt]
+      properties:
+        serviceId:
+          $ref: '#/components/schemas/UUID'
+        status:
+          type: string
+          enum: [unknown, up, down]
+        checkedAt:
+          oneOf:
+          - type: string
+            format: date-time
+          - type: 'null'
     HealthCheck:
       type: object
       description: Explicit administrator-configured HTTP(S) health endpoint. Never exposed in public homepage data.

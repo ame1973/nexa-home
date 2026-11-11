@@ -35,6 +35,8 @@ type Server struct {
 	logger   *slog.Logger
 	mux      *http.ServeMux
 	assets   *assets.Store
+	health   *healthMonitor
+	healthMu sync.Mutex
 	assetMu  sync.Mutex
 	importMu sync.Mutex
 	imports  map[[32]byte]*stagedImport
@@ -85,6 +87,11 @@ func New(ctx context.Context, c config.Config, database *sql.DB, logger *slog.Lo
 		store.Close()
 		return nil, "", err
 	}
+	s.health, err = newHealthMonitor(ctx, database)
+	if err != nil {
+		store.Close()
+		return nil, "", err
+	}
 	s.authRoutes()
 	s.settingsRoutes()
 	s.catalogRoutes()
@@ -111,6 +118,7 @@ func (s *Server) Close() error {
 		return nil
 	}
 	s.closed = true
+	s.health.close()
 	s.importMu.Lock()
 	for _, pending := range s.imports {
 		pending.timer.Stop()

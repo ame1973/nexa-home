@@ -44,6 +44,10 @@ it("uses the synchronized CSRF token and strips response-only link fields", asyn
 it("clears private query and mutation data when a protected request loses authentication", async () => {
   queryClient.setQueryData(["me"], { username: "admin", csrfToken: csrf });
   queryClient.setQueryData(["admin", "services"], bootstrap.services);
+  queryClient.setQueryData(
+    ["health"],
+    [{ serviceId: fixtureId(100), status: "up", checkedAt: stamp }],
+  );
   queryClient.setQueryData(["bootstrap"], {
     ...bootstrap,
     settings: { ...bootstrap.settings, accessMode: "private" },
@@ -59,6 +63,7 @@ it("clears private query and mutation data when a protected request loses authen
     requestId: "test-request",
   });
   expect(queryClient.getQueryData(["admin", "services"])).toBeUndefined();
+  expect(queryClient.getQueryData(["health"])).toBeUndefined();
   expect(queryClient.getMutationCache().getAll()).toHaveLength(0);
   expect(queryClient.getQueryData(["me"])).toBeNull();
   expect(queryClient.getQueryData(["bootstrap"])).toBeNull();
@@ -253,6 +258,33 @@ it("cancels late bootstrap results before they can repopulate private data after
   await late;
   expect(queryClient.getQueryData(["bootstrap"])).toBeNull();
 });
+it("cancels late health results when a private session expires", async () => {
+  let release!: (
+    value: { serviceId: string; status: "up"; checkedAt: string }[],
+  ) => void;
+  let signal!: AbortSignal;
+  const pending = new Promise<
+    { serviceId: string; status: "up"; checkedAt: string }[]
+  >((resolve) => {
+    release = resolve;
+  });
+  const late = queryClient
+    .fetchQuery({
+      queryKey: ["health"],
+      queryFn(context) {
+        signal = context.signal;
+        return pending;
+      },
+    })
+    .catch(() => undefined);
+  server.use(http.get(apiURL("/admin/settings"), () => denied()));
+  await expect(api.settings()).rejects.toMatchObject({ status: 401 });
+  expect(signal.aborted).toBe(true);
+  release([{ serviceId: fixtureId(100), status: "up", checkedAt: stamp }]);
+  await late;
+  expect(queryClient.getQueryData(["health"])).toBeUndefined();
+});
+
 it("does not treat explicitly aborted identity requests as network or authentication failures", async () => {
   queryClient.setQueryData(["me"], { username: "admin", csrfToken: csrf });
   const controller = new AbortController();

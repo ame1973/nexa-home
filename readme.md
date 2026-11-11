@@ -22,7 +22,8 @@ One Go process, local SQLite, and no separate database service.
 | Make it yours              | What Nexa Home provides                                                                                             |
 | -------------------------- | ------------------------------------------------------------------------------------------------------------------- |
 | **Organize your services** | Favorites, categories, tags, keyboard ordering, and desktop drag-and-drop ordering.                                 |
-| **Find a link quickly**    | Search names, descriptions, categories, and tags entirely in the browser. The server never probes service URLs.     |
+| **Find a link quickly**    | Search names, descriptions, categories, and tags entirely in the browser without fetching saved service links.      |
+| **Monitor availability**   | Optionally check a separately configured HTTP(S) endpoint and show its latest status on the homepage.               |
 | **Choose your look**       | Five light/dark presets, custom token themes, optional glass effects, and advanced CSS with safe recovery.          |
 | **Use your language**      | Twelve interface languages, including Traditional/Simplified Chinese and Arabic right-to-left layouts.              |
 | **Control access**         | One administrator, protected first-run setup, and a public or private homepage.                                     |
@@ -32,7 +33,7 @@ One Go process, local SQLite, and no separate database service.
 <details>
 <summary>Scope and limitations</summary>
 
-LAN and WAN links can be saved alongside the required primary URL. The launcher opens the primary URL; automatic network switching, health polling, PWA/offline mode, multiple users, and NAS/Docker control are not included.
+LAN and WAN links can be saved alongside the required primary URL. The launcher opens the primary URL; automatic network switching, uptime history, PWA/offline mode, multiple users, and NAS/Docker control are not included.
 
 </details>
 
@@ -69,6 +70,11 @@ Open **http://127.0.0.1:8080/setup** on the same host. Read the one-time token *
 4. Search names, descriptions, categories, or tags from the homepage. Press `/` or <kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>K</kbd> to focus search; <kbd>Esc</kbd> clears it.
 5. In Manage, choose manual order with no text/tag/visibility filter to reorder. Explicit up/down controls support keyboard and mobile use. Editing a service also supports moving it to an empty category.
 6. Use the palette button for **Future Glass, Graphite, Tide, Forest or Dune**, or customize a copy. The sun/moon menu controls dark/light/system independently. Personal styles stay in your browser; **Manage → Appearance** sets shared defaults. See [themes and advanced CSS](docs/themes.md) for library/JSON/CSS workflows, feature availability, and `/?appearance=safe` recovery without bypassing sign-in.
+7. To monitor a service, edit it, enable **Monitor this service**, and enter a separate trusted HTTP(S) health-check URL and interval. Checks are off by default, start immediately, and repeat 30–86400 seconds after completion (default 60). Only 2xx responses are available; redirects are not followed. The homepage shows available, unavailable or unknown, not an uptime history.
+
+Checks originate from the server or container, not the browser; a container's loopback is not the host. Busy queues may delay checks and the homepage refreshes results approximately every 15 seconds. Only visible services in visible categories show their status publicly; hidden services can still be checked. The check URL is private but included in backups. Do not put secrets in URLs, and review [network and restore safety](SECURITY.md#content-and-network-boundaries).
+
+Service health checks require a build or release containing this feature. The earlier `1.0.1` image does not include it; a configuration change cannot add it to an older image.
 
 Public mode exposes only visible services in visible categories, plus the categories/tags actually needed by those services. Private mode requires authentication before service data or private icons are returned. Password changes revoke every session, including the current session. Settings use revision checks: a conflicting draft stays intact until you explicitly reload it.
 
@@ -112,7 +118,7 @@ The built-in interface uses system fonts on the **browser's device** and does no
 
 Use **Manage → Backup → Export backup**. Leave **Include icon files** enabled for a fully restorable copy. Backups contain private names and URLs; protect them and keep a separate copy outside the application data directory. Credentials, sessions, rate-limit state, and audit history are not exported.
 
-Theme-enabled builds export **backup version 2**, including shared custom tokens and CSS; version 1 imports remain supported. Browser-only styles and theme libraries are not exported. Review imported CSS and keep a complete pre-upgrade backup for rollback; see [themes and compatibility](docs/themes.md).
+Current builds export **backup version 3**, including health-check configuration and shared custom tokens/CSS; versions 1 and 2 remain importable. Browser-only styles, theme libraries and health results are not exported. Restore only trusted backups: enabled health checks resume and contact their configured targets after a successful restore. Review imported CSS and keep a complete pre-upgrade backup for rollback; see [themes and compatibility](docs/themes.md).
 
 <details>
 <summary>Restore steps, size limits, and what is preserved</summary>
@@ -167,7 +173,7 @@ Read the one-time token locally with `docker compose --env-file deploy/.env -f d
 
 ### Build from source
 
-Build on Linux with Node.js 24.14.1 or newer in the Node 24 line, npm, and the Go toolchain declared in `go.mod` (Go 1.27.3). Node is a build/test dependency only; the resulting executable embeds the frontend and does not need Node at runtime.
+Build on Linux with Node.js 24.14.1 or newer in the Node 24 line, npm, and the Go toolchain declared in `go.mod` (Go 1.27.4). Node is a build/test dependency only; the resulting executable embeds the frontend and does not need Node at runtime.
 
 ```sh
 npm ci --ignore-scripts

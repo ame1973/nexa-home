@@ -297,6 +297,73 @@ function ServiceForm({
               <p className="field-hint">{t("secondaryLinksHint")}</p>
             </section>
             <section className="form-section">
+              <h2>{t("healthTitle")}</h2>
+              <p>{t("healthDescription")}</p>
+              <label className="check-field">
+                <Switch
+                  checked={value.healthCheck != null}
+                  onCheckedChange={(checked) =>
+                    update(
+                      "healthCheck",
+                      checked ? { url: "", intervalSeconds: 60 } : null,
+                    )
+                  }
+                />
+                <span>{t("healthEnable")}</span>
+              </label>
+              {value.healthCheck && (
+                <>
+                  <Field
+                    name="healthCheck.url"
+                    label={t("healthUrl")}
+                    hint={t("healthUrlHint")}
+                    error={errorFor("healthCheck.url")}
+                  >
+                    <Input
+                      type="url"
+                      dir="ltr"
+                      value={value.healthCheck.url}
+                      required
+                      inputMode="url"
+                      autoCapitalize="none"
+                      spellCheck={false}
+                      onBlur={() => touch("healthCheck.url")}
+                      onChange={(event) =>
+                        update("healthCheck", {
+                          ...value.healthCheck!,
+                          url: event.target.value,
+                        })
+                      }
+                    />
+                  </Field>
+                  <Field
+                    name="healthCheck.intervalSeconds"
+                    label={t("healthInterval")}
+                    hint={t("healthIntervalHint")}
+                    error={errorFor("healthCheck.intervalSeconds")}
+                  >
+                    <Input
+                      type="number"
+                      dir="ltr"
+                      inputMode="numeric"
+                      min={30}
+                      max={86400}
+                      step={1}
+                      required
+                      value={value.healthCheck.intervalSeconds || ""}
+                      onBlur={() => touch("healthCheck.intervalSeconds")}
+                      onChange={(event) =>
+                        update("healthCheck", {
+                          ...value.healthCheck!,
+                          intervalSeconds: Number(event.target.value),
+                        })
+                      }
+                    />
+                  </Field>
+                </>
+              )}
+            </section>
+            <section className="form-section">
               <h2>{t("icon")}</h2>
               <IconPicker
                 value={value}

@@ -1,8 +1,10 @@
 import { themeJa } from "./theme-messages";
+import { healthJa } from "./health-messages";
 import type { MessageKey } from "./en";
 
 export const ja: Record<MessageKey, string> = {
   ...themeJa,
+  ...healthJa,
   subtitleHint: "160 文字以内。",
   accentHint: "読みやすいコントラストになるよう文字と操作部品を調整します。",
   reloadSettingsHint:
@@ -257,7 +259,7 @@ export const ja: Record<MessageKey, string> = {
   uploadHint:
     "PNG、WebP、安全な SVG、上限 1 MiB。画像の寸法は 512 × 512 以下にしてください。",
   faviconHint:
-    "保存済みの favicon ファイルをアップロードします。リモートのアイコン取得やサービスへの接続確認は行いません。",
+    "保存済みの favicon ファイルをアップロードします。リモートのアイコンは取得しません。",
   iconFile: "アイコンファイル",
   uploading: "アップロード中…",
   iconUploaded: "アイコンをアップロードしました。",

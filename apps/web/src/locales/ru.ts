@@ -1,8 +1,10 @@
 import { themeRu } from "./theme-messages";
+import { healthRu } from "./health-messages";
 import type { MessageKey } from "./en";
 
 export const ru: Record<MessageKey, string> = {
   ...themeRu,
+  ...healthRu,
   subtitleHint: "До 160 символов.",
   accentHint:
     "Текст и элементы управления подстраиваются для доступного контраста.",
@@ -258,7 +260,7 @@ export const ru: Record<MessageKey, string> = {
   uploadHint:
     "PNG, WebP или безопасный SVG, до 1 MiB. Размеры растровых изображений не должны превышать 512 × 512.",
   faviconHint:
-    "Загрузите сохранённый файл значка сайта. Nexa Home никогда не загружает удалённые значки и не опрашивает ваши сервисы.",
+    "Загрузите сохранённый файл значка сайта. Nexa Home никогда не загружает удалённые значки.",
   iconFile: "Файл значка",
   uploading: "Загрузка…",
   iconUploaded: "Значок загружен.",

@@ -152,6 +152,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/public/health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Latest check results for visible services; 401 in private mode */
+        get: operations["getApiV1PublicHealth"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/settings": {
         parameters: {
             query?: never;
@@ -446,6 +463,13 @@ export interface components {
             description: string;
             icon: string;
             isVisible: boolean;
+        };
+        /** @description Latest result only; unknown before the first check or when the result is stale. */
+        HealthStatus: {
+            serviceId: components["schemas"]["UUID"];
+            /** @enum {string} */
+            status: "unknown" | "up" | "down";
+            checkedAt: string | null;
         };
         /** @description Explicit administrator-configured HTTP(S) health endpoint. Never exposed in public homepage data. */
         HealthCheck: {
@@ -1296,7 +1320,82 @@ export interface operations {
                         categories: components["schemas"]["Category"][];
                         services: components["schemas"]["Service"][];
                         tags: components["schemas"]["Tag"][];
+                        health: components["schemas"]["HealthStatus"][];
                     };
+                };
+            };
+            /** @description Invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not permitted / CSRF failure */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Too many requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Sanitized internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getApiV1PublicHealth: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HealthStatus"][];
                 };
             };
             /** @description Invalid request */

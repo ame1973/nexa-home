@@ -1,8 +1,10 @@
 import { themeDe } from "./theme-messages";
+import { healthDe } from "./health-messages";
 import type { MessageKey } from "./en";
 
 export const de: Record<MessageKey, string> = {
   ...themeDe,
+  ...healthDe,
   subtitleHint: "Bis zu 160 Zeichen.",
   accentHint:
     "Text und Bedienelemente werden für einen barrierefreien Kontrast angepasst.",
@@ -264,7 +266,7 @@ export const de: Record<MessageKey, string> = {
   uploadHint:
     "PNG, WebP oder sicheres SVG, bis zu 1 MiB. Rastermaße dürfen höchstens 512 × 512 betragen.",
   faviconHint:
-    "Lade eine gespeicherte Favicon-Datei hoch. Nexa Home lädt niemals entfernte Symbole und fragt deine Dienste nicht ab.",
+    "Lade eine gespeicherte Favicon-Datei hoch. Nexa Home lädt niemals entfernte Symbole.",
   iconFile: "Symboldatei",
   uploading: "Wird hochgeladen…",
   iconUploaded: "Symbol hochgeladen.",

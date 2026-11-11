@@ -142,6 +142,57 @@ it("filters local text with safe highlights and supports search shortcuts and Es
   expect(document.querySelector("script")).toBeNull();
   expect(requests).toBe(1);
 });
+it("shows fresh health results, updates them, and marks failures unknown", async () => {
+  const serviceId = bootstrap.services[0]!.id;
+  let result = {
+    serviceId,
+    status: "up" as "up" | "down",
+    checkedAt: "2026-01-01T00:00:00.000000000Z",
+  };
+  let fail = false;
+  server.use(
+    http.get(apiURL("/public/bootstrap"), () =>
+      HttpResponse.json({
+        ...bootstrap,
+        health: [{ serviceId, status: "unknown", checkedAt: null }],
+      }),
+    ),
+    http.get(apiURL("/public/health"), () =>
+      fail ? denied(500, "INTERNAL_ERROR") : HttpResponse.json([result]),
+    ),
+  );
+  const { user } = renderRoutes(routes);
+  const available = await screen.findAllByText("Available");
+  expect(available[0]?.closest(".health-status")).toHaveAttribute(
+    "title",
+    expect.stringContaining("Last checked:"),
+  );
+  result = { ...result, status: "down" };
+  await queryClient.invalidateQueries({ queryKey: ["health"] });
+  expect((await screen.findAllByText("Unavailable")).length).toBeGreaterThan(0);
+  fail = true;
+  await queryClient.invalidateQueries({ queryKey: ["health"] });
+  expect((await screen.findAllByText("Status unknown")).length).toBeGreaterThan(
+    0,
+  );
+  await user.click(screen.getByRole("button", { name: "Language" }));
+  await user.click(screen.getByRole("menuitemradio", { name: "繁體中文" }));
+  expect((await screen.findAllByText("狀態未知")).length).toBeGreaterThan(0);
+});
+
+it("does not poll health when no visible service is monitored", async () => {
+  let calls = 0;
+  server.use(
+    http.get(apiURL("/public/health"), () => {
+      calls++;
+      return HttpResponse.json([]);
+    }),
+  );
+  renderRoutes(routes);
+  await screen.findByRole("searchbox");
+  expect(calls).toBe(0);
+});
+
 it("localizes the full homepage without storing private names or URLs", async () => {
   const { user } = renderRoutes(routes);
   await screen.findByRole("searchbox");

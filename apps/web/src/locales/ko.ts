@@ -1,8 +1,10 @@
 import { themeKo } from "./theme-messages";
+import { healthKo } from "./health-messages";
 import type { MessageKey } from "./en";
 
 export const ko: Record<MessageKey, string> = {
   ...themeKo,
+  ...healthKo,
   subtitleHint: "최대 160자입니다.",
   accentHint: "텍스트와 컨트롤은 읽기 쉬운 대비를 유지하도록 조정됩니다.",
   reloadSettingsHint:
@@ -250,7 +252,7 @@ export const ko: Record<MessageKey, string> = {
   uploadHint:
     "PNG, WebP 또는 안전한 SVG, 최대 1 MiB. 이미지 크기는 512 × 512 이하여야 합니다.",
   faviconHint:
-    "저장해 둔 파비콘 파일을 업로드하세요. 원격 아이콘을 가져오거나 서비스를 탐색하지 않습니다.",
+    "저장해 둔 파비콘 파일을 업로드하세요. 원격 아이콘은 가져오지 않습니다.",
   iconFile: "아이콘 파일",
   uploading: "업로드 중…",
   iconUploaded: "아이콘을 업로드했습니다.",

@@ -5,10 +5,10 @@ import YAML from 'yaml';
 
 const spec = YAML.parse(await readFile(new URL('../api/openapi.yaml', import.meta.url), 'utf8'));
 
-test('NH-023: all 32 operations have unique IDs and stable error responses', () => {
+test('NH-023: all 33 operations have unique IDs and stable error responses', () => {
   const operations = Object.values(spec.paths).flatMap(Object.values);
-  assert.equal(operations.length, 32);
-  assert.equal(new Set(operations.map((operation) => operation.operationId)).size, 32);
+  assert.equal(operations.length, 33);
+  assert.equal(new Set(operations.map((operation) => operation.operationId)).size, 33);
   for (const operation of operations) {
     assert.ok(operation.responses['500']);
     if (operation.requestBody) assert.ok(operation.responses['413']);

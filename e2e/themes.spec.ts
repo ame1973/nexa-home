@@ -410,16 +410,23 @@ test("safe appearance recovers a hidden administrator UI without deleting settin
   ).toBe(200);
   const logout = await post(page.request, app, "/auth/logout", {}, csrf);
   expect(logout.status()).toBe(204);
-  await page.evaluate(() =>
-    localStorage.setItem(
-      "nexa.appearance",
-      JSON.stringify({
-        themePreset: "custom",
-        customTheme: { broken: true },
-        customCSS: "body { display:none!important; }",
-      }),
-    ),
-  );
+  // Seed the corrupt cache on the new document, before its pre-paint script.
+  // The departing page can still persist its own bootstrap response meanwhile.
+  await page.addInitScript(() => {
+    if (
+      location.pathname === "/admin/appearance" &&
+      new URLSearchParams(location.search).get("appearance") === "safe"
+    ) {
+      localStorage.setItem(
+        "nexa.appearance",
+        JSON.stringify({
+          themePreset: "custom",
+          customTheme: { broken: true },
+          customCSS: "body { display:none!important; }",
+        }),
+      );
+    }
+  });
   await page.goto(`${app.url}/admin/appearance?appearance=safe`);
   await expect(
     page.getByRole("heading", { name: "Sign in", exact: true }),
@@ -431,6 +438,11 @@ test("safe appearance recovers a hidden administrator UI without deleting settin
   expect(
     (await page.request.get(`${app.url}/api/v1/admin/settings`)).status(),
   ).toBe(401);
+  expect(
+    await page.evaluate(
+      () => JSON.parse(localStorage.getItem("nexa.appearance")!).themePreset,
+    ),
+  ).toBe("custom");
   await page.getByRole("button", { name: "Theme styles", exact: true }).click();
   const recovery = page.getByRole("dialog", {
     name: "Your appearance",

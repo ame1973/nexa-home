@@ -8,6 +8,7 @@ export type Category = components["schemas"]["Category"];
 export type CategoryInput = components["schemas"]["CategoryInput"];
 export type Service = components["schemas"]["Service"];
 export type ServiceInput = components["schemas"]["ServiceInput"];
+export type HealthStatus = components["schemas"]["HealthStatus"];
 export type Tag = components["schemas"]["Tag"];
 export type Asset = components["schemas"]["Asset"];
 export type Backup = components["schemas"]["Backup"];
@@ -48,10 +49,12 @@ function expireSession(refreshBootstrap: boolean) {
     predicate: (query) =>
       query.queryKey[0] === "me" ||
       query.queryKey[0] === "admin" ||
+      query.queryKey[0] === "health" ||
       (refreshBootstrap && query.queryKey[0] === "bootstrap"),
   });
   queryClient.setQueryData(["me"], null);
   queryClient.removeQueries({ queryKey: ["admin"] });
+  queryClient.removeQueries({ queryKey: ["health"] });
   queryClient.getMutationCache().clear();
   queryClient.setQueryData(["bootstrap"], null);
   if (refreshBootstrap)
@@ -118,6 +121,7 @@ export async function clearSession() {
   csrfToken = "";
   await queryClient.cancelQueries();
   queryClient.removeQueries({ queryKey: ["admin"] });
+  queryClient.removeQueries({ queryKey: ["health"] });
   queryClient.getMutationCache().clear();
   queryClient.setQueryData(["session-expired"], false);
   queryClient.setQueryData(["me"], null);
@@ -209,6 +213,8 @@ export const api = {
       throw error;
     }
   },
+  health: (signal?: AbortSignal) =>
+    take(client.GET("/api/v1/public/health", { signal })),
   settings: () => take(client.GET("/api/v1/admin/settings")),
   saveSettings: (body: SettingsInput) =>
     take(
@@ -386,6 +392,8 @@ export const api = {
 export async function invalidateConfiguration() {
   await queryClient.invalidateQueries({
     predicate: (query) =>
-      query.queryKey[0] === "admin" || query.queryKey[0] === "bootstrap",
+      query.queryKey[0] === "admin" ||
+      query.queryKey[0] === "bootstrap" ||
+      query.queryKey[0] === "health",
   });
 }

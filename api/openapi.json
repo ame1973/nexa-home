@@ -933,7 +933,8 @@
                     "settings",
                     "categories",
                     "services",
-                    "tags"
+                    "tags",
+                    "health"
                   ],
                   "properties": {
                     "settings": {
@@ -955,6 +956,12 @@
                       "type": "array",
                       "items": {
                         "$ref": "#/components/schemas/Tag"
+                      }
+                    },
+                    "health": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/HealthStatus"
                       }
                     }
                   }
@@ -1025,6 +1032,91 @@
         },
         "security": [],
         "operationId": "getApiV1PublicBootstrap"
+      }
+    },
+    "/api/v1/public/health": {
+      "get": {
+        "tags": [
+          "public"
+        ],
+        "summary": "Latest check results for visible services; 401 in private mode",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/HealthStatus"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not authenticated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not permitted / CSRF failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Sanitized internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [],
+        "operationId": "getApiV1PublicHealth"
       }
     },
     "/api/v1/admin/settings": {
@@ -3932,6 +4024,40 @@
           },
           "isVisible": {
             "type": "boolean"
+          }
+        }
+      },
+      "HealthStatus": {
+        "type": "object",
+        "description": "Latest result only; unknown before the first check or when the result is stale.",
+        "additionalProperties": false,
+        "required": [
+          "serviceId",
+          "status",
+          "checkedAt"
+        ],
+        "properties": {
+          "serviceId": {
+            "$ref": "#/components/schemas/UUID"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "unknown",
+              "up",
+              "down"
+            ]
+          },
+          "checkedAt": {
+            "oneOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         }
       },

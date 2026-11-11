@@ -35,12 +35,15 @@ func (s *Server) serviceRoutes() {
 		return jsonResponse(w, 200, values[0])
 	})
 	s.route("DELETE", "/api/v1/admin/services/{id}", true, func(w http.ResponseWriter, r *http.Request, _ auth.Session) error {
+		s.healthMu.Lock()
+		defer s.healthMu.Unlock()
 		err := s.mutate(r, "service.delete", "service", r.PathValue("id"), func(tx *sql.Tx) error {
 			return changed(tx.ExecContext(r.Context(), "DELETE FROM services WHERE id=?", r.PathValue("id")))
 		})
 		if err != nil {
 			return err
 		}
+		s.health.set(r.PathValue("id"), nil)
 		w.WriteHeader(204)
 		return nil
 	})
@@ -159,6 +162,8 @@ func (s *Server) saveService(w http.ResponseWriter, r *http.Request, _ auth.Sess
 		status = 201
 	}
 	var value Service
+	s.healthMu.Lock()
+	defer s.healthMu.Unlock()
 	err := s.mutate(r, action, "service", id, func(tx *sql.Tx) error {
 		var position int
 		var created string
@@ -233,6 +238,7 @@ func (s *Server) saveService(w http.ResponseWriter, r *http.Request, _ auth.Sess
 	if err != nil {
 		return err
 	}
+	s.health.set(id, value.HealthCheck)
 	return jsonResponse(w, status, value)
 }
 

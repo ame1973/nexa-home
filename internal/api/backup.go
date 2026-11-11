@@ -275,6 +275,8 @@ func (s *Server) commitBackup(w http.ResponseWriter, r *http.Request, session au
 		}
 	}
 	var revision int64
+	s.healthMu.Lock()
+	defer s.healthMu.Unlock()
 	err = s.mutate(r, "backup.restore", "backup", "", func(tx *sql.Tx) error {
 		current, err := readSettings(r.Context(), tx)
 		if err != nil {
@@ -287,6 +289,7 @@ func (s *Server) commitBackup(w http.ResponseWriter, r *http.Request, session au
 	if err != nil {
 		return cleanup(err)
 	}
+	s.health.replace(pending.backup.Services)
 	if err := s.collectAssets(r.Context()); err != nil {
 		s.logger.WarnContext(r.Context(), "deferred orphan icon cleanup after restore")
 	}

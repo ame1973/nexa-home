@@ -115,18 +115,23 @@ func validateService(value *ServiceInput) error {
 	if !labels["primary"] {
 		return invalid("links", "Exactly one primary link is required")
 	}
-	if value.HealthCheck != nil {
-		normalized, err := security.URL(value.HealthCheck.URL)
-		if err != nil {
-			return invalid("healthCheck.url", "Use an absolute HTTP(S) URL without credentials or control characters")
-		}
-		if strings.Contains(value.HealthCheck.URL, "#") {
-			return invalid("healthCheck.url", "Health check URLs cannot contain a fragment")
-		}
-		if value.HealthCheck.IntervalSeconds < 30 || value.HealthCheck.IntervalSeconds > 86400 {
-			return invalid("healthCheck.intervalSeconds", "Use an interval from 30 to 86400 seconds")
-		}
-		value.HealthCheck.URL = normalized
+	return validateHealthCheck(value.HealthCheck)
+}
+
+func validateHealthCheck(check *HealthCheck) error {
+	if check == nil {
+		return nil
 	}
+	normalized, err := security.URL(check.URL)
+	if err != nil {
+		return invalid("healthCheck.url", "Use an absolute HTTP(S) URL without credentials or control characters")
+	}
+	if strings.Contains(check.URL, "#") {
+		return invalid("healthCheck.url", "Health check URLs cannot contain a fragment")
+	}
+	if check.IntervalSeconds < 30 || check.IntervalSeconds > 86400 {
+		return invalid("healthCheck.intervalSeconds", "Use an interval from 30 to 86400 seconds")
+	}
+	check.URL = normalized
 	return nil
 }

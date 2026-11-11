@@ -65,19 +65,28 @@ func (s *Server) settingsRoutes() {
 		return jsonResponse(w, 200, value)
 	})
 	s.route("GET", "/api/v1/public/bootstrap", false, s.bootstrap)
+	s.route("GET", "/api/v1/public/health", false, s.publicHealth)
 }
 
-func (s *Server) bootstrap(w http.ResponseWriter, r *http.Request, _ auth.Session) error {
+func (s *Server) publicSession(r *http.Request) (bool, error) {
 	initialized, err := s.auth.Initialized(r.Context())
 	if err != nil {
-		return err
+		return false, err
 	}
 	if !initialized {
-		return &problem{status: 403, code: "FORBIDDEN", message: "Complete protected setup before accessing the homepage"}
+		return false, &problem{status: 403, code: "FORBIDDEN", message: "Complete protected setup before accessing the homepage"}
 	}
 	_, sessionError := s.session(r)
 	if sessionError != nil && !errors.Is(sessionError, auth.ErrUnauthenticated) {
-		return sessionError
+		return false, sessionError
+	}
+	return sessionError == nil, nil
+}
+
+func (s *Server) bootstrap(w http.ResponseWriter, r *http.Request, _ auth.Session) error {
+	authenticated, err := s.publicSession(r)
+	if err != nil {
+		return err
 	}
 	var result Bootstrap
 	err = s.withTx(r.Context(), func(tx *sql.Tx) error {
@@ -86,7 +95,7 @@ func (s *Server) bootstrap(w http.ResponseWriter, r *http.Request, _ auth.Sessio
 		if err != nil {
 			return err
 		}
-		if result.Settings.AccessMode == "private" && sessionError != nil {
+		if result.Settings.AccessMode == "private" && !authenticated {
 			return auth.ErrUnauthenticated
 		}
 		result.Categories, err = readCategories(r.Context(), tx)
@@ -110,11 +119,15 @@ func (s *Server) bootstrap(w http.ResponseWriter, r *http.Request, _ auth.Sessio
 	usedCategories := make(map[string]bool)
 	usedTags := make(map[string]bool)
 	services := make([]Service, 0, len(result.Services))
+	result.Health = make([]HealthStatus, 0)
 	for _, service := range result.Services {
 		if !service.IsVisible || (service.CategoryID != nil && !visible[*service.CategoryID]) {
 			continue
 		}
 		// Health endpoints are administrator-only configuration, even on public sites.
+		if service.HealthCheck != nil {
+			result.Health = append(result.Health, s.health.status(service.ID, *service.HealthCheck))
+		}
 		service.HealthCheck = nil
 		services = append(services, service)
 		if service.CategoryID != nil {

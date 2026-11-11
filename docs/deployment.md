@@ -73,7 +73,19 @@ docker compose --env-file deploy/.env -f deploy/compose.yaml logs nexa-home
 
 Startup logs contain a live credential before initialization. Do not paste them into an issue or public terminal recording. Open your configured HTTPS origin at `/setup`, create the administrator, then sign in. No default account/password exists. The token expires after 30 minutes; restarting an uninitialized service issues a new token.
 
-The runtime is a scratch image: UID/GID `10001:10001`, private `/data`, no shell/Node/compiler/package manager, dropped capabilities, no-new-privileges and a read-only root filesystem. `/tmp` is a 16 MiB noexec/nosuid/nodev tmpfs. Compose provides a 512 MiB memory limit, 128-PID limit, bounded JSON logs and 40 seconds of stop grace for the application's 30-second drain. If you change deployment resources, test imports and graceful shutdown under the resulting limits.
+The runtime is a scratch image: UID/GID `10001:10001`, private `/data`, no shell/Node/compiler/package manager, dropped capabilities, no-new-privileges and a read-only root filesystem. It includes the pinned Go builder's system CA bundle so optional HTTPS service checks can verify public certificates; private CAs must be explicitly trusted by the container. Never disable TLS verification. `/tmp` is a 16 MiB noexec/nosuid/nodev tmpfs. Compose provides a 512 MiB memory limit, 128-PID limit, bounded JSON logs and 40 seconds of stop grace for the application's 30-second drain. If you change deployment resources, test imports and graceful shutdown under the resulting limits.
+
+For an HTTPS health endpoint signed by a private CA, a reviewed local Compose override can mount its **public CA certificate** beside the bundled roots; the file must exist and be readable by the container user. Never mount a CA private key, and trust only the intended CA:
+
+```yaml
+services:
+  nexa-home:
+    volumes:
+      - type: bind
+        source: ./my-service-ca.crt
+        target: /etc/ssl/certs/private-service-ca.crt
+        read_only: true
+```
 
 Do not add a Docker socket, privileged mode, host networking or unrelated host mounts. `docker compose exec ... sh` is not a maintenance interface; use `healthcheck`, `doctor` and the backup UI instead.
 

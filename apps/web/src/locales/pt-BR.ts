@@ -1,8 +1,10 @@
 import { themePtBR } from "./theme-messages";
+import { healthPtBR } from "./health-messages";
 import type { MessageKey } from "./en";
 
 export const ptBR: Record<MessageKey, string> = {
   ...themePtBR,
+  ...healthPtBR,
   subtitleHint: "Até 160 caracteres.",
   accentHint:
     "O texto e os controles são ajustados para manter um contraste acessível.",
@@ -260,7 +262,7 @@ export const ptBR: Record<MessageKey, string> = {
   uploadHint:
     "PNG, WebP ou SVG seguro, até 1 MiB. As dimensões das imagens raster não podem ultrapassar 512 × 512.",
   faviconHint:
-    "Envie um arquivo favicon salvo. O Nexa Home nunca busca ícones remotos nem sonda seus serviços.",
+    "Envie um arquivo favicon salvo. O Nexa Home nunca busca ícones remotos.",
   iconFile: "Arquivo de ícone",
   uploading: "Enviando…",
   iconUploaded: "Ícone enviado.",

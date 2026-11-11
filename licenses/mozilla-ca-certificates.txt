@@ -1,0 +1,100 @@
+Container CA certificate bundle
+
+Builder image: golang:1.27.4-alpine@sha256:0a5f7fe796599ff487605987432e7619ae45beeb2fba4c2ce0b907879932aebf
+Package: ca-certificates-bundle 20261020-r0
+Runtime file: /etc/ssl/certs/ca-certificates.crt
+Bundle SHA-256: 5961c0a3c65459931c023e0075c09733f09aea4ca439cb85bc4a08bb4f3f568b
+
+The pinned official builder's amd64 and arm64 SBOMs both identify Alpine's
+ca-certificates-bundle 20261020-r0 and the above file hash. The same bundle
+hash was verified against Alpine's published package. Alpine's package recipe
+identifies the bundle as Mozilla certificates, generated from the source below:
+
+https://github.com/alpinelinux/aports/blob/e78f5987166c6ffbe23f6472e2e8f040298fe2da/main/ca-certificates/APKBUILD
+https://distfiles.alpinelinux.org/distfiles/v3.24/ca-certificates-20261020.tar.bz2
+Source archive SHA-512: d28eb01751b1a914ffb5d8cb99e662f0a35a95148c21dcf98de1ab3108b54db9714a99472d07715023867f4f76a21f2a79a2bc1c7e9876ce5167fdd865ad2dd7
+
+The archive's certdata.txt matches Mozilla NSS tag NSS_3_131_1_RTM:
+https://github.com/nss-dev/nss/blob/NSS_3_131_1_RTM/lib/ckfw/builtins/certdata.txt
+certdata.txt SHA-256: 3ec2b4d240dc12c747eaf450061db84af757c483bbda302f9e29ceb5d70be510
+Its original notice is:
+
+This Source Code Form is subject to the terms of the Mozilla Public
+License, v. 2.0. If a copy of the MPL was not distributed with this
+file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+The full Mozilla Public License, version 2.0, is retained in MPL-2.0.txt and
+THIRD_PARTY_NOTICES.md. Alpine's recipe declares MPL-2.0 AND MIT, while the
+builder SBOM lists MIT OR MPL-2.0. The original notices and license texts for
+the source's MIT and curl-licensed certificate tooling are also retained below;
+the tooling itself is not shipped in the runtime image.
+
+From Alpine's ca-certificates-20261020/c_rehash.c:
+
+Copyright (c) 2013-2014 Timo Teräs <timo.teras@iki.fi>
+All rights reserved.
+
+This software is licensed under the MIT License.
+Full license available at: http://opensource.org/licenses/MIT
+
+MIT License
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+From Alpine's ca-certificates-20261020/mk-ca-bundle.pl:
+
+Copyright (C) Daniel Stenberg, <daniel@haxx.se>, et al.
+
+This software is licensed as described in the file COPYING, which
+you should have received as part of this distribution. The terms
+are also available at https://curl.se/docs/copyright.html.
+
+You may opt to use, copy, modify, merge, publish, distribute and/or sell
+copies of the Software, and permit persons to whom the Software is
+furnished to do so, under the terms of the COPYING file.
+
+This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
+KIND, either express or implied.
+
+SPDX-License-Identifier: curl
+
+The original curl license (https://curl.se/docs/copyright.html):
+
+COPYRIGHT AND PERMISSION NOTICE
+
+Copyright (c) 1996 - 2026, Daniel Stenberg, <daniel@haxx.se>, and many
+contributors, see the THANKS file.
+
+All rights reserved.
+
+Permission to use, copy, modify, and distribute this software for any purpose
+with or without fee is hereby granted, provided that the above copyright
+notice and this permission notice appear in all copies.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT OF THIRD PARTY RIGHTS. IN
+NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE
+OR OTHER DEALINGS IN THE SOFTWARE.
+
+Except as contained in this notice, the name of a copyright holder shall not
+be used in advertising or otherwise to promote the sale, use or other dealings
+in this Software without prior written authorization of the copyright holder.

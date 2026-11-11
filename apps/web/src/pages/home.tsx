@@ -1,10 +1,11 @@
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Link, Navigate } from "react-router-dom";
 import { Search, Star, X } from "lucide-react";
 import { useAppData } from "@/app/root";
 import { useI18n } from "@/app/preferences";
 import { filterServices, searchIndex } from "@/lib/search";
-import type { Service } from "@/lib/api/client";
+import { api, type Service } from "@/lib/api/client";
 import { Icon } from "@/lib/icons";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -13,6 +14,14 @@ import { ServiceTile } from "@/components/service-tile";
 
 export function HomePage() {
   const { setup, bootstrap } = useAppData();
+  const health = useQuery({
+    queryKey: ["health"],
+    queryFn: ({ signal }) => api.health(signal),
+    enabled: (bootstrap.data?.health.length ?? 0) > 0,
+    staleTime: 0,
+    refetchInterval: 15_000,
+    retry: false,
+  });
   const { t } = useI18n();
   const [query, setQuery] = useState("");
   const deferred = useDeferredValue(query);
@@ -76,6 +85,21 @@ export function HomePage() {
       </main>
     );
   const data = bootstrap.data;
+  const monitored = new Set(data.health.map((status) => status.serviceId));
+  const latest =
+    health.data && health.dataUpdatedAt >= bootstrap.dataUpdatedAt
+      ? health.data
+      : data.health;
+  const statuses = new Map(
+    latest
+      .filter((status) => monitored.has(status.serviceId))
+      .map((status) => [
+        status.serviceId,
+        health.isError || health.fetchStatus === "paused"
+          ? { ...status, status: "unknown" as const }
+          : status,
+      ]),
+  );
   const active = deferred.trim() !== "";
   const hour = new Date().getHours();
   const greeting =
@@ -107,6 +131,7 @@ export function HomePage() {
         <ServiceTile
           key={service.id}
           service={service}
+          health={statuses.get(service.id)}
           query={active ? deferred : ""}
         />
       ))}

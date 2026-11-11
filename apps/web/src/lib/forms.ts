@@ -30,12 +30,13 @@ export function safeNext(value: string | null): string {
 }
 
 export function serviceInput(service?: Service): ServiceInput {
-  if (!service) return { name: '', description: '', categoryId: null, iconKind: 'lucide', iconValue: 'app-window', iconAssetId: null, color: '#405B82', openMode: 'new_tab', isFavorite: false, isVisible: true, tagIds: [], links: [{ label: 'primary', url: '' }] };
+  if (!service) return { name: '', description: '', categoryId: null, iconKind: 'lucide', iconValue: 'app-window', iconAssetId: null, color: '#405B82', openMode: 'new_tab', isFavorite: false, isVisible: true, tagIds: [], links: [{ label: 'primary', url: '' }], healthCheck: null };
   return {
     name: service.name, description: service.description, categoryId: service.categoryId, iconKind: service.iconKind,
     iconValue: service.iconValue, iconAssetId: service.iconAssetId, color: service.color, openMode: service.openMode,
     isFavorite: service.isFavorite, isVisible: service.isVisible, tagIds: [...service.tagIds],
     links: service.links.map(({ label, url }) => ({ label, url })),
+    healthCheck: service.healthCheck ? { ...service.healthCheck } : null,
   };
 }
 export function settingsInput(settings: Settings): SettingsInput {
@@ -51,6 +52,10 @@ export function serviceErrors(value: ServiceInput): FieldErrors {
   for (const label of ['primary', 'lan', 'wan'] as const) {
     const link = value.links.find((link) => link.label === label);
     if ((label === 'primary' || link) && (!link || !validURL(link.url))) errors[label] = 'invalidUrl';
+  }
+  if (value.healthCheck) {
+    if (!validURL(value.healthCheck.url) || value.healthCheck.url.includes('#')) errors['healthCheck.url'] = 'invalidHealthUrl';
+    if (!Number.isInteger(value.healthCheck.intervalSeconds) || value.healthCheck.intervalSeconds < 30 || value.healthCheck.intervalSeconds > 86400) errors['healthCheck.intervalSeconds'] = 'invalidHealthInterval';
   }
   return errors;
 }

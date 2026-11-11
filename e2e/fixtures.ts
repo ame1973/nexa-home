@@ -209,7 +209,9 @@ export function backup(count = 6) {
     format: "nexa-home-backup",
     version: 1,
     exportedAt: stamp,
-    ...bootstrap,
+    settings: bootstrap.settings,
+    categories: bootstrap.categories,
+    tags: bootstrap.tags,
     services: fixtureServices(count),
     assets: [],
   };

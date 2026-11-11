@@ -73,7 +73,19 @@ docker compose --env-file deploy/.env -f deploy/compose.yaml logs nexa-home
 
 初始化前的啟動日誌包含有效憑證。請勿貼到 issue 或公開終端錄影。於已設定的 HTTPS Origin 開啟 `/setup`，建立管理員後登入。系統沒有預設帳戶／密碼。權杖 30 分鐘後到期；重新啟動尚未初始化的服務會產生新權杖。
 
-執行期採用 scratch 映像：UID／GID `10001:10001`、私有 `/data`、不含 shell／Node／編譯器／套件管理器、移除 capabilities、啟用 no-new-privileges，並使用唯讀根檔案系統。`/tmp` 是 16 MiB 的 noexec／nosuid／nodev tmpfs。Compose 提供 512 MiB 記憶體上限、128 個 PID 上限、有大小限制的 JSON 日誌，以及 40 秒停止寬限，讓應用程式完成 30 秒的關機收尾。若修改部署資源，請在新限制下測試匯入與正常關機。
+執行期採用 scratch 映像：UID／GID `10001:10001`、私有 `/data`、不含 shell／Node／編譯器／套件管理器、移除 capabilities、啟用 no-new-privileges，並使用唯讀根檔案系統。映像包含固定版本 Go 建置器的系統 CA 憑證集，讓可選的 HTTPS 服務檢查能驗證公開憑證；私人 CA 則須明確加入容器的信任設定。絕不可停用 TLS 驗證。`/tmp` 是 16 MiB 的 noexec／nosuid／nodev tmpfs。Compose 提供 512 MiB 記憶體上限、128 個 PID 上限、有大小限制的 JSON 日誌，以及 40 秒停止寬限，讓應用程式完成 30 秒的關機收尾。若修改部署資源，請在新限制下測試匯入與正常關機。
+
+若 HTTPS 健康檢查端點由私人 CA 簽署，可使用經審查的本機 Compose 覆寫設定，將其**公開 CA 憑證**掛載在內建憑證旁；檔案必須存在，且可由容器使用者讀取。絕不可掛載 CA 私密金鑰，只信任預期的 CA：
+
+```yaml
+services:
+  nexa-home:
+    volumes:
+      - type: bind
+        source: ./my-service-ca.crt
+        target: /etc/ssl/certs/private-service-ca.crt
+        read_only: true
+```
 
 請勿加入 Docker socket、特權模式、主機網路或無關主機掛載。`docker compose exec ... sh` 不是維護介面；請改用 `healthcheck`、`doctor` 與備份介面。
 

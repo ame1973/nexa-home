@@ -55,6 +55,87 @@ it("creates a complete typed service from valid fields and a live non-navigating
   });
   expect(saved).not.toHaveProperty("id");
 });
+it("enables a health check only with a valid endpoint and interval", async () => {
+  let saved: ServiceInput | undefined;
+  server.use(
+    http.post(apiURL("/admin/services"), async ({ request }) => {
+      saved = (await request.json()) as ServiceInput;
+      return HttpResponse.json(savedService(saved), { status: 201 });
+    }),
+  );
+  const { user, router } = renderRoutes(routes, "/admin/services/new");
+  await user.type(
+    await screen.findByRole("textbox", { name: "Name" }),
+    "Monitored NAS",
+  );
+  await user.type(
+    screen.getByLabelText("Primary URL"),
+    "https://nas.example.test",
+  );
+  await user.click(
+    screen.getByRole("switch", { name: "Monitor this service" }),
+  );
+  const address = screen.getByLabelText("Health check URL");
+  const interval = screen.getByLabelText("Check interval (seconds)");
+  expect(interval).toHaveValue(60);
+  fireEvent.change(address, {
+    target: { value: "https://nas.example.test/health#fragment" },
+  });
+  fireEvent.blur(address);
+  expect(address).toHaveAttribute("aria-invalid", "true");
+  expect(screen.getByRole("button", { name: "Save changes" })).toBeDisabled();
+  fireEvent.change(address, {
+    target: { value: "https://nas.example.test/health" },
+  });
+  fireEvent.change(interval, { target: { value: "29" } });
+  fireEvent.blur(interval);
+  expect(interval).toHaveAttribute("aria-invalid", "true");
+  fireEvent.change(interval, { target: { value: "86401" } });
+  expect(screen.getByRole("button", { name: "Save changes" })).toBeDisabled();
+  fireEvent.change(interval, { target: { value: "30" } });
+  await user.click(screen.getByRole("button", { name: "Save changes" }));
+  await waitFor(() => expect(router.state.location.pathname).toBe("/admin"));
+  expect(saved?.healthCheck).toEqual({
+    url: "https://nas.example.test/health",
+    intervalSeconds: 30,
+  });
+});
+
+it("explicitly disables an existing health check without changing its service links", async () => {
+  const current = {
+    ...fixtureServices(1)[0]!,
+    healthCheck: {
+      url: "https://nas.example.test/health",
+      intervalSeconds: 120,
+    },
+  };
+  let saved: ServiceInput | undefined;
+  server.use(
+    http.get(apiURL(`/admin/services/${current.id}`), () =>
+      HttpResponse.json(current),
+    ),
+    http.put(apiURL(`/admin/services/${current.id}`), async ({ request }) => {
+      saved = (await request.json()) as ServiceInput;
+      return HttpResponse.json(savedService(saved, current.id));
+    }),
+  );
+  const { user, router } = renderRoutes(
+    routes,
+    `/admin/services/${current.id}`,
+  );
+  const toggle = await screen.findByRole("switch", {
+    name: "Monitor this service",
+  });
+  expect(toggle).toBeChecked();
+  expect(screen.getByLabelText("Check interval (seconds)")).toHaveValue(120);
+  await user.click(toggle);
+  expect(screen.queryByLabelText("Health check URL")).not.toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "Save changes" }));
+  await waitFor(() => expect(router.state.location.pathname).toBe("/admin"));
+  expect(saved?.healthCheck).toBeNull();
+  expect(saved?.links[0]?.url).toBe(current.links[0]?.url);
+});
+
 it("validates on blur, focuses the first invalid field on submit and blocks unsafe URLs", async () => {
   renderRoutes(routes, "/admin/services/new");
   const name = await screen.findByRole("textbox", { name: "Name" });

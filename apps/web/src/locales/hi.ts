@@ -1,8 +1,10 @@
 import { themeHi } from "./theme-messages";
+import { healthHi } from "./health-messages";
 import type { MessageKey } from "./en";
 
 export const hi: Record<MessageKey, string> = {
   ...themeHi,
+  ...healthHi,
   subtitleHint: "अधिकतम 160 अक्षर।",
   accentHint:
     "पाठ और नियंत्रणों को पढ़ने योग्य कंट्रास्ट के लिए समायोजित किया जाता है।",
@@ -257,7 +259,7 @@ export const hi: Record<MessageKey, string> = {
   uploadHint:
     "PNG, WebP या सुरक्षित SVG, अधिकतम 1 MiB। रास्टर चित्र अधिकतम 512 × 512 होने चाहिए।",
   faviconHint:
-    "पहले से सहेजी फ़ेविकॉन फ़ाइल अपलोड करें। Nexa Home कभी दूरस्थ आइकन नहीं लाता और आपकी सेवाओं की जाँच नहीं करता।",
+    "पहले से सहेजी फ़ेविकॉन फ़ाइल अपलोड करें। Nexa Home कभी दूरस्थ आइकन नहीं लाता।",
   iconFile: "आइकन फ़ाइल",
   uploading: "अपलोड हो रहा है…",
   iconUploaded: "आइकन अपलोड हो गया।",

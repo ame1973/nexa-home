@@ -1,9 +1,11 @@
 import { themeAr } from "./theme-messages";
+import { healthAr } from "./health-messages";
 import type { MessageKey } from "./en";
 
 // Isolate LTR ranges and technical literals so RTL never reverses their meaning.
 export const ar: Record<MessageKey, string> = {
   ...themeAr,
+  ...healthAr,
   subtitleHint: "بحد أقصى 160 حرفًا.",
   accentHint: "يُضبط النص وعناصر التحكم للحفاظ على تباين يسهل قراءته.",
   reloadSettingsHint:
@@ -251,8 +253,7 @@ export const ar: Record<MessageKey, string> = {
   searchIcons: "البحث في أسماء الأيقونات…",
   uploadHint:
     "PNG أو WebP أو SVG آمن، بحد أقصى \u{2066}1 MiB\u{2069}. يجب ألا تتجاوز أبعاد الصور النقطية \u{2066}512 × 512\u{2069}.",
-  faviconHint:
-    "رفع ملف أيقونة موقع محفوظ. لا يجلب Nexa Home أيقونات بعيدة ولا يفحص خدماتك مطلقًا.",
+  faviconHint: "ارفع ملف أيقونة موقع محفوظًا. لا يجلب Nexa Home أيقونات بعيدة.",
   iconFile: "ملف الأيقونة",
   uploading: "جارٍ الرفع…",
   iconUploaded: "تم رفع الأيقونة.",

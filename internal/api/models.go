@@ -108,9 +108,16 @@ type ServicePage struct {
 	Page     int       `json:"page"`
 	PageSize int       `json:"pageSize"`
 }
+type HealthStatus struct {
+	ServiceID string  `json:"serviceId"`
+	Status    string  `json:"status"`
+	CheckedAt *string `json:"checkedAt"`
+}
+
 type Bootstrap struct {
-	Settings   Settings   `json:"settings"`
-	Categories []Category `json:"categories"`
-	Services   []Service  `json:"services"`
-	Tags       []Tag      `json:"tags"`
+	Settings   Settings       `json:"settings"`
+	Categories []Category     `json:"categories"`
+	Services   []Service      `json:"services"`
+	Tags       []Tag          `json:"tags"`
+	Health     []HealthStatus `json:"health"`
 }

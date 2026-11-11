@@ -7,6 +7,7 @@ export const denied = (status = 401, code = 'UNAUTHENTICATED') => HttpResponse.j
 export const server = setupServer(
   http.get(apiURL('/setup/status'), () => HttpResponse.json({ initialized: true })),
   http.get(apiURL('/public/bootstrap'), () => HttpResponse.json(bootstrap)),
+  http.get(apiURL('/public/health'), () => HttpResponse.json(bootstrap.health)),
   http.get(apiURL('/auth/me'), () => denied()),
   http.get(apiURL('/admin/categories'), () => HttpResponse.json(bootstrap.categories)),
   http.get(apiURL('/admin/tags'), () => HttpResponse.json(bootstrap.tags)),
