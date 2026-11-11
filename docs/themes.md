@@ -10,17 +10,17 @@ Use a release whose notes include theme presets/custom CSS, or build the corresp
 
 ## Five built-in styles
 
-Each preset has independently designed light and dark palettes. **System** follows the browser device's color-scheme preference.
+Each preset has independently designed light and dark palettes, a distinct homepage layout and action feedback. On narrow screens the layouts adapt to the available space; reduced-motion preferences suppress animation. **System** follows the browser device's color-scheme preference.
 
-| Style        | Preset ID      | Character                                             | Base radius | Shadow |
-| ------------ | -------------- | ----------------------------------------------------- | ----------- | ------ |
-| Future Glass | `future-glass` | Cool blue, translucent surfaces and a restrained glow | 16 px       | Soft   |
-| Graphite     | `graphite`     | Neutral gray, solid surfaces and crisp boundaries     | 12 px       | None   |
-| Tide         | `tide`         | Mist blue, teal and lightly translucent surfaces      | 16 px       | Soft   |
-| Forest       | `forest`       | Muted greens and quiet, defined edges                 | 12 px       | None   |
-| Dune         | `dune`         | Sand, amber and solid warm surfaces                   | 20 px       | Soft   |
+| Style        | Preset ID      | Homepage character                                | Base radius | Shadow |
+| ------------ | -------------- | ------------------------------------------------- | ----------- | ------ |
+| Future Glass | `future-glass` | Translucent console with grouped service cards    | 16 px       | Soft   |
+| Graphite     | `graphite`     | Compact gray index with horizontal service rows   | 12 px       | None   |
+| Tide         | `tide`         | Teal sections with side headings on wider screens | 16 px       | Soft   |
+| Forest       | `forest`       | Green grouped shelves with compact service rows   | 12 px       | None   |
+| Dune         | `dune`         | Centered warm gallery with large service icons    | 20 px       | Soft   |
 
-Density and glass remain independent settings. Disabling glass forces solid surfaces; enabling it allows the selected material, so Graphite/Dune still stay opaque. Custom token themes use solid surfaces for predictable contrast. The Future Glass accent field preserves existing installations; customize a copy to change either palette of another style. Controls, cards, dialogs, menus and notifications share the semantic tokens and derived corner scale. System fonts, reduced motion and Arabic RTL remain supported.
+Density and glass remain independent settings. Disabling glass forces solid surfaces; enabling it allows the selected material, so Graphite/Dune still stay opaque. Custom token themes use solid surfaces and the grouped launcher layout for predictable contrast. **Customize a copy** copies colors, radius and shadow, not the preset's layout; advanced CSS can change the layout separately. The Future Glass accent field preserves existing installations; customize a copy to change either palette of another style. Controls, cards, dialogs, menus and notifications share the semantic tokens and derived corner scale. System fonts and Arabic RTL remain supported.
 
 ## Your browser versus site defaults
 

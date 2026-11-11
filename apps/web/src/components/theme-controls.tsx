@@ -57,7 +57,12 @@ function ThemeSample({
   const style = window.NexaTheme.tokens(value, mode) as CSSProperties;
   if (miniature)
     return (
-      <span className="theme-miniature" style={style} aria-hidden="true">
+      <span
+        className="theme-miniature"
+        data-preset={value.themePreset ?? "future-glass"}
+        style={style}
+        aria-hidden="true"
+      >
         <i />
         <span />
         <span />

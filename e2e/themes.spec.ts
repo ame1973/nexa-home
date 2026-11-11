@@ -94,7 +94,7 @@ for (const [preset, name] of presets)
 test("preset layouts and interaction feedback differ without changing service order", async ({
   page,
   app,
-}) => {
+}, testInfo) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.emulateMedia({ reducedMotion: "no-preference" });
   await seed(page, app);
@@ -108,13 +108,35 @@ test("preset layouts and interaction feedback differ without changing service or
     );
   const original = await destinations();
   const layouts = new Set<string>();
+  const miniatures = new Set<string>();
 
   for (const [preset, name] of presets) {
     await page
       .getByRole("button", { name: "Theme styles", exact: true })
       .click();
     const dialog = page.getByRole("dialog", { name: "Your appearance" });
-    await dialog.getByRole("button", { name, exact: true }).click();
+    const button = dialog.getByRole("button", { name, exact: true });
+    const miniature = button.locator(".theme-miniature").first();
+    await expect(miniature).toHaveAttribute("data-preset", preset);
+    expect(await button.getAttribute("aria-description")).toBeTruthy();
+    miniatures.add(
+      await miniature.evaluate((element) => {
+        const heading = element.querySelector<HTMLElement>("i")!;
+        const card = element.querySelector<HTMLElement>("span")!;
+        return JSON.stringify({
+          columns:
+            getComputedStyle(element).gridTemplateColumns.split(" ").length,
+          headingRow: getComputedStyle(heading).gridRow,
+          cardRadius: getComputedStyle(card).borderRadius,
+        });
+      }),
+    );
+    if (preset === "future-glass") {
+      await dialog.screenshot({
+        path: testInfo.outputPath("theme-layout-previews.png"),
+      });
+    }
+    await button.click();
     await dialog
       .getByRole("button", { name: "Use in this browser", exact: true })
       .click();
@@ -180,6 +202,7 @@ test("preset layouts and interaction feedback differ without changing service or
     await expect(first).toBeFocused();
   }
   expect(layouts.size).toBe(presets.length);
+  expect(miniatures.size).toBe(presets.length);
 });
 
 test("all presets support RTL, large text and landscape on the built application", async ({

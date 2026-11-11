@@ -19,16 +19,16 @@ One Go process, local SQLite, and no separate database service.
 
 ## Features
 
-| Make it yours              | What Nexa Home provides                                                                                                       |
-| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| **Organize your services** | Favorites, categories, tags, keyboard ordering, and desktop drag-and-drop ordering.                                           |
-| **Find a link quickly**    | Search names, descriptions, categories, and tags entirely in the browser without fetching saved service links.                |
-| **Monitor availability**   | Optionally check a separately configured HTTP(S) endpoint and show its latest status on the homepage.                         |
-| **Choose your look**       | Five light/dark presets, custom token themes, optional glass effects, and advanced CSS with safe recovery.                    |
-| **Use your language**      | Twelve interface languages, including Traditional/Simplified Chinese and Arabic right-to-left layouts.                        |
-| **Control access**         | One administrator, protected first-run setup, and a public or private homepage.                                               |
-| **Pick your icons**        | Built-in Lucide icons and validated PNG, JPG/JPEG, WebP, or inert SVG uploads. Favicons are uploaded, never fetched remotely. |
-| **Keep a portable copy**   | JSON export with local icons, validated restore previews, and explicit confirmation before replacement.                       |
+| Make it yours              | What Nexa Home provides                                                                                                           |
+| -------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| **Organize your services** | Favorites, categories, tags, keyboard ordering, and desktop drag-and-drop ordering.                                               |
+| **Find a link quickly**    | Search names, descriptions, categories, and tags entirely in the browser without fetching saved service links.                    |
+| **Monitor availability**   | Optionally check a separately configured HTTP(S) endpoint and show its latest status on the homepage.                             |
+| **Choose your look**       | Five distinct layouts with light/dark palettes, custom token themes, optional glass effects, and advanced CSS with safe recovery. |
+| **Use your language**      | Twelve interface languages, including Traditional/Simplified Chinese and Arabic right-to-left layouts.                            |
+| **Control access**         | One administrator, protected first-run setup, and a public or private homepage.                                                   |
+| **Pick your icons**        | Built-in Lucide icons and validated PNG, JPG/JPEG, WebP, or inert SVG uploads. Favicons are uploaded, never fetched remotely.     |
+| **Keep a portable copy**   | JSON export with local icons, validated restore previews, and explicit confirmation before replacement.                           |
 
 <details>
 <summary>Scope and limitations</summary>
