@@ -447,6 +447,12 @@ export interface components {
             icon: string;
             isVisible: boolean;
         };
+        /** @description Explicit administrator-configured HTTP(S) health endpoint. Never exposed in public homepage data. */
+        HealthCheck: {
+            /** @description Absolute HTTP(S) URL without credentials, controls or a fragment. */
+            url: string;
+            intervalSeconds: number;
+        };
         ServiceLinkInput: {
             /** @enum {string} */
             label: "primary" | "lan" | "wan";
@@ -467,6 +473,8 @@ export interface components {
             isFavorite: boolean;
             isVisible: boolean;
             tagIds: components["schemas"]["UUID"][];
+            /** @description Omit to preserve an existing check; null disables it. */
+            healthCheck?: components["schemas"]["HealthCheck"] | null;
             /** @description Exactly one primary, optional lan/wan, no duplicate labels */
             links: components["schemas"]["ServiceLinkInput"][];
         };
@@ -490,6 +498,7 @@ export interface components {
             isFavorite: boolean;
             isVisible: boolean;
             tagIds: components["schemas"]["UUID"][];
+            healthCheck?: components["schemas"]["HealthCheck"] | null;
             links: components["schemas"]["ServiceLink"][];
             id: components["schemas"]["UUID"];
             position: number;
@@ -574,12 +583,12 @@ export interface components {
         ReorderInput: {
             ids: components["schemas"]["UUID"][];
         };
-        /** @description Exports use version 2 and include the shared preset, custom token definition and advanced CSS. Version 1 imports remain supported and default to Future Glass without custom CSS. Browser-only preferences and themes are never exported. */
+        /** @description Exports use version 3 and include explicit health checks, shared preset, custom tokens and advanced CSS. Versions 1 and 2 import without health checks; version 1 defaults to Future Glass without custom CSS. Browser-only preferences and status history are never exported. */
         Backup: {
             /** @constant */
             format: "nexa-home-backup";
             /** @enum {integer} */
-            version: 1 | 2;
+            version: 1 | 2 | 3;
             /** Format: date-time */
             exportedAt: string;
             settings: components["schemas"]["Settings"];

@@ -49,7 +49,7 @@ type stagedImport struct {
 }
 
 func configuration(ctx context.Context, tx *sql.Tx) (Backup, []storedAsset, error) {
-	value := Backup{Format: "nexa-home-backup", Version: 2, ExportedAt: db.Timestamp(time.Now()), Assets: make([]BackupAsset, 0)}
+	value := Backup{Format: "nexa-home-backup", Version: 3, ExportedAt: db.Timestamp(time.Now()), Assets: make([]BackupAsset, 0)}
 	var err error
 	value.Settings, err = readSettings(ctx, tx)
 	if err != nil {
@@ -344,6 +344,11 @@ func replaceConfiguration(ctx context.Context, tx *sql.Tx, value Backup, images 
 	for _, service := range value.Services {
 		if _, err := tx.ExecContext(ctx, `INSERT INTO services(id,name,description,category_id,icon_kind,icon_value,icon_asset_id,color,open_mode,is_favorite,is_visible,position,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, service.ID, service.Name, service.Description, service.CategoryID, service.IconKind, service.IconValue, service.IconAssetID, service.Color, service.OpenMode, service.IsFavorite, service.IsVisible, service.Position, service.CreatedAt, service.UpdatedAt); err != nil {
 			return err
+		}
+		if service.HealthCheck != nil {
+			if _, err := tx.ExecContext(ctx, "INSERT INTO service_health_checks(service_id,url,interval_seconds) VALUES(?,?,?)", service.ID, service.HealthCheck.URL, service.HealthCheck.IntervalSeconds); err != nil {
+				return err
+			}
 		}
 		for position, link := range service.Links {
 			if _, err := tx.ExecContext(ctx, "INSERT INTO service_links(id,service_id,label,url,position) VALUES(?,?,?,?,?)", link.ID, service.ID, link.Label, link.URL, position); err != nil {

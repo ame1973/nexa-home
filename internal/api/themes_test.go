@@ -41,8 +41,8 @@ func TestThemeSettingsCASPublicProjectionAndBackupRoundtrip(t *testing.T) {
 		t.Fatal("public appearance differs from persisted settings")
 	}
 	backup := h.export()
-	if backup.Version != 2 {
-		t.Fatal("new appearance was not exported as backup version 2")
+	if backup.Version != 3 {
+		t.Fatal("new appearance was not exported as backup version 3")
 	}
 	preview := readResponse[struct {
 		Summary map[string]int `json:"summary"`

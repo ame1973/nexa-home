@@ -203,6 +203,16 @@ func (s *Server) saveService(w http.ResponseWriter, r *http.Request, _ auth.Sess
 				return err
 			}
 		}
+		if input.healthCheckProvided {
+			if _, err := tx.ExecContext(r.Context(), "DELETE FROM service_health_checks WHERE service_id=?", id); err != nil {
+				return err
+			}
+			if input.HealthCheck != nil {
+				if _, err := tx.ExecContext(r.Context(), "INSERT INTO service_health_checks(service_id,url,interval_seconds) VALUES(?,?,?)", id, input.HealthCheck.URL, input.HealthCheck.IntervalSeconds); err != nil {
+					return err
+				}
+			}
+		}
 		for i, link := range input.Links {
 			if _, err := tx.ExecContext(r.Context(), "INSERT INTO service_links(id,service_id,label,url,position) VALUES(?,?,?,?,?)", uuid.NewString(), id, link.Label, link.URL, i); err != nil {
 				return err

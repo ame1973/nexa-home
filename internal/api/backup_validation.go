@@ -14,7 +14,7 @@ import (
 func nameKey(name string) string { return cases.Fold().String(name) }
 
 func validateImport(value *Backup) (map[string]assets.Image, error) {
-	if value.Format != "nexa-home-backup" || (value.Version != 1 && value.Version != 2) {
+	if value.Format != "nexa-home-backup" || (value.Version != 1 && value.Version != 2 && value.Version != 3) {
 		return nil, invalid("version", "Unsupported backup format or version")
 	}
 	if len(value.Services) > MaxServices || len(value.Categories) > MaxCatalogEntries || len(value.Tags) > MaxCatalogEntries || len(value.Assets) > MaxAssets {
@@ -23,7 +23,8 @@ func validateImport(value *Backup) (map[string]assets.Image, error) {
 	if err := validateSettings(&value.Settings.SettingsFields); err != nil {
 		return nil, err
 	}
-	value.Version = 2
+	legacy := value.Version < 3
+	value.Version = 3
 	ids := make(map[string]bool)
 	register := func(id, field string) error {
 		if !validID(id) || ids[id] {
@@ -99,6 +100,9 @@ func validateImport(value *Backup) (map[string]assets.Image, error) {
 	}
 	for i := range value.Services {
 		service := &value.Services[i]
+		if legacy && service.HealthCheck != nil {
+			return nil, invalid("services", "Health checks require backup version 3")
+		}
 		if err := register(service.ID, fmt.Sprintf("services.%d.id", i)); err != nil {
 			return nil, err
 		}

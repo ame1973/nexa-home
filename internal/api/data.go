@@ -84,11 +84,11 @@ func readServices(ctx context.Context, tx *sql.Tx, id string) ([]Service, error)
 	where, childrenWhere := "", ""
 	var args []any
 	if id != "" {
-		where = " WHERE id=?"
+		where = " WHERE s.id=?"
 		childrenWhere = " WHERE service_id=?"
 		args = []any{id}
 	}
-	rows, err := tx.QueryContext(ctx, `SELECT id,name,description,category_id,icon_kind,icon_value,icon_asset_id,color,open_mode,is_favorite,is_visible,position,created_at,updated_at FROM services`+where+" ORDER BY position,id", args...)
+	rows, err := tx.QueryContext(ctx, `SELECT s.id,s.name,s.description,s.category_id,s.icon_kind,s.icon_value,s.icon_asset_id,s.color,s.open_mode,s.is_favorite,s.is_visible,s.position,s.created_at,s.updated_at,h.url,h.interval_seconds FROM services s LEFT JOIN service_health_checks h ON h.service_id=s.id`+where+" ORDER BY s.position,s.id", args...)
 	if err != nil {
 		return nil, err
 	}
@@ -96,9 +96,14 @@ func readServices(ctx context.Context, tx *sql.Tx, id string) ([]Service, error)
 	index := make(map[string]int)
 	for rows.Next() {
 		var value Service
-		if err := rows.Scan(&value.ID, &value.Name, &value.Description, &value.CategoryID, &value.IconKind, &value.IconValue, &value.IconAssetID, &value.Color, &value.OpenMode, &value.IsFavorite, &value.IsVisible, &value.Position, &value.CreatedAt, &value.UpdatedAt); err != nil {
+		var checkURL sql.NullString
+		var interval sql.NullInt64
+		if err := rows.Scan(&value.ID, &value.Name, &value.Description, &value.CategoryID, &value.IconKind, &value.IconValue, &value.IconAssetID, &value.Color, &value.OpenMode, &value.IsFavorite, &value.IsVisible, &value.Position, &value.CreatedAt, &value.UpdatedAt, &checkURL, &interval); err != nil {
 			rows.Close()
 			return nil, err
+		}
+		if checkURL.Valid && interval.Valid {
+			value.HealthCheck = &HealthCheck{URL: checkURL.String, IntervalSeconds: int(interval.Int64)}
 		}
 		value.Links = make([]Link, 0)
 		value.TagIDs = make([]string, 0)

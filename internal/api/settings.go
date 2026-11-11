@@ -114,6 +114,8 @@ func (s *Server) bootstrap(w http.ResponseWriter, r *http.Request, _ auth.Sessio
 		if !service.IsVisible || (service.CategoryID != nil && !visible[*service.CategoryID]) {
 			continue
 		}
+		// Health endpoints are administrator-only configuration, even on public sites.
+		service.HealthCheck = nil
 		services = append(services, service)
 		if service.CategoryID != nil {
 			usedCategories[*service.CategoryID] = true

@@ -1499,6 +1499,21 @@ components:
           maxLength: 80
         isVisible:
           type: boolean
+    HealthCheck:
+      type: object
+      description: Explicit administrator-configured HTTP(S) health endpoint. Never exposed in public homepage data.
+      additionalProperties: false
+      required: [url, intervalSeconds]
+      properties:
+        url:
+          type: string
+          minLength: 8
+          maxLength: 2048
+          description: Absolute HTTP(S) URL without credentials, controls or a fragment.
+        intervalSeconds:
+          type: integer
+          minimum: 30
+          maximum: 86400
     ServiceLinkInput:
       type: object
       additionalProperties: false
@@ -1577,6 +1592,11 @@ components:
           uniqueItems: true
           items:
             $ref: '#/components/schemas/UUID'
+        healthCheck:
+          description: Omit to preserve an existing check; null disables it.
+          oneOf:
+          - $ref: '#/components/schemas/HealthCheck'
+          - type: 'null'
         links:
           type: array
           minItems: 1
@@ -1633,6 +1653,10 @@ components:
         isFavorite: *id017
         isVisible: *id018
         tagIds: *id019
+        healthCheck:
+          oneOf:
+          - $ref: '#/components/schemas/HealthCheck'
+          - type: 'null'
         links:
           type: array
           items:
@@ -1859,12 +1883,12 @@ components:
             $ref: '#/components/schemas/UUID'
     Backup:
       type: object
-      description: Exports use version 2 and include the shared preset, custom token definition and advanced CSS. Version 1 imports remain supported and default to Future Glass without custom CSS. Browser-only preferences and themes are never exported.
+      description: Exports use version 3 and include explicit health checks, shared preset, custom tokens and advanced CSS. Versions 1 and 2 import without health checks; version 1 defaults to Future Glass without custom CSS. Browser-only preferences and status history are never exported.
       allOf:
       - if:
           properties:
             version:
-              const: 2
+              enum: [2, 3]
         then:
           properties:
             settings:
@@ -1885,7 +1909,7 @@ components:
           const: nexa-home-backup
         version:
           type: integer
-          enum: [1, 2]
+          enum: [1, 2, 3]
         exportedAt:
           type: string
           format: date-time

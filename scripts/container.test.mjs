@@ -330,7 +330,7 @@ test(
         },
       });
       const exported = await api("/admin/backup/export?includeAssets=true");
-      assert.equal(exported.version, 2);
+      assert.equal(exported.version, 3);
       assert.equal(exported.settings.themePreset, "custom");
       assert.deepEqual(exported.settings.customTheme, customTheme);
       assert.equal(exported.settings.customCSS, customCSS);

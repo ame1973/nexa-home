@@ -1,5 +1,7 @@
 package api
 
+import "encoding/json"
+
 // Shared fields keep mutation and response models aligned. Contract tests remain
 // authoritative; response-only IDs, positions, and timestamps are never inputs.
 type SettingsFields struct {
@@ -43,18 +45,24 @@ type Tag struct {
 	CreatedAt string `json:"createdAt"`
 }
 
+type HealthCheck struct {
+	URL             string `json:"url"`
+	IntervalSeconds int    `json:"intervalSeconds"`
+}
+
 type ServiceFields struct {
-	Name        string   `json:"name"`
-	Description string   `json:"description"`
-	CategoryID  *string  `json:"categoryId"`
-	IconKind    string   `json:"iconKind"`
-	IconValue   string   `json:"iconValue"`
-	IconAssetID *string  `json:"iconAssetId"`
-	Color       string   `json:"color"`
-	OpenMode    string   `json:"openMode"`
-	IsFavorite  bool     `json:"isFavorite"`
-	IsVisible   bool     `json:"isVisible"`
-	TagIDs      []string `json:"tagIds"`
+	Name        string       `json:"name"`
+	Description string       `json:"description"`
+	CategoryID  *string      `json:"categoryId"`
+	IconKind    string       `json:"iconKind"`
+	IconValue   string       `json:"iconValue"`
+	IconAssetID *string      `json:"iconAssetId"`
+	Color       string       `json:"color"`
+	OpenMode    string       `json:"openMode"`
+	IsFavorite  bool         `json:"isFavorite"`
+	IsVisible   bool         `json:"isVisible"`
+	TagIDs      []string     `json:"tagIds"`
+	HealthCheck *HealthCheck `json:"healthCheck,omitempty"`
 }
 type LinkInput struct {
 	Label string `json:"label"`
@@ -66,8 +74,26 @@ type Link struct {
 }
 type ServiceInput struct {
 	ServiceFields
-	Links []LinkInput `json:"links"`
+	Links               []LinkInput `json:"links"`
+	healthCheckProvided bool
 }
+
+// UnmarshalJSON distinguishes explicit null (disable) from an older client omitting the field.
+func (value *ServiceInput) UnmarshalJSON(data []byte) error {
+	type plain ServiceInput
+	var presence struct {
+		HealthCheck json.RawMessage `json:"healthCheck"`
+	}
+	if err := json.Unmarshal(data, &presence); err != nil {
+		return err
+	}
+	if err := json.Unmarshal(data, (*plain)(value)); err != nil {
+		return err
+	}
+	value.healthCheckProvided = presence.HealthCheck != nil
+	return nil
+}
+
 type Service struct {
 	ServiceFields
 	ID        string `json:"id"`

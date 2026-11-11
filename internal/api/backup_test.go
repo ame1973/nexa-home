@@ -177,7 +177,7 @@ func TestBackupInvalidInputsDoNotMutateConfiguration(t *testing.T) {
 		change func(*Backup)
 	}{
 		{"wrong format", func(v *Backup) { v.Format = "other" }},
-		{"unsupported version", func(v *Backup) { v.Version = 3 }},
+		{"unsupported version", func(v *Backup) { v.Version = 4 }},
 		{"duplicate category ID", func(v *Backup) { v.Categories = append(v.Categories, v.Categories[0]) }},
 		{"duplicate category name", func(v *Backup) {
 			copy := v.Categories[0]
