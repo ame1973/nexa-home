@@ -8,8 +8,10 @@ Notable user-visible changes are recorded here. Versions follow Semantic Version
 
 ### Added
 
+- Independently selectable color palettes and homepage layouts, with translucent glass, responsive hover/focus/press feedback and reduced-motion/transparency support.
+- Shared and browser-local PNG/JPEG/WebP background images with explicit preview, safe recovery and storage limits. Full backups now use version 4 and include the shared image; versions 1–3 remain importable.
 - JPG/JPEG icon uploads are validated, oriented using EXIF and stored as metadata-free PNG; portable backups keep the normalized PNG.
-- Opt-in service health checks with a separate trusted HTTP(S) endpoint, configurable interval and latest homepage status. Backup version 3 retains the configuration; versions 1 and 2 remain importable.
+- Opt-in service health checks with a separate trusted HTTP(S) endpoint, configurable interval and latest homepage status. Backup versions 3 and later retain the configuration; versions 1 and 2 remain importable.
 - Simplified Chinese, Japanese, Korean, Spanish, French, German, Brazilian Portuguese, Russian, Arabic and Hindi interfaces, alongside Traditional Chinese and English.
 - Browser-language detection with Chinese script/region handling, persistent per-browser language selection and native language names in the menu.
 - Arabic right-to-left navigation, dialogs, tables, controls and keyboard interaction, with left-to-right URLs and color codes.
