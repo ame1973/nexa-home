@@ -209,7 +209,7 @@ export const fr: Record<MessageKey, string> = {
   comfortable: "Aérée",
   glass: "Effets de verre",
   glassHint:
-    "Un peu de transparence dans l’en-tête, la recherche et les dialogues. Les cartes restent lisibles.",
+    "Les panneaux et cartes translucides et floutés laissent apparaître le fond. La transparence réduite utilise des surfaces opaques.",
   appearanceSaved: "Apparence enregistrée.",
   reset: "Réinitialiser les modifications",
   reloadSettings: "Recharger les paramètres",
@@ -233,9 +233,9 @@ export const fr: Record<MessageKey, string> = {
   backupIntro:
     "Une copie portable de votre configuration. Les identifiants et les sessions ne sont jamais inclus.",
   exportBackup: "Exporter la sauvegarde",
-  includeIcons: "Inclure les fichiers d’icônes",
+  includeIcons: "Inclure les icônes et le fond du site",
   exportHint:
-    "Incluez les icônes pour une restauration complète. La configuration entière est limitée à 16 MiB.",
+    "Incluez les images pour une restauration complète. La configuration entière est limitée à 16 MiB.",
   exported: "Téléchargement de la sauvegarde lancé.",
   restoreBackup: "Restaurer une sauvegarde",
   backupFile: "Fichier JSON de sauvegarde",

@@ -4,6 +4,12 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useI18n, usePreferences } from "@/app/preferences";
 import { ThemeControls } from "@/components/theme-controls";
+import { BackgroundPicker } from "@/components/background-picker";
+import {
+  backgroundBase64,
+  sharedBackgroundURL,
+  useBackgroundDraft,
+} from "@/lib/background";
 import { appearanceChoice } from "@/lib/themes";
 import {
   api,
@@ -93,7 +99,21 @@ function AppearanceForm({ settings }: { settings: Settings }) {
   const form = useRef<HTMLFormElement>(null);
   const draft = useDraft(settingsInput(settings));
   const value = draft.value;
-  const guard = useUnsaved(draft.dirty);
+  const backgroundRevision = useRef<number | null>(null);
+  const background = useBackgroundDraft(() => {
+    backgroundRevision.current ??= value.expectedRevision;
+    setPreview(null);
+  });
+  const [encoding, setEncoding] = useState(false);
+  const [backgroundError, setBackgroundError] = useState(false);
+  const backgroundChanged = background.selection.kind !== "keep";
+  const dirty =
+    draft.dirty ||
+    backgroundChanged ||
+    background.loading ||
+    background.invalid ||
+    backgroundError;
+  const guard = useUnsaved(dirty);
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [reload, setReload] = useState(false);
   const titleValid = validText(value.siteTitle, 1, 80);
@@ -107,11 +127,22 @@ function AppearanceForm({ settings }: { settings: Settings }) {
     onSuccess: async (saved) => {
       queryClient.setQueryData(["admin", "settings"], saved);
       setPreview(null);
+      background.select("keep");
+      backgroundRevision.current = null;
+      setBackgroundError(false);
       draft.reset();
       await invalidateConfiguration();
       toast.success(t("appearanceSaved"));
     },
   });
+  const busy = mutation.isPending || encoding || background.loading;
+  const siteBackground = sharedBackgroundURL(settings.backgroundImage);
+  const previewBackground =
+    background.selection.kind === "file"
+      ? { backgroundPreview: background.selection.url }
+      : background.selection.kind === "none"
+        ? { backgroundPreview: null }
+        : {};
   const update = <K extends keyof SettingsInput>(
     field: K,
     next: SettingsInput[K],
@@ -134,7 +165,7 @@ function AppearanceForm({ settings }: { settings: Settings }) {
     setTouched((current) => ({ ...current, [name]: true }));
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (mutation.isPending) return;
+    if (busy || background.invalid) return;
     setTouched({ siteTitle: true, siteSubtitle: true, accent: true });
     if (!titleValid || !subtitleValid || !colorValid || !appearanceValid) {
       requestAnimationFrame(() => {
@@ -142,7 +173,29 @@ function AppearanceForm({ settings }: { settings: Settings }) {
       });
       return;
     }
-    mutation.mutate(value);
+    const selection = background.selection;
+    setBackgroundError(false);
+    setEncoding(true);
+    void (async () => {
+      try {
+        const upload =
+          selection.kind === "file"
+            ? await backgroundBase64(selection.image)
+            : selection.kind === "none"
+              ? null
+              : undefined;
+        mutation.mutate({
+          ...value,
+          expectedRevision:
+            backgroundRevision.current ?? value.expectedRevision,
+          ...(upload === undefined ? {} : { backgroundUpload: upload }),
+        });
+      } catch {
+        setBackgroundError(true);
+      } finally {
+        setEncoding(false);
+      }
+    })();
   };
   return (
     <>
@@ -164,7 +217,7 @@ function AppearanceForm({ settings }: { settings: Settings }) {
         onSubmit={submit}
         className="form-stack max-w-2xl"
       >
-        <fieldset disabled={mutation.isPending} className="form-stack">
+        <fieldset disabled={busy} className="form-stack">
           <section className="form-section">
             <h2>{t("globalSettings")}</h2>
             <Field
@@ -271,9 +324,26 @@ function AppearanceForm({ settings }: { settings: Settings }) {
             </div>
           </section>
           <p className="field-hint">{t("siteAppearanceHint")}</p>
+          <BackgroundPicker
+            draft={background}
+            scope="site"
+            currentURL={siteBackground}
+            siteURL={siteBackground}
+            currentKind={siteBackground ? "site" : "none"}
+            disabled={busy}
+          />
+          {backgroundError && (
+            <p role="alert" className="error-text">
+              {t("backgroundInvalid")}
+            </p>
+          )}
           <ThemeControls
             value={appearanceChoice(value)}
-            appearance={value}
+            appearance={{
+              ...value,
+              backgroundImage: settings.backgroundImage,
+              ...previewBackground,
+            }}
             onChange={(next) => {
               draft.update({ ...value, ...next });
               mutation.reset();
@@ -281,13 +351,16 @@ function AppearanceForm({ settings }: { settings: Settings }) {
           />
         </fieldset>
         <div className="form-actions">
-          {draft.dirty && <span className="muted">{t("unsaved")}</span>}
+          {dirty && <span className="muted">{t("unsaved")}</span>}
           <Button
             type="button"
             variant="outline"
-            disabled={!draft.dirty || mutation.isPending}
+            disabled={!dirty || busy}
             onClick={() => {
               setPreview(null);
+              background.select("keep");
+              backgroundRevision.current = null;
+              setBackgroundError(false);
               draft.reset();
               mutation.reset();
               setTouched({});
@@ -298,15 +371,16 @@ function AppearanceForm({ settings }: { settings: Settings }) {
           <Button
             type="submit"
             disabled={
-              !draft.dirty ||
+              !dirty ||
               !titleValid ||
               !subtitleValid ||
               !colorValid ||
               !appearanceValid ||
-              mutation.isPending
+              background.invalid ||
+              busy
             }
           >
-            {mutation.isPending ? t("saving") : t("save")}
+            {busy ? t("saving") : t("save")}
           </Button>
         </div>
       </form>
@@ -323,6 +397,9 @@ function AppearanceForm({ settings }: { settings: Settings }) {
             staleTime: 0,
           });
           setPreview(null);
+          background.select("keep");
+          backgroundRevision.current = null;
+          setBackgroundError(false);
           draft.reset();
           mutation.reset();
           setTouched({});

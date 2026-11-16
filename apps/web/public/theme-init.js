@@ -30,12 +30,12 @@
     },
   };
   const materials = {
-    'future-glass': [16, 'soft', .75, 14, .13],
-    graphite: [12, 'none', 1, 0, 0],
-    tide: [16, 'soft', .92, 10, .06],
-    forest: [12, 'none', .96, 6, .03],
-    dune: [20, 'soft', 1, 0, 0],
-    custom: [16, 'soft', 1, 0, 0],
+    'future-glass': [16, 'soft', .70, 24, .22],
+    graphite: [12, 'none', .70, 22, .10],
+    tide: [16, 'soft', .70, 24, .16],
+    forest: [12, 'none', .70, 22, .11],
+    dune: [20, 'soft', .70, 22, .10],
+    custom: [16, 'soft', .70, 22, .10],
   };
   const isHex = (value) => typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value);
   const rgb = (value) => [1, 3, 5].map((offset) => parseInt(value.slice(offset, offset + 2), 16));
@@ -72,7 +72,9 @@
     return bytes(JSON.stringify(value)) <= 16384;
   };
   const validCSS = (value) => typeof value === 'string' && !value.includes('\0') && value.isWellFormed() && bytes(value) <= 65536;
-  const validPersonal = (value) => keys(value, ['themePreset', 'customTheme', 'customCSS']) && [...presets, 'custom'].includes(value.themePreset) && (value.customTheme === null || validTheme(value.customTheme)) && (value.themePreset !== 'custom' || validTheme(value.customTheme)) && validCSS(value.customCSS);
+  const uuid = (value) => typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(value);
+  const layoutFor = (preset) => presets.includes(preset) ? preset : 'future-glass';
+  const validPersonal = (value) => object(value) && ['themePreset', 'customTheme', 'customCSS'].every((name) => Object.hasOwn(value, name)) && Object.keys(value).every((name) => ['themePreset', 'customTheme', 'customCSS', 'layoutPreset', 'glassEnabled', 'background'].includes(name)) && [...presets, 'custom'].includes(value.themePreset) && (value.customTheme === null || validTheme(value.customTheme)) && (value.themePreset !== 'custom' || validTheme(value.customTheme)) && validCSS(value.customCSS) && (!Object.hasOwn(value, 'layoutPreset') || presets.includes(value.layoutPreset)) && (!Object.hasOwn(value, 'glassEnabled') || typeof value.glassEnabled === 'boolean') && (!Object.hasOwn(value, 'background') || ['site', 'none'].includes(value.background) || uuid(value.background));
   const parseTheme = (source) => {
     if (typeof source !== 'string' || bytes(source) > 16384) throw new Error('Invalid theme');
     const value = JSON.parse(source);
@@ -99,7 +101,7 @@
     const variant = (mode) => ({ background: palettes[id][mode][0], surface: palettes[id][mode][1], accent: palettes[id][mode][5] });
     return { schemaVersion: 1, name, variants: { light: variant('light'), dark: variant('dark') }, radius: materials[id][0], shadow: materials[id][1] };
   };
-  const tokens = (appearance, mode) => {
+  const tokens = (appearance, mode, wallpaper = false) => {
     const custom = appearance?.themePreset === 'custom' && validTheme(appearance?.customTheme) ? appearance.customTheme : null;
     const id = custom ? 'custom' : presets.includes(appearance?.themePreset) ? appearance.themePreset : 'future-glass';
     let colors;
@@ -116,15 +118,29 @@
       accent = appearance.accent;
       if (accent.toLowerCase() === '#8b9fff' && mode === 'light') accent = palettes[id].light[5];
     }
-    const backgrounds = [background, surface, elevated];
-    const [radius, shadow, opacity, blur, glow] = materials[id];
+    const [radius, shadow, baseOpacity, blur, glow] = materials[id];
+    let opacity = mode === 'light' ? .76 : baseOpacity;
+    let backgrounds = [background, surface, elevated];
+    if (wallpaper && appearance?.glassEnabled !== false) {
+      // Account for both extremes of an unknown image beneath the page tint.
+      const tint = mode === 'light' ? .55 : .48;
+      const withImage = () => [background, surface, elevated, ...['#000000', '#ffffff'].map((edge) => mix(mix(edge, background, tint), surface, opacity))];
+      backgrounds = withImage();
+      while (opacity < 1 && minimum(ink(backgrounds), backgrounds) < 4.5) {
+        opacity = Math.min(1, Math.round((opacity + .01) * 100) / 100);
+        backgrounds = withImage();
+      }
+      text = readable(text, backgrounds, 4.5);
+      secondary = readable(secondary, backgrounds, 4.5);
+      control = readable(control, backgrounds, 3);
+    }
     return {
       '--bg': background, '--surface': surface, '--surface-elevated': elevated,
       '--text-primary': text, '--text-secondary': secondary,
       '--border': mix(surface, text, mode === 'light' ? .14 : .18), '--control-border': control,
       '--accent': accent, '--accent-ink': readable(accent, backgrounds, 4.5), '--primary-foreground': foreground(accent),
       '--danger': readable(mode === 'light' ? '#ba304a' : '#ff7185', backgrounds, 4.5), '--focus': readable(accent, backgrounds, 3),
-      '--glass-surface': `rgb(${rgb(surface).join(' ')} / ${mode === 'light' ? Math.max(opacity, .88) : opacity})`, '--glass-blur': `${blur}px`, '--glow': String(glow),
+      '--glass-surface': `rgb(${rgb(surface).join(' ')} / ${opacity})`, '--glass-blur': `${blur}px`, '--glow': String(glow),
       '--overlay': mode === 'light' ? 'rgb(24 32 51 / 44%)' : 'rgb(4 8 15 / 64%)',
       '--radius': `${custom?.radius ?? radius}px`,
       '--shadow': (custom?.shadow ?? shadow) === 'none' ? 'none' : mode === 'light' ? '0 12px 40px rgb(24 32 51 / 7%)' : '0 12px 40px rgb(0 0 0 / 12%)',
@@ -147,6 +163,8 @@
     if (typeof stored.glassEnabled === 'boolean') value.glassEnabled = stored.glassEnabled;
     const validStyle = !Object.hasOwn(stored, 'themePreset') || presets.includes(stored.themePreset) || (stored.themePreset === 'custom' && validTheme(stored.customTheme));
     if (Object.hasOwn(stored, 'themePreset')) value.themePreset = validStyle ? stored.themePreset : 'future-glass';
+    if (presets.includes(stored.layoutPreset)) value.layoutPreset = stored.layoutPreset;
+    if (typeof stored.backgroundImage === 'string' && /^([a-f0-9]{64})?$/.test(stored.backgroundImage)) value.backgroundImage = stored.backgroundImage;
     if (Object.hasOwn(stored, 'customTheme')) value.customTheme = validStyle && validTheme(stored.customTheme) ? stored.customTheme : null;
     if (Object.hasOwn(stored, 'customCSS')) value.customCSS = validStyle && validCSS(stored.customCSS) ? stored.customCSS : '';
     return value;
@@ -155,18 +173,35 @@
     const value = readJSON('nexa.personalAppearance');
     return validPersonal(value) ? value : null;
   };
-  const apply = (appearance, override, personal) => {
-    let effective = validPersonal(personal) ? { ...appearance, ...personal, accent: undefined } : appearance;
-    if (safeMode) effective = { ...effective, themePreset: 'future-glass', customTheme: null, customCSS: '', accent: undefined, glassEnabled: false, cardDensity: 'comfortable' };
+  const apply = (appearance, override, personal, localBackgroundURL) => {
+    const selected = validPersonal(personal) ? personal : null;
+    let effective = selected ? { ...appearance, ...selected, layoutPreset: selected.layoutPreset ?? layoutFor(selected.themePreset), accent: undefined } : appearance;
+    if (safeMode) effective = { ...effective, themePreset: 'future-glass', layoutPreset: 'future-glass', customTheme: null, customCSS: '', backgroundImage: '', backgroundPreview: null, accent: undefined, glassEnabled: false, cardDensity: 'comfortable' };
     const preference = ['dark', 'light', 'system'].includes(override) ? override : ['dark', 'light', 'system'].includes(effective?.theme) ? effective.theme : 'dark';
     const theme = preference === 'system' ? (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : preference;
     root.dataset.theme = theme;
     root.dataset.themePreset = effective?.themePreset === 'custom' && validTheme(effective?.customTheme) ? 'custom' : presets.includes(effective?.themePreset) ? effective.themePreset : 'future-glass';
+    root.dataset.layoutPreset = presets.includes(effective?.layoutPreset) ? effective.layoutPreset : layoutFor(effective?.themePreset);
     root.classList.toggle('dark', theme === 'dark');
     root.dataset.glass = effective?.glassEnabled === false ? 'false' : 'true';
     root.dataset.density = effective?.cardDensity === 'compact' ? 'compact' : 'comfortable';
     root.dataset.safeAppearance = String(safeMode);
-    for (const [name, value] of Object.entries(tokens(effective, theme))) root.style.setProperty(name, value);
+    const localBlob = (value) => typeof value === 'string' && typeof location.origin === 'string' && value.startsWith(`blob:${location.origin}/`) && /^blob:[^\s"'()\\]+$/.test(value);
+    let wallpaper = '';
+    let wallpaperKind = 'none';
+    if (!safeMode && effective?.backgroundPreview !== undefined) {
+      if (localBlob(effective.backgroundPreview)) { wallpaper = effective.backgroundPreview; wallpaperKind = 'preview'; }
+    } else if (!safeMode && selected?.background === 'none') {
+      wallpaperKind = 'none';
+    } else if (!safeMode && uuid(selected?.background)) {
+      if (localBlob(localBackgroundURL)) { wallpaper = localBackgroundURL; wallpaperKind = 'personal'; }
+    } else if (!safeMode && typeof effective?.backgroundImage === 'string' && /^[a-f0-9]{64}$/.test(effective.backgroundImage)) {
+      wallpaper = `/api/v1/public/background/${effective.backgroundImage}`;
+      wallpaperKind = 'site';
+    }
+    root.dataset.wallpaper = wallpaperKind;
+    root.style.setProperty('--wallpaper-image', wallpaper ? `url(${JSON.stringify(wallpaper)})` : 'none');
+    for (const [name, value] of Object.entries(tokens(effective, theme, !safeMode))) root.style.setProperty(name, value);
     const css = validCSS(effective?.customCSS) ? effective.customCSS : '';
     let style = document.getElementById('nexa-custom-css');
     if (!css) style?.remove();

@@ -206,7 +206,7 @@ export const ja: Record<MessageKey, string> = {
   comfortable: "ゆったり",
   glass: "ガラス効果",
   glassHint:
-    "ヘッダー、検索、ダイアログに控えめな透明感を加えます。カードの読みやすさは保ちます。",
+    "半透明で背景をぼかしたパネルとカードに背景が透けます。透明度を下げる設定では不透明になります。",
   appearanceSaved: "外観を保存しました。",
   reset: "変更をリセット",
   reloadSettings: "設定を再読み込み",
@@ -229,9 +229,9 @@ export const ja: Record<MessageKey, string> = {
   backupIntro:
     "設定の持ち運び可能なコピーです。認証情報とセッションは含みません。",
   exportBackup: "バックアップを出力",
-  includeIcons: "アイコンファイルを含める",
+  includeIcons: "アイコンとサイトの背景画像を含める",
   exportHint:
-    "完全に復元できるようアイコンを含めてください。設定全体の上限は 16 MiB です。",
+    "完全に復元できるよう画像を含めてください。設定全体の上限は 16 MiB です。",
   exported: "バックアップのダウンロードを開始しました。",
   restoreBackup: "バックアップを復元",
   backupFile: "バックアップ JSON ファイル",

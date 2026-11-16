@@ -140,6 +140,44 @@ it("preserves conflicting custom theme/CSS drafts until explicit reload without 
   expect(css).toHaveValue("body { --other: 1; }");
 });
 
+it("keeps the original revision for a background-only draft and clears it on conflict reload", async () => {
+  let current: Settings = { ...settings, backgroundImage: "a".repeat(64) };
+  const saved: SettingsInput[] = [];
+  server.use(
+    http.get(apiURL("/admin/settings"), () => HttpResponse.json(current)),
+    http.put(apiURL("/admin/settings"), async ({ request }) => {
+      saved.push((await request.json()) as SettingsInput);
+      return denied(409, "REVISION_CONFLICT");
+    }),
+  );
+  const { user } = renderRoutes(routes, "/appearance");
+  await user.click(
+    await screen.findByRole("button", { name: "No background image" }),
+  );
+  current = { ...current, revision: 2, backgroundImage: "b".repeat(64) };
+  await queryClient.fetchQuery({
+    queryKey: ["admin", "settings"],
+    queryFn: async () => current,
+    staleTime: 0,
+  });
+  await user.click(screen.getByRole("button", { name: "Save changes" }));
+  await screen.findByRole("alert");
+  expect(saved[0]).toMatchObject({
+    expectedRevision: 1,
+    backgroundUpload: null,
+  });
+  await user.click(screen.getByRole("button", { name: "Reload settings" }));
+  await user.click(
+    within(screen.getByRole("alertdialog")).getByRole("button", {
+      name: "Reload settings",
+    }),
+  );
+  await waitFor(() =>
+    expect(screen.getByRole("button", { name: "Save changes" })).toBeDisabled(),
+  );
+  expect(screen.getByRole("status")).toHaveTextContent("Using site background");
+});
+
 it("preserves shared custom theme and CSS while changing unrelated access settings", async () => {
   const current: Settings = {
     ...settings,

@@ -29,7 +29,7 @@ function prepaint({
   const context = {
     document,
     window: {} as Window,
-    location: { search },
+    location: { search, origin: "https://home.example.test" },
     URLSearchParams,
     TextEncoder,
     matchMedia: () => ({ matches: dark }),
@@ -132,6 +132,74 @@ describe("shared pre-paint theme engine", () => {
       }
     }
     expect(backgrounds.size).toBe(10);
+  });
+
+  it("keeps glass text and controls readable against both extremes of a background image", () => {
+    const { theme } = prepaint();
+    const custom = theme.definition("tide", "Near the contrast boundary");
+    custom.variants.light = {
+      background: "#ffffff",
+      surface: "#777777",
+      accent: "#808080",
+    };
+    custom.variants.dark = {
+      background: "#000000",
+      surface: "#757575",
+      accent: "#808080",
+    };
+    expect(theme.validTheme(custom)).toBe(true);
+    const mix = (a: string, b: string, amount: number) =>
+      "#" +
+      [1, 3, 5]
+        .map((index) => {
+          const start = parseInt(a.slice(index, index + 2), 16);
+          const end = parseInt(b.slice(index, index + 2), 16);
+          return Math.round(start + (end - start) * amount)
+            .toString(16)
+            .padStart(2, "0");
+        })
+        .join("");
+    for (const appearance of [
+      ...theme.presets.map((themePreset) => ({ themePreset })),
+      { themePreset: "custom" as const, customTheme: custom },
+    ]) {
+      for (const mode of ["dark", "light"] as const) {
+        const tokens = theme.tokens(appearance, mode, true);
+        const opacity = Number(
+          tokens["--glass-surface"]!.match(/\/ ([\d.]+)\)/)![1],
+        );
+        const surfaces = [
+          tokens["--bg"]!,
+          tokens["--surface"]!,
+          tokens["--surface-elevated"]!,
+        ];
+        for (const edge of ["#000000", "#ffffff"]) {
+          const tint = mix(
+            edge,
+            tokens["--bg"]!,
+            mode === "light" ? 0.55 : 0.48,
+          );
+          surfaces.push(mix(tint, tokens["--surface"]!, opacity));
+        }
+        for (const background of surfaces) {
+          for (const color of [
+            "--text-primary",
+            "--text-secondary",
+            "--accent-ink",
+            "--danger",
+          ])
+            expect(
+              theme.contrast(tokens[color]!, background),
+              `${appearance.themePreset} ${mode} ${color}`,
+            ).toBeGreaterThanOrEqual(4.5);
+          for (const color of ["--control-border", "--focus"])
+            expect(
+              theme.contrast(tokens[color]!, background),
+              `${appearance.themePreset} ${mode} ${color}`,
+            ).toBeGreaterThanOrEqual(3);
+        }
+      }
+    }
   });
 
   it("derives readable semantic tokens even for extreme custom colors", () => {
@@ -254,6 +322,58 @@ describe("shared pre-paint theme engine", () => {
     expect(document.documentElement.dataset.themePreset).toBe("dune");
   });
 
+  it("keeps palette, layout and wallpaper independent before paint", () => {
+    const hash = "a".repeat(64);
+    const { document, theme } = prepaint({
+      stored: {
+        "nexa.appearance": JSON.stringify({
+          themePreset: "tide",
+          layoutPreset: "forest",
+          backgroundImage: hash,
+        }),
+      },
+    });
+    const root = document.documentElement;
+    expect(root.dataset.themePreset).toBe("tide");
+    expect(root.dataset.layoutPreset).toBe("forest");
+    expect(root.dataset.wallpaper).toBe("site");
+    expect(root.style.getPropertyValue("--wallpaper-image")).toContain(
+      `/api/v1/public/background/${hash}`,
+    );
+    theme.apply({
+      themePreset: "graphite",
+      layoutPreset: "dune",
+      backgroundImage: hash,
+    });
+    expect(root.dataset.themePreset).toBe("graphite");
+    expect(root.dataset.layoutPreset).toBe("dune");
+    theme.apply({ themePreset: "forest", backgroundImage: hash }, null, {
+      ...personal("tide"),
+      layoutPreset: "graphite",
+      background: "none",
+    });
+    expect(root.dataset.themePreset).toBe("tide");
+    expect(root.dataset.layoutPreset).toBe("graphite");
+    expect(root.dataset.wallpaper).toBe("none");
+    expect(root.style.getPropertyValue("--wallpaper-image")).toBe("none");
+    theme.apply({
+      themePreset: "forest",
+      backgroundPreview: "blob:https://other.test/unsafe",
+    });
+    expect(root.dataset.wallpaper).toBe("none");
+    theme.apply({
+      themePreset: "forest",
+      backgroundPreview: "blob:https://home.example.test/1234",
+    });
+    expect(root.dataset.wallpaper).toBe("preview");
+    expect(
+      theme.validPersonal({
+        ...personal("tide"),
+        background: "https://evil.test/image",
+      }),
+    ).toBe(false);
+  });
+
   it("applies legacy mode and personal style before paint, without inheriting site CSS", () => {
     const { document, theme } = prepaint({
       dark: true,
@@ -269,9 +389,11 @@ describe("shared pre-paint theme engine", () => {
     });
     expect(document.documentElement.dataset.theme).toBe("dark");
     expect(document.documentElement.dataset.themePreset).toBe("tide");
+    expect(document.documentElement.dataset.layoutPreset).toBe("tide");
     expect(document.getElementById("nexa-custom-css")).toBeNull();
     theme.apply(theme.readAppearance(), null, null);
     expect(document.documentElement.dataset.themePreset).toBe("forest");
+    expect(document.documentElement.dataset.layoutPreset).toBe("forest");
     expect(document.getElementById("nexa-custom-css")).not.toBeNull();
   });
 

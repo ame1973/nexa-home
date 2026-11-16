@@ -200,7 +200,7 @@ export const ko: Record<MessageKey, string> = {
   comfortable: "여유롭게",
   glass: "유리 효과",
   glassHint:
-    "헤더, 검색, 대화 상자에만 약간의 투명 효과를 더합니다. 카드의 가독성은 유지됩니다.",
+    "반투명하고 흐린 패널과 카드로 배경이 비칩니다. 투명도 줄이기 설정에서는 불투명하게 표시됩니다.",
   appearanceSaved: "화면 설정을 저장했습니다.",
   reset: "변경 초기화",
   reloadSettings: "설정 다시 불러오기",
@@ -222,9 +222,9 @@ export const ko: Record<MessageKey, string> = {
   backupIntro:
     "이동 가능한 설정 사본입니다. 인증 정보와 세션은 포함되지 않습니다.",
   exportBackup: "백업 내보내기",
-  includeIcons: "아이콘 파일 포함",
+  includeIcons: "아이콘 및 사이트 배경 이미지 포함",
   exportHint:
-    "완전히 복원할 수 있도록 아이콘을 포함하세요. 전체 설정의 상한은 16 MiB입니다.",
+    "완전히 복원할 수 있도록 이미지를 포함하세요. 전체 설정의 상한은 16 MiB입니다.",
   exported: "백업 다운로드를 시작했습니다.",
   restoreBackup: "백업 복원",
   backupFile: "백업 JSON 파일",

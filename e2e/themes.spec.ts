@@ -13,6 +13,14 @@ const presets = [
   ["dune", "Dune"],
 ] as const;
 
+const layouts = [
+  ["future-glass", "Grouped cards"],
+  ["graphite", "Compact index"],
+  ["tide", "Side headings"],
+  ["forest", "Shelves"],
+  ["dune", "Centered gallery"],
+] as const;
+
 for (const [preset, name] of presets)
   for (const mode of ["dark", "light"] as const) {
     test(`theme ${preset} ${mode}: real selection persistence contrast and responsive controls`, async ({
@@ -107,18 +115,18 @@ test("preset layouts and interaction feedback differ without changing service or
       elements.map((element) => element.getAttribute("href")),
     );
   const original = await destinations();
-  const layouts = new Set<string>();
+  const geometrySignatures = new Set<string>();
   const miniatures = new Set<string>();
 
-  for (const [preset, name] of presets) {
+  for (const [preset, name] of layouts) {
     await page
       .getByRole("button", { name: "Theme styles", exact: true })
       .click();
     const dialog = page.getByRole("dialog", { name: "Your appearance" });
+    await dialog.getByRole("button", { name: "Tide", exact: true }).click();
     const button = dialog.getByRole("button", { name, exact: true });
     const miniature = button.locator(".theme-miniature").first();
-    await expect(miniature).toHaveAttribute("data-preset", preset);
-    expect(await button.getAttribute("aria-description")).toBeTruthy();
+    await expect(miniature).toHaveAttribute("data-layout", preset);
     miniatures.add(
       await miniature.evaluate((element) => {
         const heading = element.querySelector<HTMLElement>("i")!;
@@ -142,10 +150,14 @@ test("preset layouts and interaction feedback differ without changing service or
       .click();
     await expect(page.locator("html")).toHaveAttribute(
       "data-theme-preset",
+      "tide",
+    );
+    await expect(page.locator("html")).toHaveAttribute(
+      "data-layout-preset",
       preset,
     );
     expect(await destinations()).toEqual(original);
-    layouts.add(
+    geometrySignatures.add(
       await page.evaluate(() => {
         const collections =
           document.querySelector<HTMLElement>(".home-collections")!;
@@ -201,8 +213,8 @@ test("preset layouts and interaction feedback differ without changing service or
     await page.keyboard.press("Tab");
     await expect(first).toBeFocused();
   }
-  expect(layouts.size).toBe(presets.length);
-  expect(miniatures.size).toBe(presets.length);
+  expect(geometrySignatures.size).toBe(layouts.length);
+  expect(miniatures.size).toBe(layouts.length);
 });
 
 test("all presets support RTL, large text and landscape on the built application", async ({

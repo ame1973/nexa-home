@@ -200,7 +200,7 @@ export const en = {
   comfortable: "Comfortable",
   glass: "Glass effects",
   glassHint:
-    "A little transparency on the header, search and dialogs. Cards stay readable.",
+    "Translucent, blurred panels and cards reveal the background. Reduced transparency uses solid surfaces.",
   appearanceSaved: "Appearance saved.",
   reset: "Reset changes",
   reloadSettings: "Reload settings",
@@ -223,9 +223,9 @@ export const en = {
   backupIntro:
     "A portable copy of your configuration. Credentials and sessions are never included.",
   exportBackup: "Export backup",
-  includeIcons: "Include icon files",
+  includeIcons: "Include icons and site background",
   exportHint:
-    "Keep icons included for a fully restorable backup. The full configuration is limited to 16 MiB.",
+    "Include images for a fully restorable backup. The full configuration is limited to 16 MiB.",
   exported: "Backup download started.",
   restoreBackup: "Restore backup",
   backupFile: "Backup JSON file",

@@ -1,4 +1,7 @@
+import * as appearance from "./appearance-messages";
+
 export const themeEn = {
+  ...appearance.appearanceEn,
   themeStyles: "Theme styles",
   themeStylesHint:
     "Choose a style. Light/dark mode, density and glass stay independent.",
@@ -7,11 +10,6 @@ export const themeEn = {
   themeTide: "Tide",
   themeForest: "Forest",
   themeDune: "Dune",
-  futureGlassHint: "Translucent console and grouped cards",
-  graphiteHint: "Compact gray index and horizontal rows",
-  tideHint: "Teal sections with side headings",
-  forestHint: "Green shelves and compact service rows",
-  duneHint: "Warm centered gallery and large icons",
   customTheme: "Custom theme",
   customizeTheme: "Customize a copy",
   themeCopyName: "{name} copy",
@@ -80,6 +78,7 @@ export const themeEn = {
 type ThemeMessages = Record<keyof typeof themeEn, string>;
 
 export const themeZhHant: ThemeMessages = {
+  ...appearance.appearanceZhHant,
   themeStyles: "主題風格",
   themeStylesHint: "選擇喜歡的風格；深淺模式、密度與玻璃效果維持獨立。",
   themeFutureGlass: "未來玻璃",
@@ -87,11 +86,6 @@ export const themeZhHant: ThemeMessages = {
   themeTide: "潮汐",
   themeForest: "森序",
   themeDune: "沙丘",
-  futureGlassHint: "半透明控制台與分組卡片",
-  graphiteHint: "灰階緊湊索引與橫向服務列",
-  tideHint: "青綠區塊與側邊標題",
-  forestHint: "綠色分類書架與精簡服務列",
-  duneHint: "暖色置中圖庫與大型圖示",
   customTheme: "自訂主題",
   customizeTheme: "複製並自訂",
   themeCopyName: "{name} 副本",
@@ -155,6 +149,7 @@ export const themeZhHant: ThemeMessages = {
 };
 
 export const themeZhHans: ThemeMessages = {
+  ...appearance.appearanceZhHans,
   themeStyles: "主题风格",
   themeStylesHint: "选择喜欢的风格；深浅模式、密度与玻璃效果保持独立。",
   themeFutureGlass: "未来玻璃",
@@ -162,11 +157,6 @@ export const themeZhHans: ThemeMessages = {
   themeTide: "潮汐",
   themeForest: "森序",
   themeDune: "沙丘",
-  futureGlassHint: "半透明控制台与分组卡片",
-  graphiteHint: "灰阶紧凑索引与横向服务行",
-  tideHint: "青绿区块与侧边标题",
-  forestHint: "绿色分类书架与精简服务行",
-  duneHint: "暖色居中画廊与大型图标",
   customTheme: "自定义主题",
   customizeTheme: "复制并自定义",
   themeCopyName: "{name} 副本",
@@ -229,6 +219,7 @@ export const themeZhHans: ThemeMessages = {
 };
 
 export const themeJa: ThemeMessages = {
+  ...appearance.appearanceJa,
   themeStyles: "テーマのスタイル",
   themeStylesHint:
     "スタイルを選択します。明暗モード、密度、ガラス効果は個別に設定できます。",
@@ -237,11 +228,6 @@ export const themeJa: ThemeMessages = {
   themeTide: "潮流",
   themeForest: "森林",
   themeDune: "砂丘",
-  futureGlassHint: "半透明のコンソールと分類カード",
-  graphiteHint: "灰色のコンパクトな一覧と横並びの行",
-  tideHint: "青緑のセクションと横の見出し",
-  forestHint: "緑の棚とコンパクトなサービス行",
-  duneHint: "暖色の中央揃えギャラリーと大きなアイコン",
   customTheme: "カスタムテーマ",
   customizeTheme: "コピーをカスタマイズ",
   themeCopyName: "{name} のコピー",
@@ -310,6 +296,7 @@ export const themeJa: ThemeMessages = {
 };
 
 export const themeKo: ThemeMessages = {
+  ...appearance.appearanceKo,
   themeStyles: "테마 스타일",
   themeStylesHint:
     "스타일을 선택하세요. 밝기 모드, 밀도, 유리 효과는 별도로 유지됩니다.",
@@ -318,11 +305,6 @@ export const themeKo: ThemeMessages = {
   themeTide: "조수",
   themeForest: "숲",
   themeDune: "모래 언덕",
-  futureGlassHint: "반투명 콘솔과 그룹별 카드",
-  graphiteHint: "회색의 간결한 목록과 가로형 행",
-  tideHint: "청록색 섹션과 측면 제목",
-  forestHint: "초록색 선반과 간결한 서비스 행",
-  duneHint: "따뜻한 색의 중앙 정렬 갤러리와 큰 아이콘",
   customTheme: "사용자 지정 테마",
   customizeTheme: "사본 사용자 지정",
   themeCopyName: "{name} 사본",
@@ -390,6 +372,7 @@ export const themeKo: ThemeMessages = {
 };
 
 export const themeEs: ThemeMessages = {
+  ...appearance.appearanceEs,
   themeStyles: "Estilos de tema",
   themeStylesHint:
     "Elige un estilo. El modo claro u oscuro, la densidad y el cristal son independientes.",
@@ -398,11 +381,6 @@ export const themeEs: ThemeMessages = {
   themeTide: "Marea",
   themeForest: "Bosque",
   themeDune: "Duna",
-  futureGlassHint: "Consola translúcida y tarjetas agrupadas",
-  graphiteHint: "Índice gris compacto y filas horizontales",
-  tideHint: "Secciones verde azulado con títulos laterales",
-  forestHint: "Estantes verdes y filas de servicios compactas",
-  duneHint: "Galería cálida centrada e iconos grandes",
   customTheme: "Tema personalizado",
   customizeTheme: "Personalizar una copia",
   themeCopyName: "Copia de {name}",
@@ -470,6 +448,7 @@ export const themeEs: ThemeMessages = {
 };
 
 export const themeFr: ThemeMessages = {
+  ...appearance.appearanceFr,
   themeStyles: "Styles de thème",
   themeStylesHint:
     "Choisissez un style. Le mode clair ou sombre, la densité et l'effet de verre restent indépendants.",
@@ -478,11 +457,6 @@ export const themeFr: ThemeMessages = {
   themeTide: "Marée",
   themeForest: "Forêt",
   themeDune: "Dune",
-  futureGlassHint: "Console translucide et cartes regroupées",
-  graphiteHint: "Index gris compact et rangées horizontales",
-  tideHint: "Sections bleu-vert et titres latéraux",
-  forestHint: "Étagères vertes et lignes de services compactes",
-  duneHint: "Galerie chaleureuse centrée et grandes icônes",
   customTheme: "Thème personnalisé",
   customizeTheme: "Personnaliser une copie",
   themeCopyName: "Copie de {name}",
@@ -550,6 +524,7 @@ export const themeFr: ThemeMessages = {
 };
 
 export const themeDe: ThemeMessages = {
+  ...appearance.appearanceDe,
   themeStyles: "Designstile",
   themeStylesHint:
     "Wähle einen Stil. Hell-Dunkel-Modus, Dichte und Glaseffekt bleiben unabhängig.",
@@ -558,11 +533,6 @@ export const themeDe: ThemeMessages = {
   themeTide: "Gezeiten",
   themeForest: "Wald",
   themeDune: "Düne",
-  futureGlassHint: "Durchscheinende Konsole und gruppierte Karten",
-  graphiteHint: "Graue, kompakte Übersicht mit horizontalen Zeilen",
-  tideHint: "Türkisfarbene Bereiche mit seitlichen Überschriften",
-  forestHint: "Grüne Regale mit kompakten Dienstzeilen",
-  duneHint: "Zentrierte Galerie in warmen Tönen mit großen Symbolen",
   customTheme: "Eigenes Design",
   customizeTheme: "Kopie anpassen",
   themeCopyName: "{name}-Kopie",
@@ -630,6 +600,7 @@ export const themeDe: ThemeMessages = {
 };
 
 export const themePtBR: ThemeMessages = {
+  ...appearance.appearancePtBR,
   themeStyles: "Estilos de tema",
   themeStylesHint:
     "Escolha um estilo. O modo claro ou escuro, a densidade e o vidro são independentes.",
@@ -638,11 +609,6 @@ export const themePtBR: ThemeMessages = {
   themeTide: "Maré",
   themeForest: "Floresta",
   themeDune: "Duna",
-  futureGlassHint: "Console translúcido e cartões agrupados",
-  graphiteHint: "Índice cinza compacto e linhas horizontais",
-  tideHint: "Seções verde-azuladas com títulos laterais",
-  forestHint: "Prateleiras verdes e linhas compactas de serviços",
-  duneHint: "Galeria centralizada em tons quentes e ícones grandes",
   customTheme: "Tema personalizado",
   customizeTheme: "Personalizar uma cópia",
   themeCopyName: "Cópia de {name}",
@@ -710,6 +676,7 @@ export const themePtBR: ThemeMessages = {
 };
 
 export const themeRu: ThemeMessages = {
+  ...appearance.appearanceRu,
   themeStyles: "Стили оформления",
   themeStylesHint:
     "Выберите стиль. Светлый или тёмный режим, плотность и эффект стекла настраиваются отдельно.",
@@ -718,11 +685,6 @@ export const themeRu: ThemeMessages = {
   themeTide: "Прилив",
   themeForest: "Лес",
   themeDune: "Дюна",
-  futureGlassHint: "Полупрозрачная панель и сгруппированные карточки",
-  graphiteHint: "Компактный серый список с горизонтальными строками",
-  tideHint: "Бирюзовые разделы с боковыми заголовками",
-  forestHint: "Зелёные полки и компактные строки сервисов",
-  duneHint: "Тёплая галерея по центру с крупными значками",
   customTheme: "Своя тема",
   customizeTheme: "Настроить копию",
   themeCopyName: "Копия «{name}»",
@@ -791,6 +753,7 @@ export const themeRu: ThemeMessages = {
 
 // Keep technical literals, ratios and ranges isolated in right-to-left prose.
 export const themeAr: ThemeMessages = {
+  ...appearance.appearanceAr,
   themeStyles: "أنماط السمات",
   themeStylesHint:
     "اختر نمطًا. يظل وضع الإضاءة والكثافة والتأثير الزجاجي مستقلًا.",
@@ -799,11 +762,6 @@ export const themeAr: ThemeMessages = {
   themeTide: "المدّ",
   themeForest: "الغابة",
   themeDune: "الكثبان",
-  futureGlassHint: "لوحة شبه شفافة وبطاقات مجمّعة",
-  graphiteHint: "فهرس رمادي مضغوط وصفوف أفقية",
-  tideHint: "أقسام فيروزية بعناوين جانبية",
-  forestHint: "رفوف خضراء وصفوف خدمات مضغوطة",
-  duneHint: "معرض دافئ في المنتصف وأيقونات كبيرة",
   customTheme: "سمة مخصصة",
   customizeTheme: "تخصيص نسخة",
   themeCopyName: "نسخة من {name}",
@@ -872,6 +830,7 @@ export const themeAr: ThemeMessages = {
 };
 
 export const themeHi: ThemeMessages = {
+  ...appearance.appearanceHi,
   themeStyles: "थीम शैलियाँ",
   themeStylesHint:
     "एक शैली चुनें। हल्का या गहरा मोड, घनत्व और काँच का प्रभाव स्वतंत्र रहते हैं।",
@@ -880,11 +839,6 @@ export const themeHi: ThemeMessages = {
   themeTide: "ज्वार",
   themeForest: "वन",
   themeDune: "रेत के टीले",
-  futureGlassHint: "अर्धपारदर्शी कंसोल और समूहित कार्ड",
-  graphiteHint: "सघन धूसर सूची और क्षैतिज पंक्तियाँ",
-  tideHint: "किनारे पर शीर्षक वाले नीले-हरे अनुभाग",
-  forestHint: "हरे शेल्फ़ और सघन सेवा पंक्तियाँ",
-  duneHint: "बीच में गर्म रंगों वाली गैलरी और बड़े आइकन",
   customTheme: "कस्टम थीम",
   customizeTheme: "एक कॉपी अनुकूलित करें",
   themeCopyName: "{name} की कॉपी",

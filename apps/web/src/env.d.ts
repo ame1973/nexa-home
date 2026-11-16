@@ -9,10 +9,12 @@ interface Window {
       appearance: import("./lib/themes").Appearance,
       override?: string | null,
       personal?: import("./lib/themes").PersonalAppearance | null,
+      localBackgroundURL?: string | null,
     ): "dark" | "light";
     tokens(
       appearance: import("./lib/themes").Appearance,
       mode: "dark" | "light",
+      wallpaper?: boolean,
     ): Record<string, string>;
     definition(
       preset: string,

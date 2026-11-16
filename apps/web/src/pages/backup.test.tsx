@@ -269,7 +269,7 @@ it("downloads a compact local JSON file and honors the include-icons option", as
   );
   try {
     const { user } = renderBackup();
-    await user.click(screen.getByLabelText("Include icon files"));
+    await user.click(screen.getByLabelText("Include icons and site background"));
     await user.click(screen.getByRole("button", { name: "Export backup" }));
     await waitFor(() => expect(downloaded).toBeDefined());
     expect(include).toBe("false");

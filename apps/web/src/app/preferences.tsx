@@ -20,6 +20,7 @@ import {
   type ThemeChoice,
   type ThemeLibraryEntry,
 } from "@/lib/themes";
+import { isBackgroundId, readPersonalBackground } from "@/lib/background";
 import type { MessageKey } from "@/locales/en";
 import { detectLocale, isLocale, localeRegistry, type Locale } from "@/locales";
 
@@ -40,6 +41,7 @@ const Preferences = createContext<{
   resolvedTheme: "light" | "dark";
   sharedAppearance: Appearance;
   personal: PersonalAppearance | null;
+  personalBackgroundURL: string | null;
   setPersonal(value: PersonalAppearance | null): boolean;
   library: ThemeLibraryEntry[];
   setLibrary(value: ThemeLibraryEntry[]): boolean;
@@ -66,6 +68,33 @@ export function PreferencesProvider({
       : null;
   });
   const [personal, setPersonalState] = useState(window.NexaTheme.readPersonal);
+  const [loadedBackground, setLoadedBackground] = useState<{
+    id: string;
+    url: string;
+  } | null>(null);
+  const personalBackgroundURL =
+    loadedBackground && loadedBackground.id === personal?.background
+      ? loadedBackground.url
+      : null;
+  useEffect(() => {
+    const id = personal?.background;
+    if (window.NexaTheme.safeMode || !isBackgroundId(id)) return;
+    let active = true;
+    let url = "";
+    void readPersonalBackground(id)
+      .then((image) => {
+        if (!active || !image) return;
+        url = URL.createObjectURL(image);
+        setLoadedBackground({ id, url });
+      })
+      .catch(() => {
+        // Unavailable browser storage leaves the background disabled, not the page.
+      });
+    return () => {
+      active = false;
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [personal?.background]);
   const [library, setLibraryState] = useState(readThemeLibrary);
   const [preview, setPreview] = useState<Appearance | null>(null);
   const setPersonal = useCallback((value: PersonalAppearance | null) => {
@@ -113,8 +142,9 @@ export function PreferencesProvider({
       preview ?? global,
       preview ? null : theme,
       preview ? null : personal,
+      preview ? null : personalBackgroundURL,
     );
-  }, [global, theme, personal, preview, systemDark]);
+  }, [global, theme, personal, personalBackgroundURL, preview, systemDark]);
   useEffect(() => {
     if (appearance)
       persist("nexa.appearance", JSON.stringify(appearanceFields(appearance)));
@@ -145,6 +175,7 @@ export function PreferencesProvider({
           resolvedTheme,
           sharedAppearance: global,
           personal,
+          personalBackgroundURL,
           setPersonal,
           library,
           setLibrary,

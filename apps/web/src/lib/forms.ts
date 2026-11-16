@@ -40,7 +40,8 @@ export function serviceInput(service?: Service): ServiceInput {
   };
 }
 export function settingsInput(settings: Settings): SettingsInput {
-  return { siteTitle: settings.siteTitle, siteSubtitle: settings.siteSubtitle, accessMode: settings.accessMode, theme: settings.theme, accent: settings.accent, cardDensity: settings.cardDensity, glassEnabled: settings.glassEnabled, ...appearanceChoice(settings), expectedRevision: settings.revision };
+  const style = appearanceChoice(settings);
+  return { siteTitle: settings.siteTitle, siteSubtitle: settings.siteSubtitle, accessMode: settings.accessMode, theme: settings.theme, accent: settings.accent, cardDensity: settings.cardDensity, glassEnabled: settings.glassEnabled, themePreset: style.themePreset, layoutPreset: style.layoutPreset, customTheme: style.customTheme, customCSS: style.customCSS, expectedRevision: settings.revision };
 }
 export function serviceErrors(value: ServiceInput): FieldErrors {
   const errors: FieldErrors = {};

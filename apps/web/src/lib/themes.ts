@@ -5,6 +5,7 @@ export type CustomTheme = components["schemas"]["CustomTheme"];
 export type ThemePalette = components["schemas"]["ThemePalette"];
 export type ThemePreset = components["schemas"]["ThemePreset"];
 export type BuiltinPreset = Exclude<ThemePreset, "custom">;
+export type LayoutPreset = components["schemas"]["LayoutPreset"];
 export type ThemeChoice = "dark" | "light" | "system" | null;
 export type Appearance = Partial<
   Pick<
@@ -14,14 +15,19 @@ export type Appearance = Partial<
     | "cardDensity"
     | "glassEnabled"
     | "themePreset"
+    | "layoutPreset"
+    | "backgroundImage"
     | "customTheme"
     | "customCSS"
   >
->;
+> & { backgroundPreview?: string | null };
 export type PersonalAppearance = {
   themePreset: ThemePreset;
   customTheme: CustomTheme | null;
   customCSS: string;
+  layoutPreset?: LayoutPreset;
+  glassEnabled?: boolean;
+  background?: string;
 };
 export type ThemeLibraryEntry = { id: string; theme: CustomTheme };
 
@@ -54,6 +60,10 @@ export function persist(key: string, value: string | null): boolean {
   }
 }
 
+export function legacyLayout(preset?: ThemePreset): LayoutPreset {
+  return !preset || preset === "custom" ? "future-glass" : preset;
+}
+
 // Cache only public presentation fields, never the settings response or catalog.
 export function appearanceFields(value: Appearance): Appearance {
   return {
@@ -62,6 +72,8 @@ export function appearanceFields(value: Appearance): Appearance {
     cardDensity: value.cardDensity ?? "comfortable",
     glassEnabled: value.glassEnabled ?? true,
     themePreset: value.themePreset ?? "future-glass",
+    layoutPreset: value.layoutPreset ?? legacyLayout(value.themePreset),
+    backgroundImage: value.backgroundImage ?? "",
     customTheme: value.customTheme ?? null,
     customCSS: value.customCSS ?? "",
   };
@@ -69,6 +81,8 @@ export function appearanceFields(value: Appearance): Appearance {
 export function appearanceChoice(value: Appearance): PersonalAppearance {
   return {
     themePreset: value.themePreset ?? "future-glass",
+    layoutPreset: value.layoutPreset ?? legacyLayout(value.themePreset),
+    glassEnabled: value.glassEnabled ?? true,
     customTheme: value.customTheme ?? null,
     customCSS: value.customCSS ?? "",
   };

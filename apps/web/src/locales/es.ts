@@ -209,7 +209,7 @@ export const es: Record<MessageKey, string> = {
   comfortable: "Espaciosa",
   glass: "Efectos de cristal",
   glassHint:
-    "Un poco de transparencia en la cabecera, la búsqueda y los diálogos. Las tarjetas siguen siendo legibles.",
+    "Los paneles y tarjetas translúcidos y desenfocados dejan ver el fondo. Con transparencia reducida son opacos.",
   appearanceSaved: "Apariencia guardada.",
   reset: "Restablecer cambios",
   reloadSettings: "Recargar ajustes",
@@ -233,9 +233,9 @@ export const es: Record<MessageKey, string> = {
   backupIntro:
     "Una copia portátil de tu configuración. Nunca incluye credenciales ni sesiones.",
   exportBackup: "Exportar copia de seguridad",
-  includeIcons: "Incluir archivos de iconos",
+  includeIcons: "Incluir iconos y fondo del sitio",
   exportHint:
-    "Incluye los iconos para poder restaurar la copia por completo. La configuración completa está limitada a 16 MiB.",
+    "Incluye las imágenes para poder restaurar la copia por completo. La configuración completa está limitada a 16 MiB.",
   exported: "Se ha iniciado la descarga de la copia.",
   restoreBackup: "Restaurar copia de seguridad",
   backupFile: "Archivo JSON de la copia",

@@ -208,7 +208,7 @@ export const ptBR: Record<MessageKey, string> = {
   comfortable: "Espaçosa",
   glass: "Efeitos de vidro",
   glassHint:
-    "Um pouco de transparência no cabeçalho, na busca e nos diálogos. Os cartões continuam legíveis.",
+    "Painéis e cartões translúcidos e desfocados revelam o fundo. Com transparência reduzida, as superfícies são opacas.",
   appearanceSaved: "Aparência salva.",
   reset: "Redefinir alterações",
   reloadSettings: "Recarregar ajustes",
@@ -232,9 +232,9 @@ export const ptBR: Record<MessageKey, string> = {
   backupIntro:
     "Uma cópia portátil da sua configuração. Credenciais e sessões nunca são incluídas.",
   exportBackup: "Exportar backup",
-  includeIcons: "Incluir arquivos de ícones",
+  includeIcons: "Incluir ícones e fundo do site",
   exportHint:
-    "Inclua os ícones para um backup que possa ser totalmente restaurado. A configuração completa é limitada a 16 MiB.",
+    "Inclua as imagens para um backup que possa ser totalmente restaurado. A configuração completa é limitada a 16 MiB.",
   exported: "Download do backup iniciado.",
   restoreBackup: "Restaurar backup",
   backupFile: "Arquivo JSON do backup",

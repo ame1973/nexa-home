@@ -117,6 +117,47 @@ it("keeps preset changes local, supports explicit cancel/save, and restores site
   );
 });
 
+it("chooses palette, layout and glass independently", async () => {
+  const { user } = renderThemes();
+  let dialog = await openThemes(user);
+  await user.click(dialog.getByRole("button", { name: "Tide" }));
+  await user.click(dialog.getByRole("button", { name: "Centered gallery" }));
+  await user.click(dialog.getByRole("switch", { name: /glass/i }));
+  await user.click(dialog.getByRole("button", { name: "Use in this browser" }));
+  expect(document.documentElement.dataset.themePreset).toBe("tide");
+  expect(document.documentElement.dataset.layoutPreset).toBe("dune");
+  expect(document.documentElement.dataset.glass).toBe("false");
+  dialog = await openThemes(user);
+  await user.click(dialog.getByRole("button", { name: "Graphite" }));
+  expect(
+    dialog.getByRole("button", { name: "Centered gallery" }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await user.click(dialog.getByRole("button", { name: "Use in this browser" }));
+  expect(document.documentElement.dataset.themePreset).toBe("graphite");
+  expect(document.documentElement.dataset.layoutPreset).toBe("dune");
+});
+
+it("keeps a legacy personal layout when its palette is changed", async () => {
+  localStorage.setItem(
+    "nexa.personalAppearance",
+    JSON.stringify({ themePreset: "forest", customTheme: null, customCSS: "" }),
+  );
+  const { user } = renderThemes();
+  const dialog = await openThemes(user);
+  expect(dialog.getByRole("button", { name: "Shelves" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await user.click(dialog.getByRole("button", { name: "Tide" }));
+  expect(dialog.getByRole("button", { name: "Shelves" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await user.click(dialog.getByRole("button", { name: "Use in this browser" }));
+  expect(document.documentElement.dataset.themePreset).toBe("tide");
+  expect(document.documentElement.dataset.layoutPreset).toBe("forest");
+});
+
 it("previews a custom stylesheet explicitly and Escape restores appearance without losing the editor draft", async () => {
   const { user } = renderThemes();
   const dialog = await openThemes(user);

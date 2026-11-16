@@ -14,6 +14,7 @@ import type { MessageKey } from "@/locales/en";
 import {
   appearanceChoice,
   downloadText,
+  legacyLayout,
   newThemeLibraryId,
   readThemeFile,
   type Appearance,
@@ -23,8 +24,17 @@ import {
   type ThemeLibraryEntry,
 } from "@/lib/themes";
 import { isColor } from "@/lib/forms";
+import {
+  isBackgroundId,
+  removePersonalBackground,
+  savePersonalBackground,
+  sharedBackgroundURL,
+  useBackgroundDraft,
+} from "@/lib/background";
+import { BackgroundPicker } from "./background-picker";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
+import { Switch } from "./ui/switch";
 import { Textarea } from "./ui/textarea";
 import { Dialog, DialogTrigger } from "./ui/dialog";
 import { ConfirmDialog, Field, ModalContent } from "./common";
@@ -36,12 +46,12 @@ const presetNames: Record<BuiltinPreset, MessageKey> = {
   forest: "themeForest",
   dune: "themeDune",
 };
-const presetHints: Record<BuiltinPreset, MessageKey> = {
-  "future-glass": "futureGlassHint",
-  graphite: "graphiteHint",
-  tide: "tideHint",
-  forest: "forestHint",
-  dune: "duneHint",
+const layoutNames: Record<BuiltinPreset, MessageKey> = {
+  "future-glass": "layoutGrouped",
+  graphite: "layoutIndex",
+  tide: "layoutSide",
+  forest: "layoutShelves",
+  dune: "layoutGallery",
 };
 
 function ThemeSample({
@@ -59,7 +69,7 @@ function ThemeSample({
     return (
       <span
         className="theme-miniature"
-        data-preset={value.themePreset ?? "future-glass"}
+        data-layout={value.layoutPreset ?? "future-glass"}
         style={style}
         aria-hidden="true"
       >
@@ -90,10 +100,12 @@ export function ThemeControls({
   value,
   onChange,
   appearance,
+  personal = false,
 }: {
   value: PersonalAppearance;
   onChange(value: PersonalAppearance): void;
   appearance: Appearance;
+  personal?: boolean;
 }) {
   const { t } = useI18n();
   const preferences = usePreferences();
@@ -171,12 +183,12 @@ export function ThemeControls({
   return (
     <div className="theme-controls form-stack">
       <section className="form-section">
-        <h2>{t("themeStyles")}</h2>
-        <p>{t("themeStylesHint")}</p>
+        <h2>{t("paletteTitle")}</h2>
+        <p>{t("paletteHint")}</p>
         <div
           className="theme-presets"
           role="group"
-          aria-label={t("themeStyles")}
+          aria-label={t("paletteTitle")}
         >
           {window.NexaTheme.presets.map((preset) => (
             <button
@@ -184,7 +196,6 @@ export function ThemeControls({
               className="theme-preset"
               key={preset}
               aria-label={t(presetNames[preset])}
-              aria-description={t(presetHints[preset])}
               aria-pressed={value.themePreset === preset}
               onClick={() =>
                 change({
@@ -213,9 +224,6 @@ export function ThemeControls({
                 {value.themePreset === preset && (
                   <Check size={16} aria-hidden="true" />
                 )}
-              </span>
-              <span className="theme-preset-hint">
-                {t(presetHints[preset])}
               </span>
             </button>
           ))}
@@ -306,6 +314,57 @@ export function ThemeControls({
           }}
         />
         <p className="field-hint">{t("importThemeHint")}</p>
+      </section>
+
+      <section className="form-section">
+        <h2>{t("layoutTitle")}</h2>
+        <p>{t("layoutHint")}</p>
+        <div
+          className="theme-presets"
+          role="group"
+          aria-label={t("layoutTitle")}
+        >
+          {window.NexaTheme.presets.map((layout) => (
+            <button
+              type="button"
+              className="theme-preset"
+              key={layout}
+              aria-label={t(layoutNames[layout])}
+              aria-pressed={
+                (value.layoutPreset ?? legacyLayout(value.themePreset)) ===
+                layout
+              }
+              onClick={() => change({ ...value, layoutPreset: layout })}
+            >
+              <span className="theme-miniatures">
+                <ThemeSample
+                  value={{ ...appearance, ...value, layoutPreset: layout }}
+                  mode={mode}
+                  miniature
+                />
+              </span>
+              <span className="theme-preset-name">
+                {t(layoutNames[layout])}
+                {(value.layoutPreset ?? legacyLayout(value.themePreset)) ===
+                  layout && <Check size={16} aria-hidden="true" />}
+              </span>
+            </button>
+          ))}
+        </div>
+        {personal && (
+          <div>
+            <label className="check-field">
+              <Switch
+                checked={value.glassEnabled ?? appearance.glassEnabled ?? true}
+                onCheckedChange={(glassEnabled) =>
+                  change({ ...value, glassEnabled })
+                }
+              />
+              <span>{t("glass")}</span>
+            </label>
+            <p className="field-hint mt-2">{t("glassHint")}</p>
+          </div>
+        )}
       </section>
 
       {value.themePreset === "custom" && custom && (
@@ -724,10 +783,12 @@ export function PersonalThemes() {
   const { t } = useI18n();
   const { setPreview } = usePreferences();
   const [open, setOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
   return (
     <Dialog
       open={open}
       onOpenChange={(next) => {
+        if (saving) return;
         setPreview(null);
         setOpen(next);
       }}
@@ -737,21 +798,127 @@ export function PersonalThemes() {
           <Palette size={20} aria-hidden="true" />
         </Button>
       </DialogTrigger>
-      {open && <PersonalThemeForm close={() => setOpen(false)} />}
+      {open && (
+        <PersonalThemeForm
+          close={() => setOpen(false)}
+          saving={saving}
+          setSaving={setSaving}
+        />
+      )}
     </Dialog>
   );
 }
-function PersonalThemeForm({ close }: { close(): void }) {
+function PersonalThemeForm({
+  close,
+  saving,
+  setSaving,
+}: {
+  close(): void;
+  saving: boolean;
+  setSaving(value: boolean): void;
+}) {
   const { t } = useI18n();
   const preferences = usePreferences();
-  const [value, setValue] = useState<PersonalAppearance>(
-    () =>
-      preferences.personal ?? {
-        ...appearanceChoice(preferences.sharedAppearance),
-        customCSS: "",
-      },
+  const [value, setValue] = useState<PersonalAppearance>(() =>
+    preferences.personal
+      ? {
+          ...preferences.personal,
+          layoutPreset:
+            preferences.personal.layoutPreset ??
+            legacyLayout(preferences.personal.themePreset),
+        }
+      : {
+          ...appearanceChoice(preferences.sharedAppearance),
+          customCSS: "",
+        },
   );
-  const [error, setError] = useState(false);
+  const [error, setError] = useState<MessageKey | null>(null);
+  const background = useBackgroundDraft(() => {
+    preferences.setPreview(null);
+    setError(null);
+  });
+  const siteURL = sharedBackgroundURL(
+    preferences.sharedAppearance.backgroundImage,
+  );
+  const selected = preferences.personal?.background;
+  const currentKind =
+    selected === "none"
+      ? "none"
+      : isBackgroundId(selected)
+        ? "personal"
+        : "site";
+  const currentURL =
+    currentKind === "personal"
+      ? preferences.personalBackgroundURL
+      : currentKind === "site"
+        ? siteURL
+        : null;
+  const previewBackground =
+    background.selection.kind === "file"
+      ? { backgroundPreview: background.selection.url }
+      : background.selection.kind === "none"
+        ? { backgroundPreview: null }
+        : background.selection.kind === "site"
+          ? {}
+          : currentKind === "site"
+            ? {}
+            : { backgroundPreview: currentURL };
+  const busy = saving || background.loading;
+  const cleanup = async (id: string | undefined) => {
+    if (!isBackgroundId(id)) return true;
+    try {
+      await removePersonalBackground(id);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+  const submit = async (useSite: boolean) => {
+    if (
+      busy ||
+      (!useSite &&
+        (background.invalid || !window.NexaTheme.validPersonal(value)))
+    )
+      return;
+    setSaving(true);
+    setError(null);
+    let staged: string | undefined;
+    try {
+      const next: PersonalAppearance | null = useSite ? null : { ...value };
+      if (next && background.selection.kind === "file") {
+        const id = newThemeLibraryId();
+        await savePersonalBackground(id, background.selection.image);
+        staged = id;
+        next.background = id;
+      } else if (
+        next &&
+        (background.selection.kind === "site" ||
+          background.selection.kind === "none")
+      ) {
+        next.background = background.selection.kind;
+      }
+      if (!preferences.setPersonal(next)) {
+        const removed = await cleanup(staged);
+        setError(removed ? "themeStorageError" : "backgroundCleanupError");
+        return;
+      }
+      const removed =
+        selected === next?.background || (await cleanup(selected));
+      preferences.setPreview(null);
+      close();
+      if (useSite) {
+        if (!removed) toast.error(t("backgroundCleanupError"));
+      } else {
+        toast.success(t("personalSaved"));
+        if (!removed) toast.error(t("backgroundCleanupError"));
+      }
+    } catch {
+      const removed = await cleanup(staged);
+      setError(removed ? "backgroundStorageError" : "backgroundCleanupError");
+    } finally {
+      setSaving(false);
+    }
+  };
   return (
     <ModalContent
       className="theme-dialog"
@@ -762,39 +929,44 @@ function PersonalThemeForm({ close }: { close(): void }) {
         className="form-stack"
         onSubmit={(event) => {
           event.preventDefault();
-          if (!preferences.setPersonal(value)) {
-            setError(true);
-            return;
-          }
-          preferences.setPreview(null);
-          toast.success(t("personalSaved"));
-          close();
+          void submit(false);
         }}
       >
-        <ThemeControls
-          value={value}
-          onChange={(next) => {
-            setError(false);
-            setValue(next);
-          }}
-          appearance={{ ...preferences.sharedAppearance, accent: undefined }}
-        />
+        <fieldset disabled={busy} className="form-stack">
+          <BackgroundPicker
+            draft={background}
+            scope="personal"
+            currentURL={currentURL}
+            siteURL={siteURL}
+            currentKind={currentKind}
+            disabled={busy}
+          />
+          <ThemeControls
+            personal
+            value={value}
+            onChange={(next) => {
+              setError(null);
+              setValue(next);
+            }}
+            appearance={{
+              ...preferences.sharedAppearance,
+              accent: undefined,
+              ...previewBackground,
+            }}
+          />
+        </fieldset>
         {error && (
           <p role="alert" className="error-text">
-            {t("themeStorageError")}
+            {t(error)}
           </p>
         )}
         <div className="form-actions">
           <Button
             type="button"
             variant="outline"
+            disabled={busy}
             onClick={() => {
-              if (!preferences.setPersonal(null)) {
-                setError(true);
-                return;
-              }
-              preferences.setPreview(null);
-              close();
+              void submit(true);
             }}
           >
             {t("useSiteAppearance")}
@@ -802,6 +974,7 @@ function PersonalThemeForm({ close }: { close(): void }) {
           <Button
             type="button"
             variant="outline"
+            disabled={busy}
             onClick={() => {
               preferences.setPreview(null);
               close();
@@ -811,9 +984,13 @@ function PersonalThemeForm({ close }: { close(): void }) {
           </Button>
           <Button
             type="submit"
-            disabled={!window.NexaTheme.validPersonal(value)}
+            disabled={
+              busy ||
+              background.invalid ||
+              !window.NexaTheme.validPersonal(value)
+            }
           >
-            {t("personalSave")}
+            {saving ? t("saving") : t("personalSave")}
           </Button>
         </div>
       </form>
