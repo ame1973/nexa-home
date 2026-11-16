@@ -40,6 +40,32 @@ func TestBackgroundUploadsAndStoredBytes(t *testing.T) {
 	}
 }
 
+func FuzzBackgroundValidation(f *testing.F) {
+	jpeg := jpegBytes(f, 3, 2)
+	webp, err := base64.StdEncoding.DecodeString("UklGRhoAAABXRUJQVlA4TA0AAAAvAAAAEAcQERGIiP4HAA==")
+	if err != nil {
+		f.Fatal(err)
+	}
+	for _, seed := range [][]byte{nil, []byte("<svg/>"), pngBytes(f, 3, 2), jpeg, withEXIFOrientation(jpeg, binary.LittleEndian, 6), webp} {
+		f.Add(seed)
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		if len(data) > MaxBackgroundBytes+1 {
+			return
+		}
+		for _, validate := range []func([]byte) (Background, error){ValidateBackground, ValidateBackgroundUpload} {
+			value, err := validate(data)
+			if err != nil {
+				continue
+			}
+			stored, err := ValidateBackground(value.Data)
+			if err != nil || stored.SHA256 != value.SHA256 || stored.MIME != value.MIME || !backgroundDimensions(value.Width, value.Height) {
+				t.Fatal("validated background not stable", err)
+			}
+		}
+	})
+}
+
 func TestBackgroundLimitsAndInvalidInputs(t *testing.T) {
 	valid := pngBytes(t, 10, 10)
 	for _, data := range [][]byte{

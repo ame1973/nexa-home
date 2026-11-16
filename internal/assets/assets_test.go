@@ -18,7 +18,7 @@ import (
 
 const safeSVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><title>Home &amp; archive</title><path d="M2 12 L12 2 L22 12 Z" fill="#8b9fff"/><circle cx="12" cy="16" r="2" fill="none" stroke="currentColor"/></svg>`
 
-func pngBytes(t *testing.T, width, height int) []byte {
+func pngBytes(t testing.TB, width, height int) []byte {
 	t.Helper()
 	value := image.NewNRGBA(image.Rect(0, 0, width, height))
 	value.Set(0, 0, color.NRGBA{R: 255, A: 255})
