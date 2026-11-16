@@ -70,6 +70,23 @@ test("shared background previews, saves, survives backup restore and respects pr
     "preview",
   );
   expect((await currentSettings(page, app.url)).backgroundImage).toBe("");
+  await page
+    .getByRole("switch", { name: "Glass effects", exact: true })
+    .click();
+  await expect(page.locator("html")).toHaveAttribute("data-wallpaper", "none");
+  await expect(
+    page.getByRole("button", { name: "Tide", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await page
+    .getByRole("switch", { name: "Glass effects", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Preview on page", exact: true })
+    .click();
+  await expect(page.locator("html")).toHaveAttribute(
+    "data-wallpaper",
+    "preview",
+  );
   await page.keyboard.press("Escape");
   await expect(page.locator("html")).toHaveAttribute("data-wallpaper", "none");
   await page.getByRole("button", { name: "Save changes", exact: true }).click();
