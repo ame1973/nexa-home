@@ -51,7 +51,7 @@ func TestHealthMigrationPreservesVersionTwoAndEnforcesConstraints(t *testing.T) 
 		t.Fatal("deleting a service must delete its check", err)
 	}
 
-	uri := url.URL{Scheme: "file", Path: filepath.Join(directory, "nexa.pre-migration-v2-to-v3.db"), RawQuery: "mode=ro"}
+	uri := url.URL{Scheme: "file", Path: filepath.Join(directory, "nexa.pre-migration-v2-to-v4.db"), RawQuery: "mode=ro"}
 	snapshot, err := sql.Open("sqlite", uri.String())
 	if err != nil {
 		t.Fatal(err)
