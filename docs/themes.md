@@ -6,21 +6,31 @@ Choose a visual style with the palette button (**Theme styles**) in the header. 
 
 ## Availability
 
-Use a release whose notes include theme presets/custom CSS, or build the corresponding reviewed source. The earlier `1.0.1` image predates this feature; changing a setting cannot add it to an older image. See [deployment](deployment.md) and [release operation](releases.md). No theme setting downloads code, fonts or a remote theme URL.
+Use a release whose notes include independent layouts and background images, or build the corresponding reviewed source. The earlier `1.0.1` image predates these features; changing a setting cannot add them to an older image. See [deployment](deployment.md) and [release operation](releases.md). No theme setting downloads code, fonts or a remote theme URL.
 
-## Five built-in styles
+## Colors, layouts and glass
 
-Each preset has independently designed light and dark palettes, a distinct homepage layout and action feedback. On narrow screens the layouts adapt to the available space; reduced-motion preferences suppress animation. **System** follows the browser device's color-scheme preference.
+Choose a **Color palette** and a **Homepage layout** independently; every palette, including a custom token theme, works with every layout. The matching identifiers below do not bind them together. Dark/light/**System**, density and glass are separate choices; System follows the device's color-scheme preference.
 
-| Style        | Preset ID      | Homepage character                                | Base radius | Shadow |
-| ------------ | -------------- | ------------------------------------------------- | ----------- | ------ |
-| Future Glass | `future-glass` | Translucent console with grouped service cards    | 16 px       | Soft   |
-| Graphite     | `graphite`     | Compact gray index with horizontal service rows   | 12 px       | None   |
-| Tide         | `tide`         | Teal sections with side headings on wider screens | 16 px       | Soft   |
-| Forest       | `forest`       | Green grouped shelves with compact service rows   | 12 px       | None   |
-| Dune         | `dune`         | Centered warm gallery with large service icons    | 20 px       | Soft   |
+| Palette      | Preset ID      | Base radius | Shadow |
+| ------------ | -------------- | ----------- | ------ |
+| Future Glass | `future-glass` | 16 px       | Soft   |
+| Graphite     | `graphite`     | 12 px       | None   |
+| Tide         | `tide`         | 16 px       | Soft   |
+| Forest       | `forest`       | 12 px       | None   |
+| Dune         | `dune`         | 20 px       | Soft   |
 
-Density and glass remain independent settings. Disabling glass forces solid surfaces; enabling it allows the selected material, so Graphite/Dune still stay opaque. Custom token themes use solid surfaces and the grouped launcher layout for predictable contrast. **Customize a copy** copies colors, radius and shadow, not the preset's layout; advanced CSS can change the layout separately. The Future Glass accent field preserves existing installations; customize a copy to change either palette of another style. Controls, cards, dialogs, menus and notifications share the semantic tokens and derived corner scale. System fonts and Arabic RTL remain supported.
+| Homepage layout  | Layout ID      | Character                                  |
+| ---------------- | -------------- | ------------------------------------------ |
+| Grouped cards    | `future-glass` | Modular collections with service cards     |
+| Compact index    | `graphite`     | Compact index with horizontal service rows |
+| Side headings    | `tide`         | Headings beside cards on wider screens     |
+| Shelves          | `forest`       | Grouped shelves with compact service rows  |
+| Centered gallery | `dune`         | Centered gallery with large service icons  |
+
+When glass is enabled, translucent surfaces and backdrop blur reveal the background on every palette and layout. The browser uses solid surfaces when glass is disabled, transparency is reduced, high-contrast forced colors are active, or backdrop blur is unsupported. Built-in palettes adjust text for bright and dark images; custom CSS can still override contrast. Hover, keyboard focus and press states provide feedback, and reduced-motion preferences suppress animation. Layouts adapt to narrow screens and Arabic RTL.
+
+**Customize a copy** copies colors, radius and shadow, not the layout. The Future Glass accent field preserves existing installations; customize a copy to change another palette. Older saved appearances retain their previous corresponding layout until you choose another. Controls, cards, dialogs, menus and notifications share semantic tokens and system fonts.
 
 ## Your browser versus site defaults
 
@@ -30,7 +40,14 @@ Density and glass remain independent settings. Disabling glass forces solid surf
 - **Manage → Appearance → Save changes** sets the shared default for browsers without a personal style. Only the signed-in administrator can save shared configuration; normal Origin, CSRF and revision checks apply. Conflicting drafts are retained until explicit reload.
 - On first visit, a private site uses the built-in appearance until sign-in allows bootstrap settings. A previously used browser may apply its cached presentation before sign-in. That cache contains no account, session or service catalog.
 
-Only presentation preferences are stored locally: locale, mode, cached shared appearance, personal appearance and the saved token library. Custom theme names/CSS are presentation, not a place for passwords, tokens, private service addresses or other secrets. Shared appearance enters portable backups; personal choices and the browser library do not.
+Only presentation preferences are stored locally: locale, mode, cached shared appearance, personal appearance, a personal background image and the saved token library. Custom theme names/CSS are presentation, not a place for passwords, tokens, private service addresses or other secrets. Shared appearance enters portable backups; personal choices and the browser library do not.
+
+## Background images
+
+- In **Theme styles**, choose a personal image, **No background image**, or **Use site background**; select **Use in this browser** to save. The image is stored in this browser's IndexedDB, not on the server or in site backups. Clearing site data or browser eviction can remove it, so keep your original separately. **Use site appearance** removes the personal choice and its saved image. A storage or cleanup failure is reported; clearing this site's browser data also removes its other local preferences.
+- An administrator can choose or remove the shared image in **Manage → Appearance** and save it with the rest of the draft. Visitors can access it on a public site; a private site requires sign-in. It is included in full backups. An export without images cannot restore a configuration that still references a missing background or icon.
+- Both accept PNG, JPEG or WebP, at most **4 MiB**, at most **4096 pixels per side** and **8,847,360 pixels total**. SVG and remote image URLs are not accepted. Shared PNG and JPEG are decoded and re-encoded; JPEG orientation is applied and metadata removed. Shared WebP and personal images may retain metadata: remove sensitive metadata before choosing them. Normalized shared files must also fit the size limit.
+- **Preview on page** applies a draft image only temporarily; **Escape** restores the active appearance without saving. `/?appearance=safe` does not display or request the image and does not delete it or bypass access control.
 
 ## Create and keep a custom theme
 
@@ -96,16 +113,16 @@ CSS uses a dedicated `style` element with the current HTML response's nonce and 
 ## Recover an unusable appearance
 
 - During preview, press **Escape**. The previous appearance returns without saving, even if the preview hides the whole page.
-- For an already saved style, open **`/?appearance=safe`** on the same origin. You can also use **`/admin/appearance?appearance=safe`**. Safe appearance applies Future Glass with solid surfaces and disables custom tokens/CSS before first paint. It stays active for that loaded document, even when an internal link drops the query.
+- For an already saved style, open **`/?appearance=safe`** on the same origin. You can also use **`/admin/appearance?appearance=safe`**. Safe appearance applies Future Glass with solid surfaces and disables custom tokens, CSS and background images before first paint. It stays active for that loaded document, even when an internal link drops the query.
 - Safe appearance does not delete stored settings, reset a password, create a session or grant access to private/admin data. Existing sign-in requirements remain. Sign in normally to repair shared settings, or select a personal style to override the shared one.
 - Save the repaired draft, then select **Leave safe appearance** to reload without recovery mode. Simply changing the address with client-side navigation does not turn recovery off. No data-directory or volume deletion is required.
 
 ## API, backup and upgrade compatibility
 
-The [OpenAPI contract](../api/openapi.yaml) keeps `theme` as `dark | light | system`. The separate `themePreset`, nullable `customTheme`, and `customCSS` fields carry styling. New settings clients send all three together with the existing `expectedRevision`; legacy clients omitting all three preserve the current extensions inside the same transaction. The complete 16 MiB portable budget still includes JSON escaping and icon base64 expansion; an over-budget CSS/settings change returns `409 LIMIT_EXCEEDED` without partial writes.
+The [OpenAPI contract](../api/openapi.yaml) keeps `theme` as `dark | light | system`; `themePreset` and `layoutPreset` are independent. Nullable `customTheme` and `customCSS` carry styling. Updates retain `expectedRevision`: omitting the legacy style extensions or `layoutPreset` preserves their current values. Omit `backgroundUpload` to retain the shared image, send `null` to remove it, or supply canonical base64 to replace it in the same transaction. `backgroundImage` is a response-only hash, not an upload field. The complete 16 MiB portable budget includes JSON escaping and exact icon/background base64 expansion; an over-budget change returns `409 LIMIT_EXCEEDED` without partial writes.
 
-Current portable exports use **backup version 3** and include shared tokens/CSS and optional health-check configuration. **Versions 1 and 2** remain importable with health checks disabled; version 1 defaults missing style extensions to Future Glass/no custom CSS. Older application versions cannot restore version 3 by merely relabelling it. Theme JSON schema 1, backup version 3 and database schema 3 are separate version numbers.
+Current portable exports use **backup version 4** and include shared layout, background image, tokens/CSS and optional health-check configuration. **Versions 1–3** remain importable; versions 1 and 2 do not carry health checks, and older styles retain their corresponding legacy layout. Version 1 defaults missing style extensions to Future Glass/no custom CSS. Older application versions cannot restore version 4 by merely relabelling it. Theme JSON schema 1, backup version 4 and database schema 4 are separate version numbers.
 
-Database migration `002_themes.sql` appends columns without changing the original migration, existing preferences, revisions, credentials, sessions, audit or rate-limit state; `003_service_health.sql` adds optional monitoring. Before the current build upgrades an existing schema 1 or 2 to 3, startup saves private, fsynced **`nexa.pre-migration-v1-to-v3.db`** or **`nexa.pre-migration-v2-to-v3.db`**, including committed WAL and authentication state. An earlier theme-only build used `nexa.pre-migration-v1-to-v2.db`. The snapshot is not created for a new installation; `doctor` opens existing supported schemas read-only and never performs the upgrade. A future/invalid schema fails before journal changes.
+Database migration `002_themes.sql` appends columns without changing the original migration, existing preferences, revisions, credentials, sessions, audit or rate-limit state; `003_service_health.sql` adds optional monitoring and `004_appearance.sql` adds independent layouts and shared background storage. Before the current build upgrades an existing schema 1, 2 or 3 to 4, startup saves a private, fsynced **`nexa.pre-migration-v1-to-v4.db`**, **`nexa.pre-migration-v2-to-v4.db`** or **`nexa.pre-migration-v3-to-v4.db`**, including committed WAL and authentication state. Earlier builds used their own destination-version snapshot names. The snapshot is not created for a new installation; `doctor` opens existing supported schemas read-only and never performs the upgrade. A future/invalid schema fails before journal changes.
 
-The on-volume snapshot contains sensitive authentication state and is **not** an off-volume backup or a complete icon archive. If that snapshot name already exists while an upgrade is still pending, startup fails closed rather than overwriting it or making another copy on every restart. Stop the service, inspect the failure, preserve/move that exact file into private backup storage, and retry only after resolving the cause. Never remove or overwrite the only recovery copy. Keep the normal complete stopped backup before upgrading; rollback across schema 2 or 3 requires the pre-upgrade data and compatible older executable. See [backup and recovery](backup-and-recovery.md).
+The on-volume snapshot contains sensitive authentication state and is **not** an off-volume backup or a complete icon archive. If that snapshot name already exists while an upgrade is still pending, startup fails closed rather than overwriting it or making another copy on every restart. Stop the service, inspect the failure, preserve/move that exact file into private backup storage, and retry only after resolving the cause. Never remove or overwrite the only recovery copy. Keep the normal complete stopped backup before upgrading; rollback across schema 2, 3 or 4 requires the pre-upgrade data and compatible older executable. See [backup and recovery](backup-and-recovery.md).

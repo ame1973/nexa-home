@@ -19,16 +19,16 @@ One Go process, local SQLite, and no separate database service.
 
 ## Features
 
-| Make it yours              | What Nexa Home provides                                                                                                           |
-| -------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| **Organize your services** | Favorites, categories, tags, keyboard ordering, and desktop drag-and-drop ordering.                                               |
-| **Find a link quickly**    | Search names, descriptions, categories, and tags entirely in the browser without fetching saved service links.                    |
-| **Monitor availability**   | Optionally check a separately configured HTTP(S) endpoint and show its latest status on the homepage.                             |
-| **Choose your look**       | Five distinct layouts with light/dark palettes, custom token themes, optional glass effects, and advanced CSS with safe recovery. |
-| **Use your language**      | Twelve interface languages, including Traditional/Simplified Chinese and Arabic right-to-left layouts.                            |
-| **Control access**         | One administrator, protected first-run setup, and a public or private homepage.                                                   |
-| **Pick your icons**        | Built-in Lucide icons and validated PNG, JPG/JPEG, WebP, or inert SVG uploads. Favicons are uploaded, never fetched remotely.     |
-| **Keep a portable copy**   | JSON export with local icons, validated restore previews, and explicit confirmation before replacement.                           |
+| Make it yours              | What Nexa Home provides                                                                                                                |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| **Organize your services** | Favorites, categories, tags, keyboard ordering, and desktop drag-and-drop ordering.                                                    |
+| **Find a link quickly**    | Search names, descriptions, categories, and tags entirely in the browser without fetching saved service links.                         |
+| **Monitor availability**   | Optionally check a separately configured HTTP(S) endpoint and show its latest status on the homepage.                                  |
+| **Choose your look**       | Independently mix five layouts and palettes, choose a background image, enable glass effects, and use advanced CSS with safe recovery. |
+| **Use your language**      | Twelve interface languages, including Traditional/Simplified Chinese and Arabic right-to-left layouts.                                 |
+| **Control access**         | One administrator, protected first-run setup, and a public or private homepage.                                                        |
+| **Pick your icons**        | Built-in Lucide icons and validated PNG, JPG/JPEG, WebP, or inert SVG uploads. Favicons are uploaded, never fetched remotely.          |
+| **Keep a portable copy**   | JSON export with local icons, validated restore previews, and explicit confirmation before replacement.                                |
 
 <details>
 <summary>Scope and limitations</summary>
@@ -69,7 +69,7 @@ Open **http://127.0.0.1:8080/setup** on the same host. Read the one-time token *
 3. Optionally assign a category and up to 20 tags, mark a favorite, or hide a service/category.
 4. Search names, descriptions, categories, or tags from the homepage. Press `/` or <kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>K</kbd> to focus search; <kbd>Esc</kbd> clears it.
 5. In Manage, choose manual order with no text/tag/visibility filter to reorder. Explicit up/down controls support keyboard and mobile use. Editing a service also supports moving it to an empty category.
-6. Use the palette button for **Future Glass, Graphite, Tide, Forest or Dune**, or customize a copy. The sun/moon menu controls dark/light/system independently. Personal styles stay in your browser; **Manage → Appearance** sets shared defaults. See [themes and advanced CSS](docs/themes.md) for library/JSON/CSS workflows, feature availability, and `/?appearance=safe` recovery without bypassing sign-in.
+6. Use the palette button to choose a color palette, homepage layout, glass effect and optional personal background independently. The sun/moon menu controls dark/light/system. Personal styles and images stay in your browser; **Manage → Appearance** sets shared defaults. These options require a build containing independent layouts/backgrounds; the earlier `1.0.1` image does not have them. See [themes and advanced CSS](docs/themes.md) for image limits, library/JSON/CSS workflows and `/?appearance=safe` recovery without bypassing sign-in.
 7. To monitor a service, edit it, enable **Monitor this service**, and enter a separate trusted HTTP(S) health-check URL and interval. Checks are off by default, start immediately, and repeat 30–86400 seconds after completion (default 60). Only 2xx responses are available; redirects are not followed. The homepage shows available, unavailable or unknown, not an uptime history.
 
 Checks originate from the server or container, not the browser; a container's loopback is not the host. Busy queues may delay checks and the homepage refreshes results approximately every 15 seconds. Only visible services in visible categories show their status publicly; hidden services can still be checked. The check URL is private but included in backups. Do not put secrets in URLs, and review [network and restore safety](SECURITY.md#content-and-network-boundaries).
@@ -116,9 +116,9 @@ The built-in interface uses system fonts on the **browser's device** and does no
 
 ## Backup and restore
 
-Use **Manage → Backup → Export backup**. Leave **Include icon files** enabled for a fully restorable copy. Backups contain private names and URLs; protect them and keep a separate copy outside the application data directory. Credentials, sessions, rate-limit state, and audit history are not exported.
+Use **Manage → Backup → Export backup**. Leave **Include icons and site background** enabled for a fully restorable copy. Backups contain private names and URLs; protect them and keep a separate copy outside the application data directory. Credentials, sessions, rate-limit state, and audit history are not exported.
 
-Current builds export **backup version 3**, including health-check configuration and shared custom tokens/CSS; versions 1 and 2 remain importable. Browser-only styles, theme libraries and health results are not exported. Restore only trusted backups: enabled health checks resume and contact their configured targets after a successful restore. Review imported CSS and keep a complete pre-upgrade backup for rollback; see [themes and compatibility](docs/themes.md).
+Current builds export **backup version 4**, including health-check configuration, shared layout/background and custom tokens/CSS; versions 1–3 remain importable. Browser-only styles, personal backgrounds, theme libraries and health results are not exported. Restore only trusted backups: enabled health checks resume and contact their configured targets after a successful restore. Review imported CSS and keep a complete pre-upgrade backup for rollback; see [themes and compatibility](docs/themes.md).
 
 <details>
 <summary>Restore steps, size limits, and what is preserved</summary>
@@ -129,7 +129,7 @@ Current builds export **backup version 3**, including health-check configuration
 
 Restore replaces services, categories, tags, appearance, and icons, but preserves the current administrator, sessions, and audit history. A preview belongs to the current session, expires after five minutes, and is single-use even when a commit attempt fails. Validate again before retrying. Validation rejects unknown/duplicate JSON fields, invalid references or IDs, unsafe content, unsupported versions, and oversized graphs before replacement.
 
-All accepted configuration must fit a **16 MiB full export, including exact base64 icon expansion**. Writes that would exceed this portable budget fail atomically with `409 LIMIT_EXCEEDED`. Other bounds are 5000 services, categories, and tags each; 1024 icons; and nonnegative signed-32-bit positions. An export without icons is not restorable if it still references those missing icons.
+All accepted configuration must fit a **16 MiB full export, including exact base64 icon and background expansion**. Writes that would exceed this portable budget fail atomically with `409 LIMIT_EXCEEDED`. Other bounds are 5000 services, categories, and tags each; 1024 icons; and nonnegative signed-32-bit positions. An export without images is not restorable if it still references omitted icons or the site background.
 
 </details>
 
@@ -256,7 +256,7 @@ Stop the server before checking a data directory:
 NEXA_DATA_DIR="$PWD/data" ./bin/nexa-home doctor
 ```
 
-Doctor checks the known schema, SQLite integrity, foreign keys, stored icon hashes/metadata, and image validity. It does not create an administrator, initialize a nonexistent database, or collect orphan files.
+Doctor checks the known schema, SQLite integrity, foreign keys, stored icon and background hashes/metadata, and image validity. It does not create an administrator, initialize a nonexistent database, or collect orphan files.
 
 </details>
 
