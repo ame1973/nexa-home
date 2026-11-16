@@ -5,7 +5,7 @@ import { Search, Star, X } from "lucide-react";
 import { useAppData } from "@/app/root";
 import { useI18n } from "@/app/preferences";
 import { filterServices, searchIndex } from "@/lib/search";
-import { api, type Service } from "@/lib/api/client";
+import { api, type HealthStatus, type Service } from "@/lib/api/client";
 import { Icon } from "@/lib/icons";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -34,6 +34,32 @@ export function HomePage() {
     () => filterServices(index, deferred),
     [index, deferred],
   );
+  const statuses = useMemo(() => {
+    const data = bootstrap.data;
+    if (!data) return new Map<string, HealthStatus>();
+    const monitored = new Set(data.health.map((status) => status.serviceId));
+    const latest =
+      health.data && health.dataUpdatedAt >= bootstrap.dataUpdatedAt
+        ? health.data
+        : data.health;
+    return new Map(
+      latest
+        .filter((status) => monitored.has(status.serviceId))
+        .map((status) => [
+          status.serviceId,
+          health.isError || health.fetchStatus === "paused"
+            ? { ...status, status: "unknown" as const }
+            : status,
+        ]),
+    );
+  }, [
+    bootstrap.data,
+    bootstrap.dataUpdatedAt,
+    health.data,
+    health.dataUpdatedAt,
+    health.isError,
+    health.fetchStatus,
+  ]);
   useEffect(() => {
     const shortcut = (event: KeyboardEvent) => {
       const target = event.target instanceof Element ? event.target : null;
@@ -85,21 +111,6 @@ export function HomePage() {
       </main>
     );
   const data = bootstrap.data;
-  const monitored = new Set(data.health.map((status) => status.serviceId));
-  const latest =
-    health.data && health.dataUpdatedAt >= bootstrap.dataUpdatedAt
-      ? health.data
-      : data.health;
-  const statuses = new Map(
-    latest
-      .filter((status) => monitored.has(status.serviceId))
-      .map((status) => [
-        status.serviceId,
-        health.isError || health.fetchStatus === "paused"
-          ? { ...status, status: "unknown" as const }
-          : status,
-      ]),
-  );
   const active = deferred.trim() !== "";
   const hour = new Date().getHours();
   const greeting =

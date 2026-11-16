@@ -1,4 +1,4 @@
-import { useId, useState, type CSSProperties } from 'react';
+import { memo, useId, useState, type CSSProperties } from 'react';
 import { ExternalLink, Star } from 'lucide-react';
 import { useI18n } from '@/app/preferences';
 import type { HealthStatus, ServiceInput } from '@/lib/api/client';
@@ -17,7 +17,7 @@ export function ServiceIcon({ service }: { service: Pick<ServiceInput, 'iconKind
 function Highlight({ value, query }: { value: string; query: string }) {
   return <>{highlightParts(value, query).map((part, index) => part.match ? <mark key={index}>{part.value}</mark> : part.value)}</>;
 }
-export function ServiceTile({ service, query = '', preview = false, health }: { service: ServiceInput; query?: string; preview?: boolean; health?: HealthStatus }) {
+export const ServiceTile = memo(function ServiceTile({ service, query = '', preview = false, health }: { service: ServiceInput; query?: string; preview?: boolean; health?: HealthStatus }) {
   const { t, locale } = useI18n(); const described = useId();
   const primary = service.links.find((link) => link.label === 'primary')?.url ?? '';
   const checked = health?.checkedAt ? t('healthLastChecked', { time: new Date(health.checkedAt).toLocaleString(locale) }) : undefined;
@@ -42,4 +42,4 @@ export function ServiceTile({ service, query = '', preview = false, health }: { 
   </Card>;
   if (preview) return <div className="service-link">{content}</div>;
   return <a className="service-link" href={validURL(primary) ? primary : undefined} target={service.openMode === 'new_tab' ? '_blank' : undefined} rel={service.openMode === 'new_tab' ? 'noopener noreferrer' : undefined} aria-describedby={service.description ? described : undefined}>{content}</a>;
-}
+});

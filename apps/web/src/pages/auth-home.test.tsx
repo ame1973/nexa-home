@@ -1,10 +1,10 @@
-import { expect, it } from "vitest";
-import { screen, waitFor } from "@testing-library/react";
+import { expect, it, vi } from "vitest";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { routes } from "@/app/routes";
 import { renderRoutes } from "@/test/render";
 import { apiURL, denied, server } from "@/test/server";
-import { bootstrap, csrf } from "@/test/fixtures";
+import { bootstrap, csrf, fixtureServices } from "@/test/fixtures";
 import { queryClient } from "@/lib/api/client";
 
 it("redirects first run to protected setup and validates without sending invalid data", async () => {
@@ -142,6 +142,69 @@ it("filters local text with safe highlights and supports search shortcuts and Es
   expect(document.querySelector("script")).toBeNull();
   expect(requests).toBe(1);
 });
+it("does not rerender every unchanged service before deferred search results", async () => {
+  let services = fixtureServices(100);
+  server.use(
+    http.get(apiURL("/public/bootstrap"), () =>
+      HttpResponse.json({ ...bootstrap, services }),
+    ),
+  );
+  renderRoutes(routes);
+  const search = await screen.findByRole("searchbox");
+  await screen.findByText("100 services");
+  const foreground = vi.spyOn(window.NexaTheme, "foreground");
+  fireEvent.change(search, { target: { value: "Jellyfin" } });
+  await screen.findByText("1 results");
+  expect(document.querySelector("mark")).toHaveTextContent("Jellyfin");
+  expect(foreground.mock.calls.length).toBeLessThan(10);
+
+  services = services.map((service) =>
+    service.name === "Jellyfin"
+      ? {
+          ...service,
+          name: "Jellyfin Updated",
+          description: "Updated details",
+          links: service.links.map((link) => ({
+            ...link,
+            url: "https://updated.example.test",
+          })),
+        }
+      : service,
+  );
+  await queryClient.invalidateQueries({ queryKey: ["bootstrap"] });
+  const updated = await screen.findByRole("link", { name: /Jellyfin Updated/ });
+  expect(updated).toHaveTextContent("Updated details");
+  expect(updated).toHaveAttribute("href", "https://updated.example.test");
+  expect(updated.querySelector("mark")).toHaveTextContent("Jellyfin");
+});
+it("avoids rerendering unchanged services when health polling has failed", async () => {
+  const services = fixtureServices(100);
+  server.use(
+    http.get(apiURL("/public/bootstrap"), () =>
+      HttpResponse.json({
+        ...bootstrap,
+        services,
+        health: services.map((service) => ({
+          serviceId: service.id,
+          status: "up",
+          checkedAt: null,
+        })),
+      }),
+    ),
+    http.get(apiURL("/public/health"), () => denied(500, "INTERNAL_ERROR")),
+  );
+  renderRoutes(routes);
+  const search = await screen.findByRole("searchbox");
+  await waitFor(() => {
+    expect(queryClient.getQueryState(["health"])?.status).toBe("error");
+    expect(screen.getAllByText("Status unknown")).toHaveLength(102);
+  });
+  const foreground = vi.spyOn(window.NexaTheme, "foreground");
+  fireEvent.change(search, { target: { value: "Jellyfin" } });
+  await screen.findByText("1 results");
+  expect(screen.getByText("Status unknown")).toBeVisible();
+  expect(foreground.mock.calls.length).toBeLessThan(10);
+});
 it("shows fresh health results, updates them, and marks failures unknown", async () => {
   const serviceId = bootstrap.services[0]!.id;
   let result = {
@@ -167,6 +230,10 @@ it("shows fresh health results, updates them, and marks failures unknown", async
     "title",
     expect.stringContaining("Last checked:"),
   );
+  fireEvent.change(screen.getByRole("searchbox"), {
+    target: { value: "Synology" },
+  });
+  await screen.findByText("1 results");
   result = { ...result, status: "down" };
   await queryClient.invalidateQueries({ queryKey: ["health"] });
   expect((await screen.findAllByText("Unavailable")).length).toBeGreaterThan(0);
