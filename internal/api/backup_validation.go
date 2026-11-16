@@ -134,7 +134,7 @@ func validateImport(value *Backup) (map[string]assets.Image, error) {
 	for i := range value.Services {
 		service := &value.Services[i]
 		if legacy && service.HealthCheck != nil {
-			return nil, invalid("services", "Health checks require backup version 3")
+			return nil, invalid("services", "Health checks require backup version 3 or later")
 		}
 		if err := register(service.ID, fmt.Sprintf("services.%d.id", i)); err != nil {
 			return nil, err
