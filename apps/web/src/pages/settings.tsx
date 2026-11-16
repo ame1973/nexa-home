@@ -147,6 +147,7 @@ function AppearanceForm({ settings }: { settings: Settings }) {
     field: K,
     next: SettingsInput[K],
   ) => {
+    setPreview(null);
     draft.update({ ...value, [field]: next });
     mutation.reset();
   };

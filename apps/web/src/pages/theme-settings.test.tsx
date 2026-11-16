@@ -53,6 +53,14 @@ it("saves shared style/CSS through the existing revision gate and cancels previe
   await user.click(await screen.findByRole("button", { name: "Tide" }));
   await user.click(screen.getByRole("button", { name: "Preview on page" }));
   expect(document.documentElement.dataset.themePreset).toBe("tide");
+  await user.click(screen.getByRole("switch", { name: "Glass effects" }));
+  expect(document.documentElement.dataset.themePreset).toBe("future-glass");
+  expect(screen.getByRole("button", { name: "Tide" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await user.click(screen.getByRole("button", { name: "Preview on page" }));
+  expect(document.documentElement.dataset.glass).toBe("false");
   await user.click(screen.getByRole("button", { name: "Cancel" }));
   expect(document.documentElement.dataset.themePreset).toBe("future-glass");
   expect(saved).toEqual([]);
