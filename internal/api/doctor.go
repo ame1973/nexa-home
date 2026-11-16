@@ -43,5 +43,25 @@ func CheckData(ctx context.Context, database *sql.DB, directory string) (err err
 			return fmt.Errorf("asset %s: %w", icon.ID, assets.ErrCorrupt)
 		}
 	}
+	var version int
+	if err := tx.QueryRowContext(ctx, "SELECT MAX(version) FROM schema_migrations").Scan(&version); err != nil {
+		return err
+	}
+	if version >= 4 {
+		info, err := readBackgroundInfo(ctx, tx)
+		if err != nil {
+			return err
+		}
+		if info != nil {
+			data, err := readBackgroundBytes(ctx, tx, info)
+			if err != nil {
+				return fmt.Errorf("background: %w", err)
+			}
+			image, err := assets.ValidateBackground(data)
+			if err != nil || image.MIME != info.MIME || image.Width != info.Width || image.Height != info.Height {
+				return fmt.Errorf("background: %w", assets.ErrCorrupt)
+			}
+		}
+	}
 	return tx.Commit()
 }

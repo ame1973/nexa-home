@@ -1119,6 +1119,102 @@
         "operationId": "getApiV1PublicHealth"
       }
     },
+    "/api/v1/public/background/{hash}": {
+      "get": {
+        "tags": [
+          "public"
+        ],
+        "summary": "Current shared background image; authentication is required in private mode",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "hash",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Validated raster image",
+            "content": {
+              "image/jpeg": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "image/png": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "image/webp": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not authenticated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not permitted / CSRF failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Sanitized internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [],
+        "operationId": "getApiV1PublicBackground"
+      }
+    },
     "/api/v1/admin/settings": {
       "get": {
         "tags": [
@@ -4450,6 +4546,14 @@
             "maxLength": 65536,
             "description": "Public advanced stylesheet, at most 65536 UTF-8 bytes without NUL. Arbitrary CSS selectors and rules are accepted; CSP still blocks external resources and JavaScript."
           },
+          "layoutPreset": {
+            "$ref": "#/components/schemas/LayoutPreset"
+          },
+          "backgroundImage": {
+            "type": "string",
+            "pattern": "^([a-f0-9]{64})?$",
+            "description": "SHA-256 of the current shared background, or an empty string. Image bytes are served separately."
+          },
           "revision": {
             "type": "integer"
           },
@@ -4477,7 +4581,7 @@
             "customTheme"
           ]
         },
-        "description": "Omit all three appearance extensions for a legacy update that preserves them. New clients send all three together; theme still selects dark, light or system independently of the style preset.",
+        "description": "Omit appearance extensions to preserve them when using an older client. Layout, palette and dark/light mode are independent; omit backgroundUpload to keep the current image, use null to remove it, or send canonical base64 to replace it atomically.",
         "required": [
           "expectedRevision",
           "siteTitle",
@@ -4548,8 +4652,34 @@
             "type": "string",
             "maxLength": 65536,
             "description": "Public advanced stylesheet, at most 65536 UTF-8 bytes without NUL. Arbitrary CSS selectors and rules are accepted; CSP still blocks external resources and JavaScript."
+          },
+          "layoutPreset": {
+            "$ref": "#/components/schemas/LayoutPreset"
+          },
+          "backgroundUpload": {
+            "oneOf": [
+              {
+                "type": "string",
+                "maxLength": 5592408,
+                "contentEncoding": "base64"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Canonical base64 PNG, JPEG or WebP of at most 4 MiB; omit to keep the current image or use null to remove it."
           }
         }
+      },
+      "LayoutPreset": {
+        "type": "string",
+        "enum": [
+          "future-glass",
+          "graphite",
+          "tide",
+          "forest",
+          "dune"
+        ]
       },
       "ThemePreset": {
         "type": "string",
@@ -4691,7 +4821,7 @@
       },
       "Backup": {
         "type": "object",
-        "description": "Exports use version 3 and include explicit health checks, shared preset, custom tokens and advanced CSS. Versions 1 and 2 import without health checks; version 1 defaults to Future Glass without custom CSS. Browser-only preferences and status history are never exported.",
+        "description": "Exports use version 4 and include shared layout and optional background image, health checks, palette, custom tokens and advanced CSS. Versions 1–3 remain importable; browser-only preferences and health results are not exported.",
         "allOf": [
           {
             "if": {
@@ -4699,7 +4829,8 @@
                 "version": {
                   "enum": [
                     2,
-                    3
+                    3,
+                    4
                   ]
                 }
               }
@@ -4712,6 +4843,30 @@
                     "themePreset",
                     "customTheme",
                     "customCSS"
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "version": {
+                  "const": 4
+                }
+              }
+            },
+            "then": {
+              "required": [
+                "background"
+              ],
+              "properties": {
+                "background": {},
+                "settings": {
+                  "$ref": "#/components/schemas/Settings",
+                  "required": [
+                    "layoutPreset",
+                    "backgroundImage"
                   ]
                 }
               }
@@ -4738,7 +4893,38 @@
             "enum": [
               1,
               2,
-              3
+              3,
+              4
+            ]
+          },
+          "background": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "mimeType",
+                  "base64"
+                ],
+                "properties": {
+                  "mimeType": {
+                    "type": "string",
+                    "enum": [
+                      "image/jpeg",
+                      "image/png",
+                      "image/webp"
+                    ]
+                  },
+                  "base64": {
+                    "type": "string",
+                    "maxLength": 5592408,
+                    "contentEncoding": "base64"
+                  }
+                }
+              }
             ]
           },
           "exportedAt": {

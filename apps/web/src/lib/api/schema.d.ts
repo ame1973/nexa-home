@@ -169,6 +169,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/public/background/{hash}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Current shared background image; authentication is required in private mode */
+        get: operations["getApiV1PublicBackground"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/settings": {
         parameters: {
             query?: never;
@@ -552,11 +569,14 @@ export interface components {
             customTheme?: components["schemas"]["CustomTheme"] | null;
             /** @description Public advanced stylesheet, at most 65536 UTF-8 bytes without NUL. Arbitrary CSS selectors and rules are accepted; CSP still blocks external resources and JavaScript. */
             customCSS?: string;
+            layoutPreset?: components["schemas"]["LayoutPreset"];
+            /** @description SHA-256 of the current shared background, or an empty string. Image bytes are served separately. */
+            backgroundImage?: string;
             revision: number;
             /** Format: date-time */
             updatedAt: string;
         };
-        /** @description Omit all three appearance extensions for a legacy update that preserves them. New clients send all three together; theme still selects dark, light or system independently of the style preset. */
+        /** @description Omit appearance extensions to preserve them when using an older client. Layout, palette and dark/light mode are independent; omit backgroundUpload to keep the current image, use null to remove it, or send canonical base64 to replace it atomically. */
         SettingsUpdate: {
             expectedRevision: number;
             siteTitle: string;
@@ -573,7 +593,12 @@ export interface components {
             customTheme?: components["schemas"]["CustomTheme"] | null;
             /** @description Public advanced stylesheet, at most 65536 UTF-8 bytes without NUL. Arbitrary CSS selectors and rules are accepted; CSP still blocks external resources and JavaScript. */
             customCSS?: string;
+            layoutPreset?: components["schemas"]["LayoutPreset"];
+            /** @description Canonical base64 PNG, JPEG or WebP of at most 4 MiB; omit to keep the current image or use null to remove it. */
+            backgroundUpload?: string | null;
         };
+        /** @enum {string} */
+        LayoutPreset: "future-glass" | "graphite" | "tide" | "forest" | "dune";
         /** @enum {string} */
         ThemePreset: "future-glass" | "graphite" | "tide" | "forest" | "dune" | "custom";
         ThemePalette: {
@@ -607,12 +632,17 @@ export interface components {
         ReorderInput: {
             ids: components["schemas"]["UUID"][];
         };
-        /** @description Exports use version 3 and include explicit health checks, shared preset, custom tokens and advanced CSS. Versions 1 and 2 import without health checks; version 1 defaults to Future Glass without custom CSS. Browser-only preferences and status history are never exported. */
+        /** @description Exports use version 4 and include shared layout and optional background image, health checks, palette, custom tokens and advanced CSS. Versions 1–3 remain importable; browser-only preferences and health results are not exported. */
         Backup: {
             /** @constant */
             format: "nexa-home-backup";
             /** @enum {integer} */
-            version: 1 | 2 | 3;
+            version: 1 | 2 | 3 | 4;
+            background?: null | {
+                /** @enum {string} */
+                mimeType: "image/jpeg" | "image/png" | "image/webp";
+                base64: string;
+            };
             /** Format: date-time */
             exportedAt: string;
             settings: components["schemas"]["Settings"];
@@ -625,7 +655,7 @@ export interface components {
                 mimeType: "image/png" | "image/webp" | "image/svg+xml";
                 base64: string;
             }[];
-        } & unknown;
+        } & (unknown & unknown);
     };
     responses: never;
     parameters: never;
@@ -1436,6 +1466,75 @@ export interface operations {
             };
             /** @description Too many requests */
             429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Sanitized internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getApiV1PublicBackground: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                hash: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Validated raster image */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/jpeg": Blob;
+                    "image/png": Blob;
+                    "image/webp": Blob;
+                };
+            };
+            /** @description Invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not permitted / CSRF failure */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

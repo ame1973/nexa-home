@@ -13,17 +13,20 @@ type SettingsFields struct {
 	CardDensity  string       `json:"cardDensity"`
 	GlassEnabled bool         `json:"glassEnabled"`
 	ThemePreset  string       `json:"themePreset"`
+	LayoutPreset string       `json:"layoutPreset"`
 	CustomTheme  *CustomTheme `json:"customTheme"`
 	CustomCSS    string       `json:"customCSS"`
 }
 type Settings struct {
 	SettingsFields
-	Revision  int64  `json:"revision"`
-	UpdatedAt string `json:"updatedAt"`
+	BackgroundImage string `json:"backgroundImage"`
+	Revision        int64  `json:"revision"`
+	UpdatedAt       string `json:"updatedAt"`
 }
 type SettingsInput struct {
 	SettingsFields
-	ExpectedRevision int64 `json:"expectedRevision"`
+	BackgroundUpload json.RawMessage `json:"backgroundUpload,omitempty"`
+	ExpectedRevision int64           `json:"expectedRevision"`
 }
 
 type CategoryInput struct {

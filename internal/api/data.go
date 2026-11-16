@@ -37,8 +37,8 @@ func (s *Server) mutate(r *http.Request, action, targetType, targetID string, fn
 func readSettings(ctx context.Context, tx *sql.Tx) (Settings, error) {
 	var value Settings
 	var theme string
-	err := tx.QueryRowContext(ctx, `SELECT site_title,site_subtitle,access_mode,theme,accent,card_density,glass_enabled,theme_preset,custom_theme,custom_css,revision,updated_at FROM app_settings WHERE id=1`).Scan(
-		&value.SiteTitle, &value.SiteSubtitle, &value.AccessMode, &value.Theme, &value.Accent, &value.CardDensity, &value.GlassEnabled, &value.ThemePreset, &theme, &value.CustomCSS, &value.Revision, &value.UpdatedAt)
+	err := tx.QueryRowContext(ctx, `SELECT site_title,site_subtitle,access_mode,theme,accent,card_density,glass_enabled,theme_preset,layout_preset,custom_theme,custom_css,COALESCE((SELECT sha256 FROM site_background WHERE id=1),''),revision,updated_at FROM app_settings WHERE id=1`).Scan(
+		&value.SiteTitle, &value.SiteSubtitle, &value.AccessMode, &value.Theme, &value.Accent, &value.CardDensity, &value.GlassEnabled, &value.ThemePreset, &value.LayoutPreset, &theme, &value.CustomCSS, &value.BackgroundImage, &value.Revision, &value.UpdatedAt)
 	if err == nil {
 		err = json.Unmarshal([]byte(theme), &value.CustomTheme)
 	}

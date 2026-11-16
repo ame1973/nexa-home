@@ -116,6 +116,7 @@ func TestThemeUpgradePreservesRealSessionCSRFAndPrivateCatalog(t *testing.T) {
 	}
 	delete(settings, "revision")
 	delete(settings, "updatedAt")
+	delete(settings, "backgroundImage")
 	settings["expectedRevision"] = 42
 	settings["themePreset"] = "forest"
 	settings["customCSS"] = "body { --upgrade-check: 1; }"

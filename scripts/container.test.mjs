@@ -333,7 +333,12 @@ test(
         "Public bootstrap excludes the health endpoint",
       );
       const currentSettings = await api("/admin/settings");
-      const { revision, updatedAt: _updatedAt, ...fields } = currentSettings;
+      const {
+        revision,
+        updatedAt: _updatedAt,
+        backgroundImage: _backgroundImage,
+        ...fields
+      } = currentSettings;
       const customTheme = {
         schemaVersion: 1,
         name: "Container Tide",
@@ -360,15 +365,25 @@ test(
           ...fields,
           expectedRevision: revision,
           themePreset: "custom",
+          layoutPreset: "forest",
           customTheme,
           customCSS,
+          backgroundUpload: "UklGRhoAAABXRUJQVlA4TA0AAAAvAAAAEAcQERGIiP4HAA==",
         },
       });
       const exported = await api("/admin/backup/export?includeAssets=true");
-      assert.equal(exported.version, 3);
+      assert.equal(exported.version, 4);
       assert.equal(exported.settings.themePreset, "custom");
+      assert.equal(exported.settings.layoutPreset, "forest");
       assert.deepEqual(exported.settings.customTheme, customTheme);
       assert.equal(exported.settings.customCSS, customCSS);
+      assert.equal(exported.background.mimeType, "image/webp");
+      assert.equal(
+        createHash("sha256")
+          .update(Buffer.from(exported.background.base64, "base64"))
+          .digest("hex"),
+        exported.settings.backgroundImage,
+      );
       assert.equal(exported.services.length, 1);
       assert.deepEqual(
         exported.services[0].healthCheck,
@@ -503,7 +518,14 @@ test(
         "Edited in the real container",
       );
       assert.deepEqual(persisted.assets, exported.assets);
-      for (const key of ["themePreset", "customTheme", "customCSS"]) {
+      assert.deepEqual(persisted.background, exported.background);
+      for (const key of [
+        "themePreset",
+        "layoutPreset",
+        "customTheme",
+        "customCSS",
+        "backgroundImage",
+      ]) {
         assert.deepEqual(
           persisted.settings[key],
           exported.settings[key],
@@ -587,6 +609,7 @@ test(
         "tags",
         "services",
         "assets",
+        "background",
       ])
         assert.deepEqual(
           recovered[key],

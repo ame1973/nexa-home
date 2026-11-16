@@ -1,12 +1,15 @@
 package api
 
 import (
+	"bytes"
 	"database/sql"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"net/http"
 	"time"
 
+	"nexa-home/internal/assets"
 	"nexa-home/internal/auth"
 	"nexa-home/internal/db"
 )
@@ -22,20 +25,49 @@ func (s *Server) settingsRoutes() {
 	})
 	s.route("PUT", "/api/v1/admin/settings", true, func(w http.ResponseWriter, r *http.Request, _ auth.Session) error {
 		var input SettingsInput
-		// CSS JSON escaping can expand the 64 KiB source sixfold.
-		if err := s.decode(w, r, &input, 512<<10); err != nil {
+		// Base64 wallpaper and JSON-escaped CSS have independent bounded budgets.
+		limit := int64(base64.StdEncoding.EncodedLen(assets.MaxBackgroundBytes) + (512 << 10))
+		if err := s.decode(w, r, &input, limit); err != nil {
 			return err
+		}
+		var background *assets.Background
+		if input.BackgroundUpload != nil {
+			// Serialize raster decoding and background replacement with asset restores.
+			s.assetMu.Lock()
+			defer s.assetMu.Unlock()
+			if !bytes.Equal(input.BackgroundUpload, []byte("null")) {
+				var encoded string
+				if err := json.Unmarshal(input.BackgroundUpload, &encoded); err != nil {
+					return invalid("backgroundUpload", "Use canonical base64 image content")
+				}
+				data, err := base64.StdEncoding.Strict().DecodeString(encoded)
+				if err != nil || base64.StdEncoding.EncodeToString(data) != encoded {
+					return invalid("backgroundUpload", "Use canonical base64 image content")
+				}
+				image, err := assets.ValidateBackgroundUpload(data)
+				if errors.Is(err, assets.ErrBackgroundTooLarge) {
+					return &problem{status: 413, code: "LIMIT_EXCEEDED", message: "Background image exceeds the 4 MiB limit"}
+				}
+				if err != nil {
+					return invalid("backgroundUpload", "Use a valid PNG, JPEG or WebP image within the dimension limits")
+				}
+				background = &image
+			}
 		}
 		var value Settings
 		err := s.mutate(r, "settings.update", "settings", "1", func(tx *sql.Tx) error {
-			if input.ThemePreset == "" {
-				// Older clients omit all three appearance extensions. Preserve the
-				// current definition instead of erasing a newer administrator's CSS.
+			if input.ThemePreset == "" || input.LayoutPreset == "" {
+				// Older clients preserve appearance fields they do not know about.
 				current, err := readSettings(r.Context(), tx)
 				if err != nil {
 					return err
 				}
-				input.ThemePreset, input.CustomTheme, input.CustomCSS = current.ThemePreset, current.CustomTheme, current.CustomCSS
+				if input.ThemePreset == "" {
+					input.ThemePreset, input.CustomTheme, input.CustomCSS = current.ThemePreset, current.CustomTheme, current.CustomCSS
+				}
+				if input.LayoutPreset == "" {
+					input.LayoutPreset = current.LayoutPreset
+				}
 			}
 			if err := validateSettings(&input.SettingsFields); err != nil {
 				return err
@@ -44,8 +76,8 @@ func (s *Server) settingsRoutes() {
 			if err != nil {
 				return err
 			}
-			result, err := tx.ExecContext(r.Context(), `UPDATE app_settings SET site_title=?,site_subtitle=?,access_mode=?,theme=?,accent=?,card_density=?,glass_enabled=?,theme_preset=?,custom_theme=?,custom_css=?,revision=revision+1,updated_at=? WHERE id=1 AND revision=?`,
-				input.SiteTitle, input.SiteSubtitle, input.AccessMode, input.Theme, input.Accent, input.CardDensity, input.GlassEnabled, input.ThemePreset, string(theme), input.CustomCSS, db.Timestamp(time.Now()), input.ExpectedRevision)
+			result, err := tx.ExecContext(r.Context(), `UPDATE app_settings SET site_title=?,site_subtitle=?,access_mode=?,theme=?,accent=?,card_density=?,glass_enabled=?,theme_preset=?,layout_preset=?,custom_theme=?,custom_css=?,revision=revision+1,updated_at=? WHERE id=1 AND revision=?`,
+				input.SiteTitle, input.SiteSubtitle, input.AccessMode, input.Theme, input.Accent, input.CardDensity, input.GlassEnabled, input.ThemePreset, input.LayoutPreset, string(theme), input.CustomCSS, db.Timestamp(time.Now()), input.ExpectedRevision)
 			if err != nil {
 				return err
 			}
@@ -55,6 +87,11 @@ func (s *Server) settingsRoutes() {
 			}
 			if count != 1 {
 				return &problem{status: 409, code: "REVISION_CONFLICT", message: "Settings changed; reload before saving"}
+			}
+			if input.BackgroundUpload != nil {
+				if err := writeBackground(r.Context(), tx, background); err != nil {
+					return err
+				}
 			}
 			value, err = readSettings(r.Context(), tx)
 			return err
@@ -66,6 +103,7 @@ func (s *Server) settingsRoutes() {
 	})
 	s.route("GET", "/api/v1/public/bootstrap", false, s.bootstrap)
 	s.route("GET", "/api/v1/public/health", false, s.publicHealth)
+	s.route("GET", "/api/v1/public/background/{hash}", false, s.publicBackground)
 }
 
 func (s *Server) publicSession(r *http.Request) (bool, error) {

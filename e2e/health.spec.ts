@@ -165,7 +165,7 @@ test("service health checks repeat, update the homepage, and resume after a trus
         healthCheck?: { url: string; intervalSeconds: number };
       }[];
     };
-    expect(backup.version).toBe(3);
+    expect(backup.version).toBe(4);
     expect(
       backup.services.find((service) => service.name === "Monitored NAS")
         ?.healthCheck,

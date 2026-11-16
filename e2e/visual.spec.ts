@@ -160,6 +160,7 @@ test("system theme follows OS and glass/reduced-motion settings remain functiona
   const {
     revision,
     updatedAt: _updatedAt,
+    backgroundImage: _backgroundImage,
     ...settings
   } = (await response.json()) as Record<string, unknown>;
   const saved = await page.request.put(`${app.url}/api/v1/admin/settings`, {

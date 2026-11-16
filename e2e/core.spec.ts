@@ -373,6 +373,7 @@ test("private mode hides data from a separate visitor and logout clears the auth
   const {
     revision,
     updatedAt: _updatedAt,
+    backgroundImage: _backgroundImage,
     ...fields
   } = (await response.json()) as Record<string, unknown>;
   const changed = await page.request.put(`${app.url}/api/v1/admin/settings`, {

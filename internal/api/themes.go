@@ -35,12 +35,25 @@ type ThemePalette struct {
 	Accent     string `json:"accent"`
 }
 
+func legacyLayout(preset string) string {
+	if slices.Contains([]string{"future-glass", "graphite", "tide", "forest", "dune"}, preset) {
+		return preset
+	}
+	return "future-glass"
+}
+
 func validateAppearance(value *SettingsFields) error {
 	if value.ThemePreset == "" {
 		value.ThemePreset = "future-glass"
 	}
 	if !slices.Contains([]string{"future-glass", "graphite", "tide", "forest", "dune", "custom"}, value.ThemePreset) {
 		return invalid("themePreset", "Choose a built-in preset or custom theme")
+	}
+	if value.LayoutPreset == "" {
+		value.LayoutPreset = legacyLayout(value.ThemePreset)
+	}
+	if !slices.Contains([]string{"future-glass", "graphite", "tide", "forest", "dune"}, value.LayoutPreset) {
+		return invalid("layoutPreset", "Choose a built-in launcher layout")
 	}
 	if value.ThemePreset == "custom" && value.CustomTheme == nil {
 		return invalid("customTheme", "A custom theme definition is required")

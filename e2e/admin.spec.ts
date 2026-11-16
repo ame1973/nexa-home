@@ -139,6 +139,7 @@ test("settings retain revision conflicts and password rotation revokes another r
   const {
     revision,
     updatedAt: _updatedAt,
+    backgroundImage: _backgroundImage,
     ...fields
   } = (await old.json()) as Record<string, unknown>;
   const outside = await page.request.put(`${app.url}/api/v1/admin/settings`, {

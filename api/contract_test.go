@@ -10,8 +10,8 @@ func TestContract(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(c.Operations()) != 33 {
-		t.Fatalf("want 33 operations, got %d", len(c.Operations()))
+	if len(c.Operations()) != 34 {
+		t.Fatalf("want 34 operations, got %d", len(c.Operations()))
 	}
 	for _, test := range []struct {
 		name, body string

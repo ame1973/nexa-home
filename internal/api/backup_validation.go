@@ -13,8 +13,41 @@ import (
 
 func nameKey(name string) string { return cases.Fold().String(name) }
 
+func validateBackgroundImport(value *Backup) (*assets.Background, error) {
+	if value.Format != "nexa-home-backup" || value.Version < 1 || value.Version > 4 {
+		return nil, invalid("version", "Unsupported backup format or version")
+	}
+	if value.Version < 4 {
+		if value.Background != nil || value.Settings.BackgroundImage != "" {
+			return nil, invalid("background", "Background images require backup version 4")
+		}
+		value.Settings.LayoutPreset = legacyLayout(value.Settings.ThemePreset)
+		return nil, nil
+	}
+	if value.Background == nil {
+		if value.Settings.BackgroundImage != "" {
+			return nil, invalid("background", "Referenced background content is missing; export with images included")
+		}
+		return nil, nil
+	}
+	encoded := value.Background.Base64
+	if len(encoded) > base64.StdEncoding.EncodedLen(assets.MaxBackgroundBytes) {
+		return nil, invalid("background", "Background image exceeds 4 MiB")
+	}
+	data, err := base64.StdEncoding.Strict().DecodeString(encoded)
+	if err != nil || base64.StdEncoding.EncodeToString(data) != encoded {
+		return nil, invalid("background", "Use canonical base64 background content")
+	}
+	image, err := assets.ValidateBackground(data)
+	if err != nil || image.MIME != value.Background.MIME || image.SHA256 != value.Settings.BackgroundImage {
+		return nil, invalid("background", "Background bytes, MIME type, dimensions or hash are invalid")
+	}
+	value.Background.Base64 = ""
+	return &image, nil
+}
+
 func validateImport(value *Backup) (map[string]assets.Image, error) {
-	if value.Format != "nexa-home-backup" || (value.Version != 1 && value.Version != 2 && value.Version != 3) {
+	if value.Format != "nexa-home-backup" || (value.Version != 1 && value.Version != 2 && value.Version != 3 && value.Version != 4) {
 		return nil, invalid("version", "Unsupported backup format or version")
 	}
 	if len(value.Services) > MaxServices || len(value.Categories) > MaxCatalogEntries || len(value.Tags) > MaxCatalogEntries || len(value.Assets) > MaxAssets {
@@ -24,7 +57,7 @@ func validateImport(value *Backup) (map[string]assets.Image, error) {
 		return nil, err
 	}
 	legacy := value.Version < 3
-	value.Version = 3
+	value.Version = 4
 	ids := make(map[string]bool)
 	register := func(id, field string) error {
 		if !validID(id) || ids[id] {

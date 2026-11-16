@@ -79,7 +79,7 @@ func TestHealthConfigurationValidationAndBackupCompatibility(t *testing.T) {
 	}
 
 	backup := h.export()
-	if backup.Version != 3 || !reflect.DeepEqual(backup.Services[0].HealthCheck, created.HealthCheck) {
+	if backup.Version != 4 || !reflect.DeepEqual(backup.Services[0].HealthCheck, created.HealthCheck) {
 		t.Fatal("portable backup omitted the health configuration")
 	}
 	h.restore(h.stage(backup), 200)

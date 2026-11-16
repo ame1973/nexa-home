@@ -177,7 +177,7 @@ func TestBackupInvalidInputsDoNotMutateConfiguration(t *testing.T) {
 		change func(*Backup)
 	}{
 		{"wrong format", func(v *Backup) { v.Format = "other" }},
-		{"unsupported version", func(v *Backup) { v.Version = 4 }},
+		{"unsupported version", func(v *Backup) { v.Version = 5 }},
 		{"duplicate category ID", func(v *Backup) { v.Categories = append(v.Categories, v.Categories[0]) }},
 		{"duplicate category name", func(v *Backup) {
 			copy := v.Categories[0]
@@ -416,13 +416,15 @@ func TestPortableBudgetMatchesExportAndRollsBack(t *testing.T) {
 		value.Assets = append(value.Assets, BackupAsset{ID: id, MIME: "image/png"})
 		sizes[id] = size
 	}
-	estimated, err := portableSize(value, sizes)
+	value.Background = &BackupBackground{MIME: "image/png"}
+	estimated, err := portableSize(value, sizes, 5)
 	if err != nil {
 		t.Fatal(err)
 	}
 	for i := range value.Assets {
 		value.Assets[i].Base64 = base64.StdEncoding.EncodeToString(make([]byte, sizes[value.Assets[i].ID]))
 	}
+	value.Background.Base64 = base64.StdEncoding.EncodeToString(make([]byte, 5))
 	actual, err := json.Marshal(value)
 	if err != nil || estimated != len(actual)+1 {
 		t.Fatalf("portable size: %d != %d: %v", estimated, len(actual)+1, err)

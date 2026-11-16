@@ -30,56 +30,69 @@ type BackupAsset struct {
 	MIME   string `json:"mimeType"`
 	Base64 string `json:"base64"`
 }
+type BackupBackground struct {
+	MIME   string `json:"mimeType"`
+	Base64 string `json:"base64"`
+}
 type Backup struct {
-	Format     string        `json:"format"`
-	Version    int           `json:"version"`
-	ExportedAt string        `json:"exportedAt"`
-	Settings   Settings      `json:"settings"`
-	Categories []Category    `json:"categories"`
-	Services   []Service     `json:"services"`
-	Tags       []Tag         `json:"tags"`
-	Assets     []BackupAsset `json:"assets"`
+	Format     string            `json:"format"`
+	Version    int               `json:"version"`
+	ExportedAt string            `json:"exportedAt"`
+	Settings   Settings          `json:"settings"`
+	Categories []Category        `json:"categories"`
+	Services   []Service         `json:"services"`
+	Tags       []Tag             `json:"tags"`
+	Assets     []BackupAsset     `json:"assets"`
+	Background *BackupBackground `json:"background"`
 }
 type stagedImport struct {
 	backup      Backup
 	images      map[string]assets.Image
+	background  *assets.Background
 	sessionHash string
 	expires     time.Time
 	timer       *time.Timer
 }
 
-func configuration(ctx context.Context, tx *sql.Tx) (Backup, []storedAsset, error) {
-	value := Backup{Format: "nexa-home-backup", Version: 3, ExportedAt: db.Timestamp(time.Now()), Assets: make([]BackupAsset, 0)}
+func configuration(ctx context.Context, tx *sql.Tx) (Backup, []storedAsset, *backgroundMetadata, error) {
+	value := Backup{Format: "nexa-home-backup", Version: 4, ExportedAt: db.Timestamp(time.Now()), Assets: make([]BackupAsset, 0)}
 	var err error
 	value.Settings, err = readSettings(ctx, tx)
 	if err != nil {
-		return value, nil, err
+		return value, nil, nil, err
 	}
 	value.Categories, err = readCategories(ctx, tx)
 	if err != nil {
-		return value, nil, err
+		return value, nil, nil, err
 	}
 	value.Services, err = readServices(ctx, tx, "")
 	if err != nil {
-		return value, nil, err
+		return value, nil, nil, err
 	}
 	value.Tags, err = readTags(ctx, tx)
 	if err != nil {
-		return value, nil, err
+		return value, nil, nil, err
 	}
 	icons, err := readAssets(ctx, tx)
 	if err != nil {
-		return value, nil, err
+		return value, nil, nil, err
 	}
 	for _, icon := range icons {
 		value.Assets = append(value.Assets, BackupAsset{ID: icon.ID, MIME: icon.MIME})
 	}
-	return value, icons, nil
+	background, err := readBackgroundInfo(ctx, tx)
+	if err != nil {
+		return value, nil, nil, err
+	}
+	if background != nil {
+		value.Background = &BackupBackground{MIME: background.MIME}
+	}
+	return value, icons, background, nil
 }
 
 // portableSize accounts for the exact base64 expansion without reading icon files.
 // Base64 strings must be empty in value; the newline matches jsonResponse's output.
-func portableSize(value Backup, sizes map[string]int) (int, error) {
+func portableSize(value Backup, sizes map[string]int, backgroundSize int) (int, error) {
 	encoded, err := json.Marshal(value)
 	if err != nil {
 		return 0, err
@@ -88,13 +101,16 @@ func portableSize(value Backup, sizes map[string]int) (int, error) {
 	for _, icon := range value.Assets {
 		size += base64.StdEncoding.EncodedLen(sizes[icon.ID])
 	}
+	if value.Background != nil {
+		size += base64.StdEncoding.EncodedLen(backgroundSize)
+	}
 	return size, nil
 }
 
 func (s *Server) ensurePortable(ctx context.Context, tx *sql.Tx) error {
 	// ponytail: measure the bounded snapshot on writes; cache size deltas only if
 	// profiling shows a problem, rather than risking an unrestorable configuration.
-	value, icons, err := configuration(ctx, tx)
+	value, icons, background, err := configuration(ctx, tx)
 	if err != nil {
 		return err
 	}
@@ -105,7 +121,11 @@ func (s *Server) ensurePortable(ctx context.Context, tx *sql.Tx) error {
 	for _, icon := range icons {
 		sizes[icon.ID] = icon.ByteSize
 	}
-	size, err := portableSize(value, sizes)
+	backgroundSize := 0
+	if background != nil {
+		backgroundSize = background.Size
+	}
+	size, err := portableSize(value, sizes, backgroundSize)
 	if err != nil {
 		return err
 	}
@@ -136,13 +156,15 @@ func (s *Server) exportBackup(w http.ResponseWriter, r *http.Request, _ auth.Ses
 	var value Backup
 	err = s.withTx(r.Context(), func(tx *sql.Tx) error {
 		var icons []storedAsset
+		var background *backgroundMetadata
 		var err error
-		value, icons, err = configuration(r.Context(), tx)
+		value, icons, background, err = configuration(r.Context(), tx)
 		if err != nil {
 			return err
 		}
 		if !include {
 			value.Assets = make([]BackupAsset, 0)
+			value.Background = nil
 			return nil
 		}
 		for i, icon := range icons {
@@ -151,6 +173,13 @@ func (s *Server) exportBackup(w http.ResponseWriter, r *http.Request, _ auth.Ses
 				return err
 			}
 			value.Assets[i].Base64 = base64.StdEncoding.EncodeToString(data)
+		}
+		if background != nil {
+			data, err := readBackgroundBytes(r.Context(), tx, background)
+			if err != nil {
+				return err
+			}
+			value.Background.Base64 = base64.StdEncoding.EncodeToString(data)
 		}
 		return nil
 	})
@@ -176,6 +205,10 @@ func (s *Server) validateBackup(w http.ResponseWriter, r *http.Request, session 
 	if err := s.decode(w, r, &value, MaxBackupBytes); err != nil {
 		return err
 	}
+	background, err := validateBackgroundImport(&value)
+	if err != nil {
+		return err
+	}
 	images, err := validateImport(&value)
 	if err != nil {
 		return err
@@ -189,7 +222,11 @@ func (s *Server) validateBackup(w http.ResponseWriter, r *http.Request, session 
 	for id, image := range images {
 		sizes[id] = len(image.Data)
 	}
-	size, err := portableSize(value, sizes)
+	backgroundSize := 0
+	if background != nil {
+		backgroundSize = len(background.Data)
+	}
+	size, err := portableSize(value, sizes, backgroundSize)
 	if err != nil {
 		return err
 	}
@@ -212,12 +249,12 @@ func (s *Server) validateBackup(w http.ResponseWriter, r *http.Request, session 
 	_, _ = rand.Read(random[:])
 	token := base64.RawURLEncoding.EncodeToString(random[:])
 	key := sha256.Sum256([]byte(token))
-	pending := &stagedImport{backup: value, images: images, sessionHash: session.IDHash, expires: time.Now().Add(ImportLifetime)}
+	pending := &stagedImport{backup: value, images: images, background: background, sessionHash: session.IDHash, expires: time.Now().Add(ImportLifetime)}
 	pending.timer = time.AfterFunc(ImportLifetime, func() { s.importMu.Lock(); delete(s.imports, key); s.importMu.Unlock() })
 	s.imports[key] = pending
 	s.importMu.Unlock()
 	changed := 0
-	if !reflect.DeepEqual(value.Settings.SettingsFields, current.SettingsFields) {
+	if !reflect.DeepEqual(value.Settings.SettingsFields, current.SettingsFields) || value.Settings.BackgroundImage != current.BackgroundImage {
 		changed = 1
 	}
 	return jsonResponse(w, 200, struct {
@@ -284,7 +321,7 @@ func (s *Server) commitBackup(w http.ResponseWriter, r *http.Request, session au
 		}
 		revision = current.Revision + 1
 		refreshImportTimes(&pending.backup, revision, time.Now())
-		return replaceConfiguration(r.Context(), tx, pending.backup, pending.images)
+		return replaceConfiguration(r.Context(), tx, pending.backup, pending.images, pending.background)
 	})
 	if err != nil {
 		return cleanup(err)
@@ -314,9 +351,9 @@ func refreshImportTimes(value *Backup, revision int64, now time.Time) {
 	}
 }
 
-func replaceConfiguration(ctx context.Context, tx *sql.Tx, value Backup, images map[string]assets.Image) error {
+func replaceConfiguration(ctx context.Context, tx *sql.Tx, value Backup, images map[string]assets.Image, background *assets.Background) error {
 	// The administrator, sessions, rate limits, and audit history are never replaced.
-	for _, table := range []string{"service_tags", "service_links", "services", "categories", "tags", "icon_assets", "app_settings"} {
+	for _, table := range []string{"service_tags", "service_links", "services", "categories", "tags", "icon_assets", "site_background", "app_settings"} {
 		if _, err := tx.ExecContext(ctx, "DELETE FROM "+table); err != nil {
 			return err
 		}
@@ -326,7 +363,10 @@ func replaceConfiguration(ctx context.Context, tx *sql.Tx, value Backup, images 
 	if err != nil {
 		return err
 	}
-	if _, err := tx.ExecContext(ctx, `INSERT INTO app_settings(id,site_title,site_subtitle,access_mode,theme,accent,card_density,glass_enabled,theme_preset,custom_theme,custom_css,revision,updated_at) VALUES(1,?,?,?,?,?,?,?,?,?,?,?,?)`, settings.SiteTitle, settings.SiteSubtitle, settings.AccessMode, settings.Theme, settings.Accent, settings.CardDensity, settings.GlassEnabled, settings.ThemePreset, string(theme), settings.CustomCSS, settings.Revision, settings.UpdatedAt); err != nil {
+	if _, err := tx.ExecContext(ctx, `INSERT INTO app_settings(id,site_title,site_subtitle,access_mode,theme,accent,card_density,glass_enabled,theme_preset,layout_preset,custom_theme,custom_css,revision,updated_at) VALUES(1,?,?,?,?,?,?,?,?,?,?,?,?,?)`, settings.SiteTitle, settings.SiteSubtitle, settings.AccessMode, settings.Theme, settings.Accent, settings.CardDensity, settings.GlassEnabled, settings.ThemePreset, settings.LayoutPreset, string(theme), settings.CustomCSS, settings.Revision, settings.UpdatedAt); err != nil {
+		return err
+	}
+	if err := writeBackground(ctx, tx, background); err != nil {
 		return err
 	}
 	for _, category := range value.Categories {
