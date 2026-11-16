@@ -139,27 +139,40 @@ test(
     let url = "";
     let cookie = "";
     let csrf = "";
+    let phase = "initial HTTP setup";
     async function api(path, { method = "GET", data, status = 200 } = {}) {
-      const response = await fetch(`${url}/api/v1${path}`, {
-        method,
-        redirect: "error",
-        signal: AbortSignal.timeout(15_000),
-        dispatcher: tlsAgent,
-        headers: {
-          Origin: url,
-          Cookie: cookie,
-          "X-CSRF-Token": csrf,
-          ...(data instanceof FormData
-            ? {}
-            : { "Content-Type": "application/json" }),
-        },
-        body:
-          data instanceof FormData
-            ? data
-            : data === undefined
-              ? undefined
-              : JSON.stringify(data),
-      });
+      let response;
+      try {
+        response = await fetch(`${url}/api/v1${path}`, {
+          method,
+          redirect: "error",
+          signal: AbortSignal.timeout(15_000),
+          dispatcher: tlsAgent,
+          headers: {
+            Origin: url,
+            Cookie: cookie,
+            "X-CSRF-Token": csrf,
+            ...(data instanceof FormData
+              ? {}
+              : { "Content-Type": "application/json" }),
+          },
+          body:
+            data instanceof FormData
+              ? data
+              : data === undefined
+                ? undefined
+                : JSON.stringify(data),
+        });
+      } catch (error) {
+        const reason = error?.cause?.code;
+        const code =
+          typeof reason === "string" && /^[A-Z0-9_]+$/.test(reason)
+            ? reason
+            : "unknown";
+        throw new Error(
+          `${phase}: ${method} ${path.split("?")[0]} failed (${code})`,
+        );
+      }
       assert.equal(response.status, status, `${method} ${path} status`);
       if (path === "/auth/login") {
         const sessionCookie = response.headers.getSetCookie()[0] || "";
@@ -486,6 +499,7 @@ test(
         "The runtime CA bundle contains a currently valid CA certificate",
       );
 
+      phase = "replacement container";
       stop();
       compose(["rm", "--force", "nexa-home"]);
       start(); // A new container, not just a process restart, reuses only the named volume.
@@ -533,6 +547,7 @@ test(
         );
       }
       assert.equal((await fetch(`${url}${asset.url}`)).status, 200);
+      phase = "cold archive recovery";
       stop();
       const archived = spawnSync(
         "docker",
@@ -626,6 +641,7 @@ test(
 
       // Exercise the shipped proxy example with a per-test trusted certificate.
       // No system CA store changes or TLS verification bypass are used.
+      phase = "TLS proxy startup";
       const tlsDirectory = await mkdtemp(join(directory, "tls-"));
       const generated = spawnSync(
         "openssl",
@@ -734,6 +750,7 @@ test(
         "The same certificate is rejected without the explicit test CA",
       );
       url = secureOrigin;
+      phase = "verified HTTPS";
       csrf = (await api("/auth/login", { method: "POST", data: credentials }))
         .csrfToken;
       assert.equal((await api("/auth/me")).username, credentials.username);
@@ -750,6 +767,7 @@ test(
         status: 201,
       });
       await waitForHealth(tlsHealth.id, "down");
+      phase = "TLS CA mount and restart";
       composeService.volumes.push({
         type: "bind",
         source: join(tlsDirectory, "fullchain.pem"),
@@ -834,6 +852,9 @@ test(
       t.diagnostic(
         "Real setup/login, icon and catalog CRUD, portable restore, health, replacement-container persistence, cold archive recovery to a fresh volume, verified HTTPS/Secure cookies/Origin boundaries, retained session, exclusive lock and offline doctor passed; no credentials captured.",
       );
+    } catch (error) {
+      t.diagnostic(`Deployment phase: ${phase}`);
+      throw error;
     } finally {
       // Only this random, session-created project and its explicitly named helpers.
       try {
