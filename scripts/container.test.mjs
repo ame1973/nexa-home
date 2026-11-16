@@ -62,6 +62,29 @@ function startupToken(container) {
   return token;
 }
 
+async function responseJSON(response, phase, method, path) {
+  try {
+    return await response.json();
+  } catch {
+    throw new Error(
+      `${phase}: ${method} ${path.split("?")[0]} returned invalid JSON`,
+    );
+  }
+}
+
+test("malformed credential responses do not enter test diagnostics", async () => {
+  const synthetic = "not-a-real-credential";
+  await assert.rejects(
+    responseJSON(
+      new Response(`{\"token\":\"${synthetic}`),
+      "fixture",
+      "POST",
+      "/auth/login",
+    ),
+    { message: "fixture: POST /auth/login returned invalid JSON" },
+  );
+});
+
 test(
   `real ${platform} Compose image (${composeFile}): security, backup, restart and persistence${qemu ? " (unprivileged user-mode emulation)" : ""}`,
   { timeout: 240_000 },
@@ -183,7 +206,9 @@ test(
           );
         cookie = sessionCookie.split(";")[0];
       }
-      return status === 204 ? undefined : response.json();
+      return status === 204
+        ? undefined
+        : responseJSON(response, phase, method, path);
     }
     async function waitForHealth(id, expected, attempts = 100) {
       let observed;
